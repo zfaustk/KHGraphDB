@@ -1,0 +1,10 @@
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.pdb
+*.dll
+*.exe
+*.cache
+.vs/
