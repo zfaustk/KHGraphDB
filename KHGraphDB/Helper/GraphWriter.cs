@@ -1,0 +1,73 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using KHGraphDB.Structure.Interface;
+
+namespace KHGraphDB.Helper
+{
+    /// <summary>
+    /// Writes the graph. Position, color and other view state stay out.
+    /// </summary>
+    public static class GraphWriter
+    {
+        public const string Magic = "KHG1";
+
+        public static void Write(IGraph graph, Stream stream)
+        {
+            if (graph == null || stream == null)
+                return;
+
+            BinaryWriter w = new BinaryWriter(stream, Encoding.UTF8);
+            w.Write(Magic);
+            w.Write(graph.KHID ?? "");
+            w.Write(graph.IsDirected);
+
+            List<IVertex> verts = new List<IVertex>();
+            foreach (IVertex v in graph.Vertices)
+                verts.Add(v);
+            w.Write(verts.Count);
+            for (int i = 0; i < verts.Count; i++)
+            {
+                IVertex v = verts[i];
+                w.Write(v.KHID);
+                w.Write(v.Type == null ? "" : (v.Type.Name ?? ""));
+                WriteAttrs(w, v.Attributes);
+            }
+
+            List<IEdge> edges = new List<IEdge>();
+            foreach (IEdge e in graph.Edges)
+                edges.Add(e);
+            w.Write(edges.Count);
+            for (int i = 0; i < edges.Count; i++)
+            {
+                IEdge e = edges[i];
+                w.Write(e.KHID);
+                w.Write(e.Source.KHID);
+                w.Write(e.Target.KHID);
+                WriteAttrs(w, e.Attributes);
+            }
+            w.Flush();
+        }
+
+        public static void WriteFile(IGraph graph, string path)
+        {
+            using (FileStream fs = File.Create(path))
+                Write(graph, fs);
+        }
+
+        static void WriteAttrs(BinaryWriter w, IDictionary<string, object> attrs)
+        {
+            if (attrs == null || attrs.Count == 0)
+            {
+                w.Write(0);
+                return;
+            }
+            w.Write(attrs.Count);
+            foreach (KeyValuePair<string, object> kv in attrs)
+            {
+                w.Write(kv.Key ?? "");
+                w.Write(kv.Value == null ? "" : kv.Value.ToString());
+            }
+        }
+    }
+}
