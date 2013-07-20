@@ -6,6 +6,7 @@ C# 5 / .NET 4.5. No packages. The graph is directed.
 Type is a first-class object, not a string on the vertex.
 
 BFS stores color / dist / pred in AlgorithmObjs and wipes them in
-EndAlgorithm. The walk uses a queue and a visited color so GraphReader / GraphWriter keep a KHG1 snapshot. The view is not the data.
+EndAlgorithm. The walk uses a queue and a visited color so Lookup is a dictionary on KHID. Adding a vertex does not walk the set.
+
 
 
