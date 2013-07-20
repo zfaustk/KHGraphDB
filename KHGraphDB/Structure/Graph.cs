@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using KHGraphDB.Structure.Interface;
 
@@ -5,10 +6,9 @@ namespace KHGraphDB.Structure
 {
     public class Graph : DBObject, IGraph
     {
-        private HashSet<IVertex> _vertices;
-        private HashSet<IEdge> _edges;
-        private HashSet<IType> _types;
-        private bool _isDirected;
+        private Dictionary<string, IVertex> _vertices;
+        private Dictionary<string, IEdge> _edges;
+        private Dictionary<string, IType> _types;
 
         public Graph()
             : this(null, null)
@@ -28,30 +28,29 @@ namespace KHGraphDB.Structure
         public Graph(string id, IDictionary<string, object> attributes)
         {
             InitDBObject(id, attributes);
-            _vertices = new HashSet<IVertex>();
-            _edges = new HashSet<IEdge>();
-            _types = new HashSet<IType>();
-            _isDirected = true;
+            _vertices = new Dictionary<string, IVertex>(StringComparer.Ordinal);
+            _edges = new Dictionary<string, IEdge>(StringComparer.Ordinal);
+            _types = new Dictionary<string, IType>(StringComparer.Ordinal);
         }
 
         public bool IsDirected
         {
-            get { return _isDirected; }
+            get { return true; }
         }
 
         public IEnumerable<IVertex> Vertices
         {
-            get { return _vertices; }
+            get { return _vertices.Values; }
         }
 
         public IEnumerable<IEdge> Edges
         {
-            get { return _edges; }
+            get { return _edges.Values; }
         }
 
         public IEnumerable<IType> Types
         {
-            get { return _types; }
+            get { return _types.Values; }
         }
 
         public long VertexCount
@@ -73,11 +72,9 @@ namespace KHGraphDB.Structure
         {
             if (khid == null)
                 return null;
-            foreach (IVertex v in _vertices)
-            {
-                if (v.KHID == khid)
-                    return v;
-            }
+            IVertex v;
+            if (_vertices.TryGetValue(khid, out v))
+                return v;
             return null;
         }
 
@@ -85,11 +82,9 @@ namespace KHGraphDB.Structure
         {
             if (khid == null)
                 return null;
-            foreach (IEdge e in _edges)
-            {
-                if (e.KHID == khid)
-                    return e;
-            }
+            IEdge e;
+            if (_edges.TryGetValue(khid, out e))
+                return e;
             return null;
         }
 
@@ -97,7 +92,7 @@ namespace KHGraphDB.Structure
         {
             if (name == null)
                 return null;
-            foreach (IType t in _types)
+            foreach (IType t in _types.Values)
             {
                 if (t.Name == name)
                     return t;
@@ -128,17 +123,17 @@ namespace KHGraphDB.Structure
             if (theVertex == null)
                 return false;
 
-            IVertex existing = GetVertex(theVertex.KHID);
-            if (existing != null && !object.ReferenceEquals(existing, theVertex))
-                return false;
-
-            if (!_vertices.Add(theVertex))
+            IVertex existing;
+            if (_vertices.TryGetValue(theVertex.KHID, out existing))
             {
+                if (!object.ReferenceEquals(existing, theVertex))
+                    return false;
                 if (theType != null)
                     theType.AddVertex(theVertex);
                 return true;
             }
 
+            _vertices.Add(theVertex.KHID, theVertex);
             theVertex.Graph = this;
             if (theType != null)
             {
@@ -153,7 +148,10 @@ namespace KHGraphDB.Structure
         {
             if (theVertex == null)
                 return false;
-            if (!_vertices.Contains(theVertex))
+            IVertex owned;
+            if (!_vertices.TryGetValue(theVertex.KHID, out owned))
+                return false;
+            if (!object.ReferenceEquals(owned, theVertex))
                 return false;
 
             List<IEdge> incident = new List<IEdge>(theVertex.InDegree + theVertex.OutDegree);
@@ -171,7 +169,7 @@ namespace KHGraphDB.Structure
                 theVertex.Type.RemoveVertex(theVertex);
 
             theVertex.Graph = null;
-            return _vertices.Remove(theVertex);
+            return _vertices.Remove(theVertex.KHID);
         }
 
         public IType AddType(string name, IDictionary<string, object> attributes)
@@ -190,29 +188,18 @@ namespace KHGraphDB.Structure
 
         public bool AddType(IType theType)
         {
-            if (theType == null)
-                return false;
-            if (string.IsNullOrEmpty(theType.Name))
+            if (theType == null || string.IsNullOrEmpty(theType.Name))
                 return false;
 
-            IType byId = null;
-            foreach (IType t in _types)
-            {
-                if (t.KHID == theType.KHID)
-                {
-                    byId = t;
-                    break;
-                }
-            }
-            if (byId != null && !object.ReferenceEquals(byId, theType))
-                return false;
+            IType byId;
+            if (_types.TryGetValue(theType.KHID, out byId))
+                return object.ReferenceEquals(byId, theType);
 
             IType byName = GetTypeByName(theType.Name);
             if (byName != null && !object.ReferenceEquals(byName, theType))
                 return false;
 
-            if (!_types.Add(theType))
-                return true;
+            _types.Add(theType.KHID, theType);
             theType.Graph = this;
             return true;
         }
@@ -221,11 +208,14 @@ namespace KHGraphDB.Structure
         {
             if (theType == null)
                 return false;
-            if (!_types.Remove(theType))
+            IType owned;
+            if (!_types.TryGetValue(theType.KHID, out owned))
+                return false;
+            if (!object.ReferenceEquals(owned, theType))
                 return false;
             theType.ClearVertices();
             theType.Graph = null;
-            return true;
+            return _types.Remove(theType.KHID);
         }
 
         public IEdge AddEdge(IVertex theSource, IVertex theTarget)
@@ -247,15 +237,12 @@ namespace KHGraphDB.Structure
         {
             if (theEdge == null)
                 return false;
-            if (!_vertices.Contains(theEdge.Source) || !_vertices.Contains(theEdge.Target))
+            if (!_vertices.ContainsKey(theEdge.Source.KHID) || !_vertices.ContainsKey(theEdge.Target.KHID))
                 return false;
 
-            IEdge existing = GetEdge(theEdge.KHID);
-            if (existing != null && !object.ReferenceEquals(existing, theEdge))
-                return false;
-
-            if (_edges.Contains(theEdge))
-                return true;
+            IEdge existing;
+            if (_edges.TryGetValue(theEdge.KHID, out existing))
+                return object.ReferenceEquals(existing, theEdge);
 
             if (!theEdge.Source.AddOutgoingEdge(theEdge))
                 return false;
@@ -264,12 +251,7 @@ namespace KHGraphDB.Structure
                 theEdge.Source.RemoveOutgoingEdge(theEdge);
                 return false;
             }
-            if (!_edges.Add(theEdge))
-            {
-                theEdge.Source.RemoveOutgoingEdge(theEdge);
-                theEdge.Target.RemoveIncomingEdge(theEdge);
-                return false;
-            }
+            _edges.Add(theEdge.KHID, theEdge);
             theEdge.Graph = this;
             return true;
         }
@@ -278,12 +260,15 @@ namespace KHGraphDB.Structure
         {
             if (theEdge == null)
                 return false;
-            if (!_edges.Remove(theEdge))
+            IEdge owned;
+            if (!_edges.TryGetValue(theEdge.KHID, out owned))
+                return false;
+            if (!object.ReferenceEquals(owned, theEdge))
                 return false;
             theEdge.Source.RemoveOutgoingEdge(theEdge);
             theEdge.Target.RemoveIncomingEdge(theEdge);
             theEdge.Graph = null;
-            return true;
+            return _edges.Remove(theEdge.KHID);
         }
     }
 }
