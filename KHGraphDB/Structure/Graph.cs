@@ -9,6 +9,7 @@ namespace KHGraphDB.Structure
         private Dictionary<string, IVertex> _vertices;
         private Dictionary<string, IEdge> _edges;
         private Dictionary<string, IType> _types;
+        private Dictionary<string, IType> _typesByName;
 
         public Graph()
             : this(null, null)
@@ -31,6 +32,7 @@ namespace KHGraphDB.Structure
             _vertices = new Dictionary<string, IVertex>(StringComparer.Ordinal);
             _edges = new Dictionary<string, IEdge>(StringComparer.Ordinal);
             _types = new Dictionary<string, IType>(StringComparer.Ordinal);
+            _typesByName = new Dictionary<string, IType>(StringComparer.Ordinal);
         }
 
         public bool IsDirected
@@ -92,11 +94,9 @@ namespace KHGraphDB.Structure
         {
             if (name == null)
                 return null;
-            foreach (IType t in _types.Values)
-            {
-                if (t.Name == name)
-                    return t;
-            }
+            IType t;
+            if (_typesByName.TryGetValue(name, out t))
+                return t;
             return null;
         }
 
@@ -200,6 +200,7 @@ namespace KHGraphDB.Structure
                 return false;
 
             _types.Add(theType.KHID, theType);
+            _typesByName[theType.Name] = theType;
             theType.Graph = this;
             return true;
         }
@@ -215,6 +216,8 @@ namespace KHGraphDB.Structure
                 return false;
             theType.ClearVertices();
             theType.Graph = null;
+            if (theType.Name != null)
+                _typesByName.Remove(theType.Name);
             return _types.Remove(theType.KHID);
         }
 
