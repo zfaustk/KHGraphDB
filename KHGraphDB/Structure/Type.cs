@@ -39,7 +39,12 @@ namespace KHGraphDB.Structure
         public string Name
         {
             get { return _name; }
-            set { _name = value; }
+            set
+            {
+                if (_graph != null)
+                    return;
+                _name = value;
+            }
         }
 
         public IEnumerable<IVertex> Vertices
