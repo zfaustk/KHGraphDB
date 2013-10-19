@@ -7,8 +7,8 @@ namespace KHGraphDB.Structure
     {
         private IGraph _graph;
         private IType _type;
-        private HashSet<IEdge> _outgoing;
-        private HashSet<IEdge> _incoming;
+        private List<IEdge> _outgoing;
+        private List<IEdge> _incoming;
 
         public Vertex()
             : this(null, null)
@@ -28,8 +28,8 @@ namespace KHGraphDB.Structure
         public Vertex(string id, IDictionary<string, object> attributes)
         {
             InitDBObject(id, attributes);
-            _outgoing = new HashSet<IEdge>();
-            _incoming = new HashSet<IEdge>();
+            _outgoing = new List<IEdge>(4);
+            _incoming = new List<IEdge>(4);
         }
 
         public IGraph Graph
@@ -73,14 +73,20 @@ namespace KHGraphDB.Structure
         {
             if (theEdge == null)
                 return false;
-            return _outgoing.Add(theEdge);
+            if (_outgoing.Contains(theEdge))
+                return false;
+            _outgoing.Add(theEdge);
+            return true;
         }
 
         public bool AddIncomingEdge(IEdge theEdge)
         {
             if (theEdge == null)
                 return false;
-            return _incoming.Add(theEdge);
+            if (_incoming.Contains(theEdge))
+                return false;
+            _incoming.Add(theEdge);
+            return true;
         }
 
         public bool RemoveOutgoingEdge(IEdge theEdge)
