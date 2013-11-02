@@ -101,13 +101,10 @@ namespace KHGraphDB.Language
 
         IVertex FindByName(string name)
         {
-            foreach (IVertex v in _graph.Vertices)
-            {
-                if (EqualsStr(v["name"], name))
-                    return v;
-            }
-            IVertex byId = _graph.GetVertex(name);
-            return byId;
+            IVertex named = _graph.GetVertexByName(name);
+            if (named != null)
+                return named;
+            return _graph.GetVertex(name);
         }
 
         static bool EqualsStr(object left, string right)

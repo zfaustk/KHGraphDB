@@ -26,7 +26,7 @@ namespace KHGraphDB.Structure
             get { return _algorithmObjs; }
         }
 
-        public object this[string theKey]
+        public virtual object this[string theKey]
         {
             get
             {
@@ -45,7 +45,7 @@ namespace KHGraphDB.Structure
             }
         }
 
-        public bool RemoveAttribute(string theKey)
+        public virtual bool RemoveAttribute(string theKey)
         {
             if (theKey == null)
                 return false;
