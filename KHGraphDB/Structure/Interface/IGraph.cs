@@ -44,6 +44,8 @@ namespace KHGraphDB.Structure.Interface
 
         IVertex GetVertex(string khid);
 
+        IVertex GetVertexByName(string name);
+
         IEdge GetEdge(string khid);
 
         IType GetTypeByName(string name);

@@ -10,6 +10,7 @@ namespace KHGraphDB.Structure
         private Dictionary<string, IEdge> _edges;
         private Dictionary<string, IType> _types;
         private Dictionary<string, IType> _typesByName;
+        private Dictionary<string, IVertex> _verticesByName;
 
         public Graph()
             : this(null, null)
@@ -33,6 +34,7 @@ namespace KHGraphDB.Structure
             _edges = new Dictionary<string, IEdge>(StringComparer.Ordinal);
             _types = new Dictionary<string, IType>(StringComparer.Ordinal);
             _typesByName = new Dictionary<string, IType>(StringComparer.Ordinal);
+            _verticesByName = new Dictionary<string, IVertex>(StringComparer.Ordinal);
         }
 
         public bool IsDirected
@@ -76,6 +78,16 @@ namespace KHGraphDB.Structure
                 return null;
             IVertex v;
             if (_vertices.TryGetValue(khid, out v))
+                return v;
+            return null;
+        }
+
+        public IVertex GetVertexByName(string name)
+        {
+            if (name == null)
+                return null;
+            IVertex v;
+            if (_verticesByName.TryGetValue(name, out v))
                 return v;
             return null;
         }
@@ -135,6 +147,7 @@ namespace KHGraphDB.Structure
 
             _vertices.Add(theVertex.KHID, theVertex);
             theVertex.Graph = this;
+            IndexName(theVertex, theVertex[Vertex.NameKey]);
             if (theType != null)
             {
                 if (theType.Graph == null)
@@ -154,20 +167,23 @@ namespace KHGraphDB.Structure
             if (!object.ReferenceEquals(owned, theVertex))
                 return false;
 
-            List<IEdge> incident = new List<IEdge>(theVertex.InDegree + theVertex.OutDegree);
-            foreach (IEdge e in theVertex.IncomingEdges)
-                incident.Add(e);
+            IEdge[] outgoing = new IEdge[theVertex.OutDegree];
+            int n = 0;
             foreach (IEdge e in theVertex.OutgoingEdges)
-            {
-                if (!incident.Contains(e))
-                    incident.Add(e);
-            }
-            for (int i = 0; i < incident.Count; i++)
-                RemoveEdge(incident[i]);
+                outgoing[n++] = e;
+            IEdge[] incoming = new IEdge[theVertex.InDegree];
+            n = 0;
+            foreach (IEdge e in theVertex.IncomingEdges)
+                incoming[n++] = e;
+            for (int i = 0; i < outgoing.Length; i++)
+                RemoveEdge(outgoing[i]);
+            for (int i = 0; i < incoming.Length; i++)
+                RemoveEdge(incoming[i]);
 
             if (theVertex.Type != null)
                 theVertex.Type.RemoveVertex(theVertex);
 
+            UnindexName(theVertex, theVertex[Vertex.NameKey]);
             theVertex.Graph = null;
             return _vertices.Remove(theVertex.KHID);
         }
@@ -272,6 +288,40 @@ namespace KHGraphDB.Structure
             theEdge.Target.RemoveIncomingEdge(theEdge);
             theEdge.Graph = null;
             return _edges.Remove(theEdge.KHID);
+        }
+
+        internal void OnVertexNameChanged(IVertex theVertex, object oldName, object newName)
+        {
+            UnindexName(theVertex, oldName);
+            IndexName(theVertex, newName);
+        }
+
+        void IndexName(IVertex theVertex, object nameObj)
+        {
+            string name = NameString(nameObj);
+            if (name == null)
+                return;
+            _verticesByName[name] = theVertex;
+        }
+
+        void UnindexName(IVertex theVertex, object nameObj)
+        {
+            string name = NameString(nameObj);
+            if (name == null)
+                return;
+            IVertex owned;
+            if (_verticesByName.TryGetValue(name, out owned) && object.ReferenceEquals(owned, theVertex))
+                _verticesByName.Remove(name);
+        }
+
+        static string NameString(object nameObj)
+        {
+            if (nameObj == null)
+                return null;
+            string s = nameObj.ToString();
+            if (s.Length == 0)
+                return null;
+            return s;
         }
     }
 }

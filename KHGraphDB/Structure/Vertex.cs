@@ -5,6 +5,8 @@ namespace KHGraphDB.Structure
 {
     public class Vertex : DBObject, IVertex
     {
+        public const string NameKey = "name";
+
         private IGraph _graph;
         private IType _type;
         private List<IEdge> _outgoing;
@@ -67,6 +69,41 @@ namespace KHGraphDB.Structure
         public long OutDegree
         {
             get { return _outgoing.Count; }
+        }
+
+        public override object this[string theKey]
+        {
+            get { return base[theKey]; }
+            set
+            {
+                if (theKey != null && theKey == NameKey)
+                {
+                    object old = base[theKey];
+                    base[theKey] = value;
+                    Graph g = _graph as Graph;
+                    if (g != null)
+                        g.OnVertexNameChanged(this, old, value);
+                    return;
+                }
+                base[theKey] = value;
+            }
+        }
+
+        public override bool RemoveAttribute(string theKey)
+        {
+            if (theKey != null && theKey == NameKey)
+            {
+                object old = base[theKey];
+                bool removed = base.RemoveAttribute(theKey);
+                if (removed)
+                {
+                    Graph g = _graph as Graph;
+                    if (g != null)
+                        g.OnVertexNameChanged(this, old, null);
+                }
+                return removed;
+            }
+            return base.RemoveAttribute(theKey);
         }
 
         public bool AddOutgoingEdge(IEdge theEdge)
