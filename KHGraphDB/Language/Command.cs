@@ -7,7 +7,7 @@ using KHGraphDB.Structure.Interface;
 namespace KHGraphDB.Language
 {
     /// <summary>
-    /// 2013 command language: find / near / type.
+    /// 2013 command language: find / near / type / path.
     /// </summary>
     public class Command
     {
@@ -40,7 +40,9 @@ namespace KHGraphDB.Language
                 return Near(parts);
             if (head == "type")
                 return TypeOf(parts);
-            return CommandResult.Fail("2013 language: find Person | find Person name=Alice | near Alice 2 | type Idea");
+            if (head == "path")
+                return PathOf(parts);
+            return CommandResult.Fail("2013 language: find Person | find Person name=Alice | near Alice 2 | type Idea | path Alice Bob");
         }
 
         CommandResult Find(string[] parts)
@@ -84,6 +86,21 @@ namespace KHGraphDB.Language
             all.AddRange(nearby);
             _bfs.EndAlgorithm(_graph);
             return CommandResult.Ok("near " + name + " hops=" + hops, all);
+        }
+
+
+        CommandResult PathOf(string[] parts)
+        {
+            if (parts.Length < 3)
+                return CommandResult.Fail("path From To");
+            IVertex src = FindByName(Unquote(parts[1]));
+            IVertex dst = FindByName(Unquote(parts[2]));
+            if (src == null || dst == null)
+                return CommandResult.Fail("vertex not found");
+            List<IVertex> path = _bfs.SearchPath(_graph, src, dst);
+            if (path.Count == 0)
+                return CommandResult.Fail("no path");
+            return CommandResult.Ok("path length=" + (path.Count - 1).ToString(), path);
         }
 
         CommandResult TypeOf(string[] parts)

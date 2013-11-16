@@ -81,5 +81,64 @@ namespace KHGraphDB.Algorithm
 
             return result;
         }
+
+        public List<IVertex> SearchPath(IGraph theGraph, IVertex theSource, IVertex theTarget)
+        {
+            List<IVertex> path = new List<IVertex>();
+            if (theGraph == null || theSource == null || theTarget == null)
+                return path;
+            if (theSource.Graph != theGraph || theTarget.Graph != theGraph)
+                return path;
+
+            BeginAlgorithm(theGraph);
+
+            Queue<IVertex> q = new Queue<IVertex>();
+            theSource.SetAlgorithmObj(ColorKey, Grey);
+            theSource.SetAlgorithmObj(DistKey, 0);
+            q.Enqueue(theSource);
+
+            bool found = object.ReferenceEquals(theSource, theTarget);
+            while (q.Count > 0 && !found)
+            {
+                IVertex u = q.Dequeue();
+                u.SetAlgorithmObj(ColorKey, Black);
+                int dist = (int)u.GetAlgorithmObj(DistKey);
+                foreach (IEdge e in u.OutgoingEdges)
+                {
+                    IVertex v = e.Target;
+                    object color = v.GetAlgorithmObj(ColorKey);
+                    if (color == null || (int)color != White)
+                        continue;
+                    v.SetAlgorithmObj(ColorKey, Grey);
+                    v.SetAlgorithmObj(DistKey, dist + 1);
+                    v.SetAlgorithmObj(PredKey, u);
+                    if (object.ReferenceEquals(v, theTarget))
+                    {
+                        found = true;
+                        break;
+                    }
+                    q.Enqueue(v);
+                }
+            }
+
+            if (found)
+                Reconstruct(theTarget, path);
+
+            EndAlgorithm(theGraph);
+            return path;
+        }
+
+        static void Reconstruct(IVertex theTarget, List<IVertex> path)
+        {
+            List<IVertex> rev = new List<IVertex>();
+            IVertex cur = theTarget;
+            while (cur != null)
+            {
+                rev.Add(cur);
+                cur = cur.GetAlgorithmObj(PredKey) as IVertex;
+            }
+            for (int i = rev.Count - 1; i >= 0; i--)
+                path.Add(rev[i]);
+        }
     }
 }
