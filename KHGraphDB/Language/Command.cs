@@ -7,12 +7,13 @@ using KHGraphDB.Structure.Interface;
 namespace KHGraphDB.Language
 {
     /// <summary>
-    /// 2013 command language: find / near / type / path.
+    /// 2013 command language: find / near / type / path / shortest.
     /// </summary>
     public class Command
     {
         readonly IGraph _graph;
         readonly BFS _bfs = new BFS();
+        readonly Dijkstra _dij = new Dijkstra();
 
         public Command(IGraph graph)
         {
@@ -42,7 +43,9 @@ namespace KHGraphDB.Language
                 return TypeOf(parts);
             if (head == "path")
                 return PathOf(parts);
-            return CommandResult.Fail("2013 language: find Person | find Person name=Alice | near Alice 2 | type Idea | path Alice Bob");
+            if (head == "shortest")
+                return Shortest(parts);
+            return CommandResult.Fail("2013 language: find Person | find Person name=Alice | near Alice 2 | type Idea | path Alice Bob | shortest Alice Bob");
         }
 
         CommandResult Find(string[] parts)
@@ -88,7 +91,6 @@ namespace KHGraphDB.Language
             return CommandResult.Ok("near " + name + " hops=" + hops, all);
         }
 
-
         CommandResult PathOf(string[] parts)
         {
             if (parts.Length < 3)
@@ -101,6 +103,20 @@ namespace KHGraphDB.Language
             if (path.Count == 0)
                 return CommandResult.Fail("no path");
             return CommandResult.Ok("path length=" + (path.Count - 1).ToString(), path);
+        }
+
+        CommandResult Shortest(string[] parts)
+        {
+            if (parts.Length < 3)
+                return CommandResult.Fail("shortest From To");
+            IVertex src = FindByName(Unquote(parts[1]));
+            IVertex dst = FindByName(Unquote(parts[2]));
+            if (src == null || dst == null)
+                return CommandResult.Fail("vertex not found");
+            List<IVertex> path = _dij.ShortestPath(_graph, src, dst);
+            if (path.Count == 0)
+                return CommandResult.Fail("no path");
+            return CommandResult.Ok("shortest hops=" + (path.Count - 1).ToString(), path);
         }
 
         CommandResult TypeOf(string[] parts)

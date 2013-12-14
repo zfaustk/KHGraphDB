@@ -37,6 +37,7 @@
     <Compile Include="Algorithm\Algorithm.cs" />
     <Compile Include="Algorithm\BFS.cs" />
     <Compile Include="Algorithm\DFS.cs" />
+    <Compile Include="Algorithm\Dijkstra.cs" />
     <Compile Include="Algorithm\IAlgorithm.cs" />
     <Compile Include="Helper\GraphReader.cs" />
     <Compile Include="Helper\GraphWriter.cs" />
