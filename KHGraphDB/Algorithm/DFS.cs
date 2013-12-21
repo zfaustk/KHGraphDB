@@ -6,6 +6,7 @@ namespace KHGraphDB.Algorithm
     /// <summary>
     /// Depth-first walk. Color, discovery, finish and predecessor
     /// live in AlgorithmObjs. A grey neighbour is a back edge.
+    /// Missing colour is white. EndAlgorithm wipes the run.
     /// </summary>
     public class DFS : Algorithm
     {
@@ -18,35 +19,28 @@ namespace KHGraphDB.Algorithm
         public const int Grey = 1;
         public const int Black = 2;
 
+        readonly List<IVertex> _touched = new List<IVertex>();
         int _time;
         bool _cycle;
 
         public override void BeginAlgorithm(IGraph theGraph)
         {
-            if (theGraph == null)
-                return;
+            _touched.Clear();
             _time = 0;
             _cycle = false;
-            foreach (IVertex v in theGraph.Vertices)
-            {
-                v.SetAlgorithmObj(ColorKey, White);
-                v.SetAlgorithmObj(PredKey, null);
-                v.SetAlgorithmObj(DiscKey, 0);
-                v.SetAlgorithmObj(FinKey, 0);
-            }
         }
 
         public override void EndAlgorithm(IGraph theGraph)
         {
-            if (theGraph == null)
-                return;
-            foreach (IVertex v in theGraph.Vertices)
+            for (int i = 0; i < _touched.Count; i++)
             {
+                IVertex v = _touched[i];
                 v.RemoveAlgorithmObj(ColorKey);
                 v.RemoveAlgorithmObj(PredKey);
                 v.RemoveAlgorithmObj(DiscKey);
                 v.RemoveAlgorithmObj(FinKey);
             }
+            _touched.Clear();
         }
 
         public List<IVertex> Walk(IGraph theGraph, IVertex theSource)
@@ -70,18 +64,18 @@ namespace KHGraphDB.Algorithm
             List<IVertex> sink = new List<IVertex>();
             foreach (IVertex v in theGraph.Vertices)
             {
-                object color = v.GetAlgorithmObj(ColorKey);
-                if (color != null && (int)color == White)
+                if (ColorOf(v) == White)
                     Visit(v, sink);
                 if (_cycle)
                     break;
             }
+            EndAlgorithm(theGraph);
             return _cycle;
         }
 
         void Visit(IVertex u, List<IVertex> order)
         {
-            u.SetAlgorithmObj(ColorKey, Grey);
+            Paint(u, Grey, u.GetAlgorithmObj(PredKey) as IVertex);
             _time++;
             u.SetAlgorithmObj(DiscKey, _time);
             order.Add(u);
@@ -89,8 +83,7 @@ namespace KHGraphDB.Algorithm
             foreach (IEdge e in u.OutgoingEdges)
             {
                 IVertex v = e.Target;
-                object color = v.GetAlgorithmObj(ColorKey);
-                int c = color == null ? White : (int)color;
+                int c = ColorOf(v);
                 if (c == White)
                 {
                     v.SetAlgorithmObj(PredKey, u);
@@ -105,6 +98,22 @@ namespace KHGraphDB.Algorithm
             u.SetAlgorithmObj(ColorKey, Black);
             _time++;
             u.SetAlgorithmObj(FinKey, _time);
+        }
+
+        int ColorOf(IVertex v)
+        {
+            object c = v.GetAlgorithmObj(ColorKey);
+            if (c == null)
+                return White;
+            return (int)c;
+        }
+
+        void Paint(IVertex v, int color, IVertex pred)
+        {
+            if (v.GetAlgorithmObj(ColorKey) == null)
+                _touched.Add(v);
+            v.SetAlgorithmObj(ColorKey, color);
+            v.SetAlgorithmObj(PredKey, pred);
         }
     }
 }

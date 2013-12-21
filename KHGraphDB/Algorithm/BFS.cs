@@ -5,7 +5,8 @@ namespace KHGraphDB.Algorithm
 {
     /// <summary>
     /// Breadth-first walk. Color, distance and predecessor live in
-    /// AlgorithmObjs, never in Attributes. Call EndAlgorithm when done.
+    /// AlgorithmObjs, never in Attributes. Missing colour is white.
+    /// EndAlgorithm wipes only the vertices this run touched.
     /// </summary>
     public class BFS : Algorithm
     {
@@ -17,28 +18,23 @@ namespace KHGraphDB.Algorithm
         public const int Grey = 1;
         public const int Black = 2;
 
+        readonly List<IVertex> _touched = new List<IVertex>();
+
         public override void BeginAlgorithm(IGraph theGraph)
         {
-            if (theGraph == null)
-                return;
-            foreach (IVertex v in theGraph.Vertices)
-            {
-                v.SetAlgorithmObj(ColorKey, White);
-                v.SetAlgorithmObj(DistKey, int.MaxValue);
-                v.SetAlgorithmObj(PredKey, null);
-            }
+            _touched.Clear();
         }
 
         public override void EndAlgorithm(IGraph theGraph)
         {
-            if (theGraph == null)
-                return;
-            foreach (IVertex v in theGraph.Vertices)
+            for (int i = 0; i < _touched.Count; i++)
             {
+                IVertex v = _touched[i];
                 v.RemoveAlgorithmObj(ColorKey);
                 v.RemoveAlgorithmObj(DistKey);
                 v.RemoveAlgorithmObj(PredKey);
             }
+            _touched.Clear();
         }
 
         public List<IVertex> SearchNearby(IGraph theGraph, IVertex theSource, int hops)
@@ -52,8 +48,7 @@ namespace KHGraphDB.Algorithm
             BeginAlgorithm(theGraph);
 
             Queue<IVertex> q = new Queue<IVertex>();
-            theSource.SetAlgorithmObj(ColorKey, Grey);
-            theSource.SetAlgorithmObj(DistKey, 0);
+            Paint(theSource, Grey, 0, null);
             q.Enqueue(theSource);
 
             while (q.Count > 0)
@@ -69,12 +64,9 @@ namespace KHGraphDB.Algorithm
                 foreach (IEdge e in u.OutgoingEdges)
                 {
                     IVertex v = e.Target;
-                    object color = v.GetAlgorithmObj(ColorKey);
-                    if (color == null || (int)color != White)
+                    if (ColorOf(v) != White)
                         continue;
-                    v.SetAlgorithmObj(ColorKey, Grey);
-                    v.SetAlgorithmObj(DistKey, dist + 1);
-                    v.SetAlgorithmObj(PredKey, u);
+                    Paint(v, Grey, dist + 1, u);
                     q.Enqueue(v);
                 }
             }
@@ -93,8 +85,7 @@ namespace KHGraphDB.Algorithm
             BeginAlgorithm(theGraph);
 
             Queue<IVertex> q = new Queue<IVertex>();
-            theSource.SetAlgorithmObj(ColorKey, Grey);
-            theSource.SetAlgorithmObj(DistKey, 0);
+            Paint(theSource, Grey, 0, null);
             q.Enqueue(theSource);
 
             bool found = object.ReferenceEquals(theSource, theTarget);
@@ -106,12 +97,9 @@ namespace KHGraphDB.Algorithm
                 foreach (IEdge e in u.OutgoingEdges)
                 {
                     IVertex v = e.Target;
-                    object color = v.GetAlgorithmObj(ColorKey);
-                    if (color == null || (int)color != White)
+                    if (ColorOf(v) != White)
                         continue;
-                    v.SetAlgorithmObj(ColorKey, Grey);
-                    v.SetAlgorithmObj(DistKey, dist + 1);
-                    v.SetAlgorithmObj(PredKey, u);
+                    Paint(v, Grey, dist + 1, u);
                     if (object.ReferenceEquals(v, theTarget))
                     {
                         found = true;
@@ -126,6 +114,23 @@ namespace KHGraphDB.Algorithm
 
             EndAlgorithm(theGraph);
             return path;
+        }
+
+        int ColorOf(IVertex v)
+        {
+            object c = v.GetAlgorithmObj(ColorKey);
+            if (c == null)
+                return White;
+            return (int)c;
+        }
+
+        void Paint(IVertex v, int color, int dist, IVertex pred)
+        {
+            if (v.GetAlgorithmObj(ColorKey) == null)
+                _touched.Add(v);
+            v.SetAlgorithmObj(ColorKey, color);
+            v.SetAlgorithmObj(DistKey, dist);
+            v.SetAlgorithmObj(PredKey, pred);
         }
 
         static void Reconstruct(IVertex theTarget, List<IVertex> path)
