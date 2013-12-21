@@ -6,7 +6,8 @@ namespace KHGraphDB.Algorithm
     /// <summary>
     /// Single-source shortest path. Edge["weight"] is the cost,
     /// missing or unparsable is 1. Negative weights are skipped.
-    /// Dist and pred live in AlgorithmObjs.
+    /// Dist and pred live in AlgorithmObjs. Missing dist is infinity.
+    /// EndAlgorithm wipes only the vertices this run touched.
     /// </summary>
     public class Dijkstra : Algorithm
     {
@@ -14,28 +15,23 @@ namespace KHGraphDB.Algorithm
         public const string PredKey = "kh.dij.pred";
         public const string SeenKey = "kh.dij.seen";
 
+        readonly List<IVertex> _touched = new List<IVertex>();
+
         public override void BeginAlgorithm(IGraph theGraph)
         {
-            if (theGraph == null)
-                return;
-            foreach (IVertex v in theGraph.Vertices)
-            {
-                v.SetAlgorithmObj(DistKey, double.PositiveInfinity);
-                v.SetAlgorithmObj(PredKey, null);
-                v.RemoveAlgorithmObj(SeenKey);
-            }
+            _touched.Clear();
         }
 
         public override void EndAlgorithm(IGraph theGraph)
         {
-            if (theGraph == null)
-                return;
-            foreach (IVertex v in theGraph.Vertices)
+            for (int i = 0; i < _touched.Count; i++)
             {
+                IVertex v = _touched[i];
                 v.RemoveAlgorithmObj(DistKey);
                 v.RemoveAlgorithmObj(PredKey);
                 v.RemoveAlgorithmObj(SeenKey);
             }
+            _touched.Clear();
         }
 
         public List<IVertex> ShortestPath(IGraph theGraph, IVertex theSource, IVertex theTarget)
@@ -47,6 +43,7 @@ namespace KHGraphDB.Algorithm
                 return path;
 
             BeginAlgorithm(theGraph);
+            Touch(theSource);
             theSource.SetAlgorithmObj(DistKey, 0.0);
 
             VertexHeap heap = new VertexHeap();
@@ -62,7 +59,7 @@ namespace KHGraphDB.Algorithm
                 if (object.ReferenceEquals(u, theTarget))
                     break;
 
-                double du = (double)u.GetAlgorithmObj(DistKey);
+                double du = DistOf(u);
                 foreach (IEdge e in u.OutgoingEdges)
                 {
                     double w = WeightOf(e);
@@ -71,10 +68,11 @@ namespace KHGraphDB.Algorithm
                     IVertex v = e.Target;
                     if (v.GetAlgorithmObj(SeenKey) != null)
                         continue;
-                    double dv = (double)v.GetAlgorithmObj(DistKey);
+                    double dv = DistOf(v);
                     double alt = du + w;
                     if (alt < dv)
                     {
+                        Touch(v);
                         v.SetAlgorithmObj(DistKey, alt);
                         v.SetAlgorithmObj(PredKey, u);
                         heap.Push(v, alt);
@@ -82,12 +80,25 @@ namespace KHGraphDB.Algorithm
                 }
             }
 
-            object reached = theTarget.GetAlgorithmObj(DistKey);
-            if (reached != null && !double.IsPositiveInfinity((double)reached))
+            if (!double.IsPositiveInfinity(DistOf(theTarget)))
                 Reconstruct(theTarget, path);
 
             EndAlgorithm(theGraph);
             return path;
+        }
+
+        double DistOf(IVertex v)
+        {
+            object d = v.GetAlgorithmObj(DistKey);
+            if (d == null)
+                return double.PositiveInfinity;
+            return (double)d;
+        }
+
+        void Touch(IVertex v)
+        {
+            if (v.GetAlgorithmObj(DistKey) == null && v.GetAlgorithmObj(SeenKey) == null)
+                _touched.Add(v);
         }
 
         static double WeightOf(IEdge e)

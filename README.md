@@ -7,8 +7,10 @@ Type is a first-class object, not a string on the vertex.
 
 - KHID identity map, O(1) lookup
 - Type indexed by name
-- BFS scratch in AlgorithmObjs, wiped in EndAlgorithm
+- Vertices indexed by Attributes["name"]
+- BFS / DFS / Dijkstra scratch in AlgorithmObjs, wiped on the vertices that ran
+- Missing colour is white. Missing dist is infinity. The rest of the graph is left alone.
 - KHG1 snapshot, the view is not the data
-- Commands: `find Person` · `find Person name=Alice` · `near Alice 2` · `type Idea`
+- Commands: `find Person` · `find Person name=Alice` · `near Alice 2` · `type Idea` · `path Alice Bob` · `shortest Alice Bob`
 
 The original homework lives in zfaustk/-GraphDB and is not modified.
