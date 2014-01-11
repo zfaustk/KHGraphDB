@@ -1,6 +1,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KHGraphDB", "KHGraphDB\KHGraphDB.csproj", "{6A5FB37C-0502-444C-BDF7-C5C6954DA70D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KHGraphDB.Tests", "KHGraphDB.Tests\KHGraphDB.Tests.csproj", "{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,5 +14,9 @@ Global
 		{6A5FB37C-0502-444C-BDF7-C5C6954DA70D}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
 		{6A5FB37C-0502-444C-BDF7-C5C6954DA70D}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
 		{6A5FB37C-0502-444C-BDF7-C5C6954DA70D}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Release|AnyCPU.Build.0 = Release|AnyCPU
 	EndGlobalSection
 EndGlobal
