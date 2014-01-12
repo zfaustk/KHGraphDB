@@ -6,6 +6,7 @@ namespace KHGraphDB.Tests
     {
         public static int Main(string[] args)
         {
+            GraphTests.Run();
             Console.WriteLine("KHGraphDB.Tests");
             Console.WriteLine("passed=" + Assert.Passed + " failed=" + Assert.Failed);
             return Assert.Failed == 0 ? 0 : 1;
