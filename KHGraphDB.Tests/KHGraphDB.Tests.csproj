@@ -28,6 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assert.cs" />
+    <Compile Include="GraphTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>
