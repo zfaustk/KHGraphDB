@@ -8,6 +8,16 @@ namespace KHGraphDB.Structure.Interface
 
         IType Type { get; set; }
 
+        IEnumerable<IType> Types { get; }
+
+        bool AddType(IType theType);
+
+        bool RemoveType(IType theType);
+
+        bool HasType(IType theType);
+
+        bool HasType(string name);
+
         IEnumerable<IEdge> OutgoingEdges { get; }
 
         IEnumerable<IEdge> IncomingEdges { get; }

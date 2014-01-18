@@ -9,6 +9,7 @@ namespace KHGraphDB.Structure
 
         private IGraph _graph;
         private IType _type;
+        private HashSet<IType> _types;
         private List<IEdge> _outgoing;
         private List<IEdge> _incoming;
 
@@ -30,6 +31,7 @@ namespace KHGraphDB.Structure
         public Vertex(string id, IDictionary<string, object> attributes)
         {
             InitDBObject(id, attributes);
+            _types = new HashSet<IType>();
             _outgoing = new List<IEdge>(4);
             _incoming = new List<IEdge>(4);
         }
@@ -43,7 +45,75 @@ namespace KHGraphDB.Structure
         public IType Type
         {
             get { return _type; }
-            set { _type = value; }
+            set
+            {
+                if (value == null)
+                    return;
+                AddType(value);
+            }
+        }
+
+        public IEnumerable<IType> Types
+        {
+            get { return _types; }
+        }
+
+        public bool AddType(IType theType)
+        {
+            if (theType == null)
+                return false;
+            return theType.AddVertex(this);
+        }
+
+        public bool RemoveType(IType theType)
+        {
+            if (theType == null)
+                return false;
+            return theType.RemoveVertex(this);
+        }
+
+        public bool HasType(IType theType)
+        {
+            if (theType == null)
+                return false;
+            return _types.Contains(theType);
+        }
+
+        public bool HasType(string name)
+        {
+            if (name == null)
+                return false;
+            foreach (IType t in _types)
+            {
+                if (t.Name == name)
+                    return true;
+            }
+            return false;
+        }
+
+        internal bool AttachType(IType theType)
+        {
+            if (!_types.Add(theType))
+                return false;
+            if (_type == null)
+                _type = theType;
+            return true;
+        }
+
+        internal bool DetachType(IType theType)
+        {
+            if (!_types.Remove(theType))
+                return false;
+            if (object.ReferenceEquals(_type, theType))
+            {
+                _type = null;
+                foreach (IType t in _types)
+                {
+                    _type = t;
+                    break;
+                }
+            }
+            return true;
         }
 
         public IEnumerable<IEdge> OutgoingEdges
