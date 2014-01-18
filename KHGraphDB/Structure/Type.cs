@@ -61,9 +61,12 @@ namespace KHGraphDB.Structure
         {
             if (theVertex == null)
                 return false;
+            Vertex v = theVertex as Vertex;
+            if (v == null)
+                return false;
             if (!_vertices.Add(theVertex))
                 return false;
-            theVertex.Type = this;
+            v.AttachType(this);
             return true;
         }
 
@@ -73,19 +76,22 @@ namespace KHGraphDB.Structure
                 return false;
             if (!_vertices.Remove(theVertex))
                 return false;
-            if (object.ReferenceEquals(theVertex.Type, this))
-                theVertex.Type = null;
+            Vertex v = theVertex as Vertex;
+            if (v != null)
+                v.DetachType(this);
             return true;
         }
 
         public void ClearVertices()
         {
-            foreach (IVertex v in _vertices)
-            {
-                if (object.ReferenceEquals(v.Type, this))
-                    v.Type = null;
-            }
+            List<IVertex> copy = new List<IVertex>(_vertices);
             _vertices.Clear();
+            for (int i = 0; i < copy.Count; i++)
+            {
+                Vertex v = copy[i] as Vertex;
+                if (v != null)
+                    v.DetachType(this);
+            }
         }
     }
 }

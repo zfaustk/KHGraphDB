@@ -180,8 +180,11 @@ namespace KHGraphDB.Structure
             for (int i = 0; i < incoming.Length; i++)
                 RemoveEdge(incoming[i]);
 
-            if (theVertex.Type != null)
-                theVertex.Type.RemoveVertex(theVertex);
+            List<IType> worn = new List<IType>();
+            foreach (IType t in theVertex.Types)
+                worn.Add(t);
+            for (int i = 0; i < worn.Count; i++)
+                worn[i].RemoveVertex(theVertex);
 
             UnindexName(theVertex, theVertex[Vertex.NameKey]);
             theVertex.Graph = null;
