@@ -10,12 +10,22 @@ namespace KHGraphDB.Structure.Interface
 
         IEnumerable<IVertex> Vertices { get; }
 
+        IEnumerable<IEdge> Edges { get; }
+
         long VertexCount { get; }
+
+        long EdgeCount { get; }
 
         bool AddVertex(IVertex theVertex);
 
         bool RemoveVertex(IVertex theVertex);
 
+        bool AddEdge(IEdge theEdge);
+
+        bool RemoveEdge(IEdge theEdge);
+
         void ClearVertices();
+
+        void ClearEdges();
     }
 }

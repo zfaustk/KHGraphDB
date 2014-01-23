@@ -10,6 +10,7 @@ namespace KHGraphDB.Structure
         private IGraph _graph;
         private IVertex _source;
         private IVertex _target;
+        private IType _type;
 
         public Edge(IVertex theSource, IVertex theTarget)
             : this(null, theSource, theTarget, null)
@@ -54,6 +55,12 @@ namespace KHGraphDB.Structure
             get { return _target; }
         }
 
+        public IType Type
+        {
+            get { return _type; }
+            set { _type = value; }
+        }
+
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
@@ -61,6 +68,11 @@ namespace KHGraphDB.Structure
             sb.Append(_source.KHID);
             sb.Append(" -> ");
             sb.Append(_target.KHID);
+            if (_type != null && _type.Name != null)
+            {
+                sb.Append(" :");
+                sb.Append(_type.Name);
+            }
             return sb.ToString();
         }
     }

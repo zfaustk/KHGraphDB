@@ -38,6 +38,10 @@ namespace KHGraphDB.Structure.Interface
 
         IEdge AddEdge(IVertex theSource, IVertex theTarget, IDictionary<string, object> attributes);
 
+        IEdge AddEdge(IVertex theSource, IVertex theTarget, IType theType);
+
+        IEdge AddEdge(IVertex theSource, IVertex theTarget, IType theType, IDictionary<string, object> attributes);
+
         bool AddEdge(IEdge theEdge);
 
         bool RemoveEdge(IEdge theEdge);
