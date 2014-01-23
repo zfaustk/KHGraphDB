@@ -8,6 +8,7 @@ namespace KHGraphDB.Structure
         private IGraph _graph;
         private string _name;
         private HashSet<IVertex> _vertices;
+        private HashSet<IEdge> _edges;
 
         public Type()
             : this(null, null)
@@ -28,6 +29,7 @@ namespace KHGraphDB.Structure
         {
             InitDBObject(id, attributes);
             _vertices = new HashSet<IVertex>();
+            _edges = new HashSet<IEdge>();
         }
 
         public IGraph Graph
@@ -52,9 +54,19 @@ namespace KHGraphDB.Structure
             get { return _vertices; }
         }
 
+        public IEnumerable<IEdge> Edges
+        {
+            get { return _edges; }
+        }
+
         public long VertexCount
         {
             get { return _vertices.Count; }
+        }
+
+        public long EdgeCount
+        {
+            get { return _edges.Count; }
         }
 
         public bool AddVertex(IVertex theVertex)
@@ -82,6 +94,28 @@ namespace KHGraphDB.Structure
             return true;
         }
 
+        public bool AddEdge(IEdge theEdge)
+        {
+            if (theEdge == null)
+                return false;
+            if (!_edges.Add(theEdge))
+                return false;
+            if (theEdge.Type == null)
+                theEdge.Type = this;
+            return true;
+        }
+
+        public bool RemoveEdge(IEdge theEdge)
+        {
+            if (theEdge == null)
+                return false;
+            if (!_edges.Remove(theEdge))
+                return false;
+            if (object.ReferenceEquals(theEdge.Type, this))
+                theEdge.Type = null;
+            return true;
+        }
+
         public void ClearVertices()
         {
             List<IVertex> copy = new List<IVertex>(_vertices);
@@ -91,6 +125,17 @@ namespace KHGraphDB.Structure
                 Vertex v = copy[i] as Vertex;
                 if (v != null)
                     v.DetachType(this);
+            }
+        }
+
+        public void ClearEdges()
+        {
+            List<IEdge> copy = new List<IEdge>(_edges);
+            _edges.Clear();
+            for (int i = 0; i < copy.Count; i++)
+            {
+                if (object.ReferenceEquals(copy[i].Type, this))
+                    copy[i].Type = null;
             }
         }
     }

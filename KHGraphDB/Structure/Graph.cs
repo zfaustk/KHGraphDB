@@ -234,6 +234,7 @@ namespace KHGraphDB.Structure
             if (!object.ReferenceEquals(owned, theType))
                 return false;
             theType.ClearVertices();
+            theType.ClearEdges();
             theType.Graph = null;
             if (theType.Name != null)
                 _typesByName.Remove(theType.Name);
@@ -242,14 +243,26 @@ namespace KHGraphDB.Structure
 
         public IEdge AddEdge(IVertex theSource, IVertex theTarget)
         {
-            return AddEdge(theSource, theTarget, null);
+            return AddEdge(theSource, theTarget, null, null);
         }
 
         public IEdge AddEdge(IVertex theSource, IVertex theTarget, IDictionary<string, object> attributes)
         {
+            return AddEdge(theSource, theTarget, null, attributes);
+        }
+
+        public IEdge AddEdge(IVertex theSource, IVertex theTarget, IType theType)
+        {
+            return AddEdge(theSource, theTarget, theType, null);
+        }
+
+        public IEdge AddEdge(IVertex theSource, IVertex theTarget, IType theType, IDictionary<string, object> attributes)
+        {
             if (theSource == null || theTarget == null)
                 return null;
             Edge e = new Edge(theSource, theTarget, attributes);
+            if (theType != null)
+                e.Type = theType;
             if (AddEdge(e))
                 return e;
             return null;
@@ -275,6 +288,12 @@ namespace KHGraphDB.Structure
             }
             _edges.Add(theEdge.KHID, theEdge);
             theEdge.Graph = this;
+            if (theEdge.Type != null)
+            {
+                if (theEdge.Type.Graph == null)
+                    AddType(theEdge.Type);
+                theEdge.Type.AddEdge(theEdge);
+            }
             return true;
         }
 
@@ -289,6 +308,8 @@ namespace KHGraphDB.Structure
                 return false;
             theEdge.Source.RemoveOutgoingEdge(theEdge);
             theEdge.Target.RemoveIncomingEdge(theEdge);
+            if (theEdge.Type != null)
+                theEdge.Type.RemoveEdge(theEdge);
             theEdge.Graph = null;
             return _edges.Remove(theEdge.KHID);
         }

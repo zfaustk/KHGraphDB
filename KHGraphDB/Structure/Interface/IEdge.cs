@@ -7,5 +7,7 @@ namespace KHGraphDB.Structure.Interface
         IVertex Source { get; }
 
         IVertex Target { get; }
+
+        IType Type { get; set; }
     }
 }
