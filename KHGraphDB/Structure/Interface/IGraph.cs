@@ -53,5 +53,9 @@ namespace KHGraphDB.Structure.Interface
         IEdge GetEdge(string khid);
 
         IType GetTypeByName(string name);
+
+        IEnumerable<IVertex> GetVerticesByType(string name);
+
+        IEnumerable<IEdge> GetEdgesByType(string name);
     }
 }
