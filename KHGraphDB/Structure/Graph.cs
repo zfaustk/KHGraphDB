@@ -112,6 +112,22 @@ namespace KHGraphDB.Structure
             return null;
         }
 
+        public IEnumerable<IVertex> GetVerticesByType(string name)
+        {
+            IType t = GetTypeByName(name);
+            if (t == null)
+                return new IVertex[0];
+            return t.Vertices;
+        }
+
+        public IEnumerable<IEdge> GetEdgesByType(string name)
+        {
+            IType t = GetTypeByName(name);
+            if (t == null)
+                return new IEdge[0];
+            return t.Edges;
+        }
+
         public IVertex AddVertex(IDictionary<string, object> attributes)
         {
             return AddVertex(attributes, null);
