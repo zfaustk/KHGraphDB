@@ -50,5 +50,28 @@ namespace KHGraphDB.Tests
             Assert.Eq(author, ada.Type, "Author becomes primary");
             Assert.IsTrue(!ada.HasType("Person"), "Person gone");
         }
+
+        public static void TypedEdges()
+        {
+            Graph g = new Graph();
+            IType person = g.AddType("Person", null);
+            IType knows = g.AddType("KNOWS", null);
+            Dictionary<string, object> a = new Dictionary<string, object>();
+            a["name"] = "Alice";
+            Dictionary<string, object> b = new Dictionary<string, object>();
+            b["name"] = "Bob";
+            IVertex alice = g.AddVertex(a, person);
+            IVertex bob = g.AddVertex(b, person);
+            IEdge e = g.AddEdge(alice, bob, knows);
+            Assert.NotNull(e, "KNOWS edge");
+            Assert.Eq(knows, e.Type, "edge type");
+            Assert.Eq(1L, knows.EdgeCount, "type posting");
+            int n = 0;
+            foreach (IEdge x in g.GetEdgesByType("KNOWS"))
+                n++;
+            Assert.Eq(1, n, "GetEdgesByType");
+            g.RemoveEdge(e);
+            Assert.Eq(0L, knows.EdgeCount, "posting dropped");
+        }
     }
 }
