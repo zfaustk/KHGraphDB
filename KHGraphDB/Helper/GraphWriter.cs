@@ -7,10 +7,12 @@ namespace KHGraphDB.Helper
 {
     /// <summary>
     /// Writes the graph. Position, color and other view state stay out.
+    /// KHG2 stores every type a vertex wears, and the type of each edge.
     /// </summary>
     public static class GraphWriter
     {
-        public const string Magic = "KHG1";
+        public const string Magic = "KHG2";
+        public const string Magic1 = "KHG1";
 
         public static void Write(IGraph graph, Stream stream)
         {
@@ -22,6 +24,18 @@ namespace KHGraphDB.Helper
             w.Write(graph.KHID ?? "");
             w.Write(graph.IsDirected);
 
+            List<IType> types = new List<IType>();
+            foreach (IType t in graph.Types)
+                types.Add(t);
+            w.Write(types.Count);
+            for (int i = 0; i < types.Count; i++)
+            {
+                IType t = types[i];
+                w.Write(t.KHID);
+                w.Write(t.Name ?? "");
+                WriteAttrs(w, t.Attributes);
+            }
+
             List<IVertex> verts = new List<IVertex>();
             foreach (IVertex v in graph.Vertices)
                 verts.Add(v);
@@ -30,7 +44,15 @@ namespace KHGraphDB.Helper
             {
                 IVertex v = verts[i];
                 w.Write(v.KHID);
-                w.Write(v.Type == null ? "" : (v.Type.Name ?? ""));
+                List<string> names = new List<string>();
+                foreach (IType t in v.Types)
+                {
+                    if (t.Name != null && t.Name.Length > 0)
+                        names.Add(t.Name);
+                }
+                w.Write(names.Count);
+                for (int k = 0; k < names.Count; k++)
+                    w.Write(names[k]);
                 WriteAttrs(w, v.Attributes);
             }
 
@@ -44,6 +66,7 @@ namespace KHGraphDB.Helper
                 w.Write(e.KHID);
                 w.Write(e.Source.KHID);
                 w.Write(e.Target.KHID);
+                w.Write(e.Type == null ? "" : (e.Type.Name ?? ""));
                 WriteAttrs(w, e.Attributes);
             }
             w.Flush();
