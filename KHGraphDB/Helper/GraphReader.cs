@@ -15,9 +15,81 @@ namespace KHGraphDB.Helper
 
             BinaryReader r = new BinaryReader(stream, Encoding.UTF8);
             string magic = r.ReadString();
-            if (magic != GraphWriter.Magic)
-                throw new InvalidDataException("not a KHGraphDB snapshot");
+            if (magic == GraphWriter.Magic)
+                return Read2(r);
+            if (magic == GraphWriter.Magic1)
+                return Read1(r);
+            throw new InvalidDataException("not a KHGraphDB snapshot");
+        }
 
+        public static Graph ReadFile(string path)
+        {
+            using (FileStream fs = File.OpenRead(path))
+                return Read(fs);
+        }
+
+        static Graph Read2(BinaryReader r)
+        {
+            string id = r.ReadString();
+            bool directed = r.ReadBoolean();
+            Graph g = new Graph(string.IsNullOrEmpty(id) ? null : id);
+            if (!directed)
+                return g;
+
+            int nT = r.ReadInt32();
+            for (int i = 0; i < nT; i++)
+            {
+                string khid = r.ReadString();
+                string name = r.ReadString();
+                IDictionary<string, object> attrs = ReadAttrs(r);
+                Type t = new Type(khid, attrs);
+                t.Name = name;
+                g.AddType(t);
+            }
+
+            int nV = r.ReadInt32();
+            for (int i = 0; i < nV; i++)
+            {
+                string khid = r.ReadString();
+                int nNames = r.ReadInt32();
+                List<string> names = new List<string>(nNames);
+                for (int k = 0; k < nNames; k++)
+                    names.Add(r.ReadString());
+                IDictionary<string, object> attrs = ReadAttrs(r);
+                Vertex v = new Vertex(khid, attrs);
+                IType primary = names.Count > 0 ? g.GetTypeByName(names[0]) : null;
+                g.AddVertex(v, primary);
+                for (int k = 1; k < names.Count; k++)
+                {
+                    IType extra = g.GetTypeByName(names[k]);
+                    if (extra != null)
+                        v.AddType(extra);
+                }
+            }
+
+            int nE = r.ReadInt32();
+            for (int i = 0; i < nE; i++)
+            {
+                string khid = r.ReadString();
+                string src = r.ReadString();
+                string dst = r.ReadString();
+                string typeName = r.ReadString();
+                IDictionary<string, object> attrs = ReadAttrs(r);
+                IVertex a = g.GetVertex(src);
+                IVertex b = g.GetVertex(dst);
+                if (a == null || b == null)
+                    continue;
+                Edge e = new Edge(khid, a, b, attrs);
+                IType et = string.IsNullOrEmpty(typeName) ? null : g.GetTypeByName(typeName);
+                if (et != null)
+                    e.Type = et;
+                g.AddEdge(e);
+            }
+            return g;
+        }
+
+        static Graph Read1(BinaryReader r)
+        {
             string id = r.ReadString();
             bool directed = r.ReadBoolean();
             Graph g = new Graph(string.IsNullOrEmpty(id) ? null : id);
@@ -52,12 +124,6 @@ namespace KHGraphDB.Helper
                 g.AddEdge(e);
             }
             return g;
-        }
-
-        public static Graph ReadFile(string path)
-        {
-            using (FileStream fs = File.OpenRead(path))
-                return Read(fs);
         }
 
         static IDictionary<string, object> ReadAttrs(BinaryReader r)
