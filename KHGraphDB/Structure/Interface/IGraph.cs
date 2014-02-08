@@ -57,5 +57,9 @@ namespace KHGraphDB.Structure.Interface
         IEnumerable<IVertex> GetVerticesByType(string name);
 
         IEnumerable<IEdge> GetEdgesByType(string name);
+
+        bool CreateIndex(string typeName, string key);
+
+        IList<IVertex> Find(string typeName, string key, object value);
     }
 }
