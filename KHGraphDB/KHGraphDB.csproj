@@ -46,6 +46,7 @@
     <Compile Include="Structure\DBObject.cs" />
     <Compile Include="Structure\Edge.cs" />
     <Compile Include="Structure\Graph.cs" />
+    <Compile Include="Structure\SchemaIndex.cs" />
     <Compile Include="Structure\Interface\IDBObject.cs" />
     <Compile Include="Structure\Interface\IEdge.cs" />
     <Compile Include="Structure\Interface\IGraph.cs" />

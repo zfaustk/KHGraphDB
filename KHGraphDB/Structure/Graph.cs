@@ -11,6 +11,7 @@ namespace KHGraphDB.Structure
         private Dictionary<string, IType> _types;
         private Dictionary<string, IType> _typesByName;
         private Dictionary<string, IVertex> _verticesByName;
+        private Dictionary<string, SchemaIndex> _indexes;
 
         public Graph()
             : this(null, null)
@@ -35,6 +36,7 @@ namespace KHGraphDB.Structure
             _types = new Dictionary<string, IType>(StringComparer.Ordinal);
             _typesByName = new Dictionary<string, IType>(StringComparer.Ordinal);
             _verticesByName = new Dictionary<string, IVertex>(StringComparer.Ordinal);
+            _indexes = new Dictionary<string, SchemaIndex>(StringComparer.Ordinal);
         }
 
         public bool IsDirected
@@ -328,6 +330,45 @@ namespace KHGraphDB.Structure
                 theEdge.Type.RemoveEdge(theEdge);
             theEdge.Graph = null;
             return _edges.Remove(theEdge.KHID);
+        }
+
+
+        public bool CreateIndex(string typeName, string key)
+        {
+            if (string.IsNullOrEmpty(typeName) || string.IsNullOrEmpty(key))
+                return false;
+            string id = SchemaIndex.Id(typeName, key);
+            if (_indexes.ContainsKey(id))
+                return true;
+            SchemaIndex idx = new SchemaIndex(typeName, key, false);
+            _indexes[id] = idx;
+            IType t = GetTypeByName(typeName);
+            if (t != null)
+            {
+                foreach (IVertex v in t.Vertices)
+                    idx.Add(v, v[key]);
+            }
+            return true;
+        }
+
+        public IList<IVertex> Find(string typeName, string key, object value)
+        {
+            string id = SchemaIndex.Id(typeName, key);
+            SchemaIndex idx;
+            if (_indexes.TryGetValue(id, out idx))
+                return idx.Get(value);
+
+            List<IVertex> hits = new List<IVertex>();
+            IType t = GetTypeByName(typeName);
+            if (t == null)
+                return hits;
+            string want = SchemaIndex.ValueString(value);
+            foreach (IVertex v in t.Vertices)
+            {
+                if (string.Equals(SchemaIndex.ValueString(v[key]), want, StringComparison.Ordinal))
+                    hits.Add(v);
+            }
+            return hits;
         }
 
         internal void OnVertexNameChanged(IVertex theVertex, object oldName, object newName)
