@@ -166,6 +166,7 @@ namespace KHGraphDB.Structure
             _vertices.Add(theVertex.KHID, theVertex);
             theVertex.Graph = this;
             IndexName(theVertex, theVertex[Vertex.NameKey]);
+            IndexVertex(theVertex);
             if (theType != null)
             {
                 if (theType.Graph == null)
@@ -204,6 +205,7 @@ namespace KHGraphDB.Structure
             for (int i = 0; i < worn.Count; i++)
                 worn[i].RemoveVertex(theVertex);
 
+            UnindexVertex(theVertex);
             UnindexName(theVertex, theVertex[Vertex.NameKey]);
             theVertex.Graph = null;
             return _vertices.Remove(theVertex.KHID);
@@ -369,6 +371,96 @@ namespace KHGraphDB.Structure
                     hits.Add(v);
             }
             return hits;
+        }
+
+
+        internal void OnTypeAttached(IVertex theVertex, IType theType)
+        {
+            IndexVertexType(theVertex, theType);
+        }
+
+        internal void OnTypeDetached(IVertex theVertex, IType theType)
+        {
+            UnindexVertexType(theVertex, theType);
+        }
+
+        internal bool CanSetAttribute(IVertex theVertex, string key, object newValue)
+        {
+            if (theVertex == null || key == null)
+                return true;
+            foreach (IType t in theVertex.Types)
+            {
+                if (t.Name == null)
+                    continue;
+                SchemaIndex idx;
+                if (!_indexes.TryGetValue(SchemaIndex.Id(t.Name, key), out idx))
+                    continue;
+                if (!idx.Unique)
+                    continue;
+                if (idx.ContainsOther(newValue, theVertex))
+                    return false;
+            }
+            return true;
+        }
+
+        internal void OnVertexAttributeChanged(IVertex theVertex, string key, object oldValue, object newValue)
+        {
+            if (key == Vertex.NameKey)
+                OnVertexNameChanged(theVertex, oldValue, newValue);
+            if (theVertex == null || key == null)
+                return;
+            foreach (IType t in theVertex.Types)
+            {
+                if (t.Name == null)
+                    continue;
+                SchemaIndex idx;
+                if (!_indexes.TryGetValue(SchemaIndex.Id(t.Name, key), out idx))
+                    continue;
+                idx.Remove(theVertex, oldValue);
+                idx.Add(theVertex, newValue);
+            }
+        }
+
+        void IndexVertex(IVertex theVertex)
+        {
+            if (theVertex == null)
+                return;
+            foreach (IType t in theVertex.Types)
+                IndexVertexType(theVertex, t);
+        }
+
+        void UnindexVertex(IVertex theVertex)
+        {
+            if (theVertex == null)
+                return;
+            foreach (IType t in theVertex.Types)
+                UnindexVertexType(theVertex, t);
+        }
+
+        void IndexVertexType(IVertex theVertex, IType theType)
+        {
+            if (theType == null || theType.Name == null)
+                return;
+            foreach (KeyValuePair<string, SchemaIndex> kv in _indexes)
+            {
+                SchemaIndex idx = kv.Value;
+                if (idx.TypeName != theType.Name)
+                    continue;
+                idx.Add(theVertex, theVertex[idx.Key]);
+            }
+        }
+
+        void UnindexVertexType(IVertex theVertex, IType theType)
+        {
+            if (theType == null || theType.Name == null)
+                return;
+            foreach (KeyValuePair<string, SchemaIndex> kv in _indexes)
+            {
+                SchemaIndex idx = kv.Value;
+                if (idx.TypeName != theType.Name)
+                    continue;
+                idx.Remove(theVertex, theVertex[idx.Key]);
+            }
         }
 
         internal void OnVertexNameChanged(IVertex theVertex, object oldName, object newName)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using KHGraphDB.Structure.Interface;
 
@@ -146,34 +147,31 @@ namespace KHGraphDB.Structure
             get { return base[theKey]; }
             set
             {
-                if (theKey != null && theKey == NameKey)
-                {
-                    object old = base[theKey];
-                    base[theKey] = value;
-                    Graph g = _graph as Graph;
-                    if (g != null)
-                        g.OnVertexNameChanged(this, old, value);
+                if (theKey == null)
                     return;
-                }
+                Graph g = _graph as Graph;
+                if (g != null && !g.CanSetAttribute(this, theKey, value))
+                    throw new InvalidOperationException("unique constraint");
+                object old = base[theKey];
                 base[theKey] = value;
+                if (g != null)
+                    g.OnVertexAttributeChanged(this, theKey, old, value);
             }
         }
 
         public override bool RemoveAttribute(string theKey)
         {
-            if (theKey != null && theKey == NameKey)
+            if (theKey == null)
+                return false;
+            object old = base[theKey];
+            bool removed = base.RemoveAttribute(theKey);
+            if (removed)
             {
-                object old = base[theKey];
-                bool removed = base.RemoveAttribute(theKey);
-                if (removed)
-                {
-                    Graph g = _graph as Graph;
-                    if (g != null)
-                        g.OnVertexNameChanged(this, old, null);
-                }
-                return removed;
+                Graph g = _graph as Graph;
+                if (g != null)
+                    g.OnVertexAttributeChanged(this, theKey, old, null);
             }
-            return base.RemoveAttribute(theKey);
+            return removed;
         }
 
         public bool AddOutgoingEdge(IEdge theEdge)

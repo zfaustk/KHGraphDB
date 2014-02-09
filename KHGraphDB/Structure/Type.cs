@@ -79,6 +79,9 @@ namespace KHGraphDB.Structure
             if (!_vertices.Add(theVertex))
                 return false;
             v.AttachType(this);
+            Graph g = _graph as Graph;
+            if (g != null)
+                g.OnTypeAttached(theVertex, this);
             return true;
         }
 
@@ -88,6 +91,9 @@ namespace KHGraphDB.Structure
                 return false;
             if (!_vertices.Remove(theVertex))
                 return false;
+            Graph g = _graph as Graph;
+            if (g != null)
+                g.OnTypeDetached(theVertex, this);
             Vertex v = theVertex as Vertex;
             if (v != null)
                 v.DetachType(this);
