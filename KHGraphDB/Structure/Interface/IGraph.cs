@@ -60,6 +60,8 @@ namespace KHGraphDB.Structure.Interface
 
         bool CreateIndex(string typeName, string key);
 
+        bool CreateUniqueConstraint(string typeName, string key);
+
         IList<IVertex> Find(string typeName, string key, object value);
     }
 }

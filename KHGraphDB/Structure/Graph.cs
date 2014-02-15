@@ -337,19 +337,38 @@ namespace KHGraphDB.Structure
 
         public bool CreateIndex(string typeName, string key)
         {
+            return CreateIndex(typeName, key, false);
+        }
+
+        public bool CreateUniqueConstraint(string typeName, string key)
+        {
+            return CreateIndex(typeName, key, true);
+        }
+
+        bool CreateIndex(string typeName, string key, bool unique)
+        {
             if (string.IsNullOrEmpty(typeName) || string.IsNullOrEmpty(key))
                 return false;
             string id = SchemaIndex.Id(typeName, key);
-            if (_indexes.ContainsKey(id))
+            SchemaIndex idx;
+            if (_indexes.TryGetValue(id, out idx))
+            {
+                if (unique)
+                    idx.Unique = true;
                 return true;
-            SchemaIndex idx = new SchemaIndex(typeName, key, false);
-            _indexes[id] = idx;
+            }
+            idx = new SchemaIndex(typeName, key, unique);
             IType t = GetTypeByName(typeName);
             if (t != null)
             {
                 foreach (IVertex v in t.Vertices)
+                {
+                    if (unique && idx.ContainsOther(v[key], v))
+                        return false;
                     idx.Add(v, v[key]);
+                }
             }
+            _indexes[id] = idx;
             return true;
         }
 
