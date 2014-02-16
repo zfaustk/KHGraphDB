@@ -31,6 +31,7 @@
     <Compile Include="GraphTests.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="SnapshotTests.cs" />
+    <Compile Include="IndexTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\KHGraphDB\KHGraphDB.csproj">

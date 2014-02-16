@@ -10,6 +10,8 @@ namespace KHGraphDB.Tests
             GraphTests.MultiType();
             GraphTests.TypedEdges();
             SnapshotTests.Run();
+            IndexTests.Run();
+            IndexTests.Unique();
             Console.WriteLine("KHGraphDB.Tests");
             Console.WriteLine("passed=" + Assert.Passed + " failed=" + Assert.Failed);
             return Assert.Failed == 0 ? 0 : 1;

@@ -163,16 +163,25 @@ namespace KHGraphDB.Structure
                 return true;
             }
 
-            _vertices.Add(theVertex.KHID, theVertex);
-            theVertex.Graph = this;
-            IndexName(theVertex, theVertex[Vertex.NameKey]);
-            IndexVertex(theVertex);
             if (theType != null)
             {
                 if (theType.Graph == null)
                     AddType(theType);
-                theType.AddVertex(theVertex);
+                if (!CanWearType(theVertex, theType))
+                    return false;
             }
+            foreach (IType worn in theVertex.Types)
+            {
+                if (!CanWearType(theVertex, worn))
+                    return false;
+            }
+
+            _vertices.Add(theVertex.KHID, theVertex);
+            theVertex.Graph = this;
+            IndexName(theVertex, theVertex[Vertex.NameKey]);
+            if (theType != null)
+                theType.AddVertex(theVertex);
+            IndexVertex(theVertex);
             return true;
         }
 
@@ -392,6 +401,21 @@ namespace KHGraphDB.Structure
             return hits;
         }
 
+
+        internal bool CanWearType(IVertex theVertex, IType theType)
+        {
+            if (theVertex == null || theType == null || theType.Name == null)
+                return true;
+            foreach (KeyValuePair<string, SchemaIndex> kv in _indexes)
+            {
+                SchemaIndex idx = kv.Value;
+                if (idx.TypeName != theType.Name || !idx.Unique)
+                    continue;
+                if (idx.ContainsOther(theVertex[idx.Key], theVertex))
+                    return false;
+            }
+            return true;
+        }
 
         internal void OnTypeAttached(IVertex theVertex, IType theType)
         {

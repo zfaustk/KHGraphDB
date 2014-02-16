@@ -76,10 +76,12 @@ namespace KHGraphDB.Structure
             Vertex v = theVertex as Vertex;
             if (v == null)
                 return false;
+            Graph g = _graph as Graph;
+            if (g != null && !g.CanWearType(theVertex, this))
+                return false;
             if (!_vertices.Add(theVertex))
                 return false;
             v.AttachType(this);
-            Graph g = _graph as Graph;
             if (g != null)
                 g.OnTypeAttached(theVertex, this);
             return true;
