@@ -2,6 +2,10 @@ using System.Collections.Generic;
 
 namespace KHGraphDB.Structure.Interface
 {
+    /// <summary>
+    /// A directed property graph. Type is a first-class object.
+    /// Lookups are dictionaries. Algorithms do not write Attributes.
+    /// </summary>
     public interface IGraph : IDBObject
     {
         bool IsDirected { get; }
@@ -58,8 +62,10 @@ namespace KHGraphDB.Structure.Interface
 
         IEnumerable<IEdge> GetEdgesByType(string name);
 
+        /// <summary>Posting list for (Type, key). Find uses it.</summary>
         bool CreateIndex(string typeName, string key);
 
+        /// <summary>Index that refuses a second write of the same value.</summary>
         bool CreateUniqueConstraint(string typeName, string key);
 
         IList<IVertex> Find(string typeName, string key, object value);
