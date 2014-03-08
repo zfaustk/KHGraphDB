@@ -517,6 +517,8 @@ namespace KHGraphDB.Structure
             string name = NameString(nameObj);
             if (name == null)
                 return;
+            if (_verticesByName.ContainsKey(name))
+                return;
             _verticesByName[name] = theVertex;
         }
 
