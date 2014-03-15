@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KHGraphDB", "KHGraphDB\KHGr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KHGraphDB.Tests", "KHGraphDB.Tests\KHGraphDB.Tests.csproj", "{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Social", "Samples\Social\Social.csproj", "{C1D2E3F4-A5B6-4C7D-8E9F-0A1B2C3D4E5F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|AnyCPU = Debug|AnyCPU
@@ -18,5 +20,9 @@ Global
 		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
 		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
 		{B7E2C1A0-4D5E-4F6A-8B9C-0D1E2F3A4B5C}.Release|AnyCPU.Build.0 = Release|AnyCPU
+		{C1D2E3F4-A5B6-4C7D-8E9F-0A1B2C3D4E5F}.Debug|AnyCPU.ActiveCfg = Debug|AnyCPU
+		{C1D2E3F4-A5B6-4C7D-8E9F-0A1B2C3D4E5F}.Debug|AnyCPU.Build.0 = Debug|AnyCPU
+		{C1D2E3F4-A5B6-4C7D-8E9F-0A1B2C3D4E5F}.Release|AnyCPU.ActiveCfg = Release|AnyCPU
+		{C1D2E3F4-A5B6-4C7D-8E9F-0A1B2C3D4E5F}.Release|AnyCPU.Build.0 = Release|AnyCPU
 	EndGlobalSection
 EndGlobal
