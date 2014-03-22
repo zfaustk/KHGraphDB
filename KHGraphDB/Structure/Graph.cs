@@ -74,6 +74,11 @@ namespace KHGraphDB.Structure
             get { return _types.Count; }
         }
 
+        internal IEnumerable<SchemaIndex> Indexes
+        {
+            get { return _indexes.Values; }
+        }
+
         public IVertex GetVertex(string khid)
         {
             if (khid == null)

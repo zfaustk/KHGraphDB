@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using KHGraphDB.Structure;
 using KHGraphDB.Structure.Interface;
 
 namespace KHGraphDB.Helper
@@ -68,6 +69,20 @@ namespace KHGraphDB.Helper
                 w.Write(e.Target.KHID);
                 w.Write(e.Type == null ? "" : (e.Type.Name ?? ""));
                 WriteAttrs(w, e.Attributes);
+            }
+            Graph gg = graph as Graph;
+            List<SchemaIndex> idxs = new List<SchemaIndex>();
+            if (gg != null)
+            {
+                foreach (SchemaIndex idx in gg.Indexes)
+                    idxs.Add(idx);
+            }
+            w.Write(idxs.Count);
+            for (int i = 0; i < idxs.Count; i++)
+            {
+                w.Write(idxs[i].TypeName ?? "");
+                w.Write(idxs[i].Key ?? "");
+                w.Write(idxs[i].Unique);
             }
             w.Flush();
         }
