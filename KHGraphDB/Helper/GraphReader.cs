@@ -85,6 +85,18 @@ namespace KHGraphDB.Helper
                     e.Type = et;
                 g.AddEdge(e);
             }
+
+            int nI = r.ReadInt32();
+            for (int i = 0; i < nI; i++)
+            {
+                string typeName = r.ReadString();
+                string key = r.ReadString();
+                bool unique = r.ReadBoolean();
+                if (unique)
+                    g.CreateUniqueConstraint(typeName, key);
+                else
+                    g.CreateIndex(typeName, key);
+            }
             return g;
         }
 

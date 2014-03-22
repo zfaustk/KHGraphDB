@@ -22,6 +22,7 @@ namespace KHGraphDB.Tests
             b["name"] = "Bob";
             IVertex bob = g.AddVertex(b, person);
             g.AddEdge(ada, bob, knows);
+            g.CreateUniqueConstraint("Person", "name");
 
             MemoryStream ms = new MemoryStream();
             GraphWriter.Write(g, ms);
@@ -37,6 +38,8 @@ namespace KHGraphDB.Tests
             foreach (IEdge e in h.GetEdgesByType("KNOWS"))
                 n++;
             Assert.Eq(1, n, "KNOWS survived");
+            IList<IVertex> found = h.Find("Person", "name", "Ada");
+            Assert.Eq(1, found.Count, "index survived");
         }
     }
 }
