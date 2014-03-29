@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 - unreleased
+## 2.0.0 - 2014-03-29
 
 Start of the 2.x line. The 2013 kernel is 1.8.
 
