@@ -43,6 +43,7 @@
     <Compile Include="Helper\GraphWriter.cs" />
     <Compile Include="Language\Command.cs" />
     <Compile Include="Language\Token.cs" />
+    <Compile Include="Language\Query.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Structure\DBObject.cs" />
     <Compile Include="Structure\Edge.cs" />
