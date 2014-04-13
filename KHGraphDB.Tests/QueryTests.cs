@@ -43,5 +43,13 @@ namespace KHGraphDB.Tests
             Assert.IsTrue(r.Succeeded, "one hop");
             Assert.Eq(2, r.Rows.Count, "Alice->Bob and Bob->Carol");
         }
+
+        public static void Inbound()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("MATCH (a:Person)<-[:KNOWS]-(b:Person)");
+            Assert.IsTrue(r.Succeeded, "inbound");
+            Assert.Eq(2, r.Rows.Count, "Bob<-Alice and Carol<-Bob");
+        }
     }
 }
