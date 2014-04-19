@@ -51,5 +51,15 @@ namespace KHGraphDB.Tests
             Assert.IsTrue(r.Succeeded, "inbound");
             Assert.Eq(2, r.Rows.Count, "Bob<-Alice and Carol<-Bob");
         }
+
+        public static void Props()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)");
+            Assert.IsTrue(r.Succeeded, "props");
+            Assert.Eq(1, r.Rows.Count, "only Alice");
+            IVertex b = (IVertex)r.Rows[0][1];
+            Assert.Eq("Bob", b["name"], "to Bob");
+        }
     }
 }

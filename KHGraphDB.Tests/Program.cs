@@ -15,6 +15,7 @@ namespace KHGraphDB.Tests
             QueryTests.Nodes();
             QueryTests.OneHop();
             QueryTests.Inbound();
+            QueryTests.Props();
             Console.WriteLine("KHGraphDB.Tests");
             Console.WriteLine("passed=" + Assert.Passed + " failed=" + Assert.Failed);
             return Assert.Failed == 0 ? 0 : 1;
