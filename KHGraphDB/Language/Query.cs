@@ -41,16 +41,22 @@ namespace KHGraphDB.Language
             if (IdentIs("MATCH"))
             {
                 Next();
-                NodePat start = ParseNode();
-                if (Kind() == TokenKind.Dash || Kind() == TokenKind.LArrow || Kind() == TokenKind.Arrow)
-                {
-                    RelPat rel = ParseRel();
-                    NodePat end = ParseNode();
-                    return ExecOneHop(start, rel, end);
-                }
-                return ExecNodes(start);
+                return ExecPattern(ParsePattern(false));
             }
             return QueryResult.Fail("expected MATCH");
+        }
+
+        Pattern ParsePattern(bool optional)
+        {
+            Pattern pat = new Pattern();
+            pat.Optional = optional;
+            pat.Nodes.Add(ParseNode());
+            while (Kind() == TokenKind.Dash || Kind() == TokenKind.LArrow || Kind() == TokenKind.Arrow)
+            {
+                pat.Rels.Add(ParseRel());
+                pat.Nodes.Add(ParseNode());
+            }
+            return pat;
         }
 
         NodePat ParseNode()
@@ -146,6 +152,74 @@ namespace KHGraphDB.Language
             }
             Expect(TokenKind.RBrace);
             return d;
+        }
+
+        QueryResult ExecPattern(Pattern pat)
+        {
+            if (pat.Rels.Count == 0)
+                return ExecNodes(pat.Nodes[0]);
+            if (pat.Rels.Count == 1)
+                return ExecOneHop(pat.Nodes[0], pat.Rels[0], pat.Nodes[1]);
+            return ExecChain(pat);
+        }
+
+        QueryResult ExecChain(Pattern pat)
+        {
+            List<IVertex> seeds = Seeds(pat.Nodes[0]);
+            QueryResult r = QueryResult.Ok("MATCH");
+            for (int i = 0; i < pat.Nodes.Count; i++)
+                r.Columns.Add(pat.Nodes[i].Var ?? ("n" + i.ToString()));
+            for (int s = 0; s < seeds.Count; s++)
+            {
+                IVertex[] path = new IVertex[pat.Nodes.Count];
+                path[0] = seeds[s];
+                Walk(pat, 0, path, r);
+            }
+            r.Message = r.Rows.Count.ToString() + " row";
+            return r;
+        }
+
+        void Walk(Pattern pat, int relIndex, IVertex[] path, QueryResult r)
+        {
+            IVertex a = path[relIndex];
+            RelPat rel = pat.Rels[relIndex];
+            NodePat next = pat.Nodes[relIndex + 1];
+            foreach (IEdge e in EdgesOf(a, rel))
+            {
+                IVertex b;
+                if (rel.Dir == 0)
+                    b = object.ReferenceEquals(e.Source, a) ? e.Target : e.Source;
+                else if (rel.Dir < 0)
+                    b = e.Source;
+                else
+                    b = e.Target;
+                if (!NodeOk(b, next))
+                    continue;
+                bool seen = false;
+                for (int i = 0; i <= relIndex; i++)
+                {
+                    if (object.ReferenceEquals(path[i], b))
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+                if (seen)
+                    continue;
+                path[relIndex + 1] = b;
+                if (relIndex + 1 == pat.Rels.Count)
+                {
+                    List<object> row = new List<object>();
+                    for (int i = 0; i < path.Length; i++)
+                    {
+                        row.Add(path[i]);
+                        r.Vertices.Add(path[i]);
+                    }
+                    r.Rows.Add(row);
+                }
+                else
+                    Walk(pat, relIndex + 1, path, r);
+            }
         }
 
         QueryResult ExecNodes(NodePat pat)
@@ -320,6 +394,13 @@ namespace KHGraphDB.Language
             if (Kind() != k)
                 throw new InvalidOperationException("expected " + k);
             Next();
+        }
+
+        sealed class Pattern
+        {
+            public List<NodePat> Nodes = new List<NodePat>();
+            public List<RelPat> Rels = new List<RelPat>();
+            public bool Optional;
         }
 
         sealed class NodePat
