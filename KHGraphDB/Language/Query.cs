@@ -38,12 +38,252 @@ namespace KHGraphDB.Language
 
         QueryResult ParseAndExec()
         {
-            if (IdentIs("MATCH"))
+            if (!IdentIs("MATCH") && !IdentIs("OPTIONAL") && !IdentIs("MERGE"))
+                return QueryResult.Fail("expected MATCH");
+            QueryResult last = null;
+            Dictionary<string, IVertex> bound = new Dictionary<string, IVertex>(StringComparer.Ordinal);
+            while (Kind() != TokenKind.Eof)
+            {
+                if (IdentIs("OPTIONAL"))
+                {
+                    Next();
+                    if (!IdentIs("MATCH"))
+                        return QueryResult.Fail("expected MATCH");
+                    Next();
+                    Pattern pat = ParsePattern(true);
+                    last = ExecPattern(pat);
+                }
+                else if (IdentIs("MATCH"))
+                {
+                    Next();
+                    last = ExecPattern(ParsePattern(false));
+                }
+                else if (IdentIs("WHERE"))
+                {
+                    Next();
+                    List<WherePred> preds = ParseWhere();
+                    if (last == null)
+                        return QueryResult.Fail("WHERE without MATCH");
+                    last = FilterWhere(last, preds);
+                }
+                else if (IdentIs("RETURN"))
+                {
+                    Next();
+                    if (last == null)
+                        return QueryResult.Fail("RETURN without MATCH");
+                    last = ProjectReturn(last);
+                    break;
+                }
+                else if (IdentIs("MERGE"))
+                {
+                    Next();
+                    last = ExecMerge(ParsePattern(false));
+                }
+                else
+                    break;
+            }
+            if (last == null)
+                return QueryResult.Fail("expected MATCH");
+            return last;
+        }
+
+        List<WherePred> ParseWhere()
+        {
+            List<WherePred> list = new List<WherePred>();
+            list.Add(ParsePred());
+            while (IdentIs("AND"))
             {
                 Next();
-                return ExecPattern(ParsePattern(false));
+                list.Add(ParsePred());
             }
-            return QueryResult.Fail("expected MATCH");
+            return list;
+        }
+
+        WherePred ParsePred()
+        {
+            WherePred w = new WherePred();
+            w.Var = ExpectIdent();
+            Expect(TokenKind.Dot);
+            w.Key = ExpectIdent();
+            Expect(TokenKind.Eq);
+            if (Kind() == TokenKind.String || Kind() == TokenKind.Number || Kind() == TokenKind.Ident)
+            {
+                w.Value = Text();
+                Next();
+            }
+            else
+                throw new InvalidOperationException("bad WHERE value");
+            return w;
+        }
+
+        QueryResult FilterWhere(QueryResult src, List<WherePred> preds)
+        {
+            QueryResult r = QueryResult.Ok("WHERE");
+            for (int i = 0; i < src.Columns.Count; i++)
+                r.Columns.Add(src.Columns[i]);
+            for (int i = 0; i < src.Rows.Count; i++)
+            {
+                IList<object> row = src.Rows[i];
+                bool ok = true;
+                for (int p = 0; p < preds.Count; p++)
+                {
+                    WherePred w = preds[p];
+                    int col = -1;
+                    for (int c = 0; c < src.Columns.Count; c++)
+                    {
+                        if (src.Columns[c] == w.Var)
+                        {
+                            col = c;
+                            break;
+                        }
+                    }
+                    if (col < 0)
+                    {
+                        ok = false;
+                        break;
+                    }
+                    IVertex v = row[col] as IVertex;
+                    if (v == null)
+                    {
+                        ok = false;
+                        break;
+                    }
+                    object val = v[w.Key];
+                    if (val == null || !string.Equals(val.ToString(), w.Value, StringComparison.Ordinal))
+                    {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok)
+                {
+                    r.Rows.Add(row);
+                    for (int k = 0; k < row.Count; k++)
+                    {
+                        IVertex vv = row[k] as IVertex;
+                        if (vv != null)
+                            r.Vertices.Add(vv);
+                    }
+                }
+            }
+            r.Message = r.Rows.Count.ToString() + " row";
+            return r;
+        }
+
+        QueryResult ProjectReturn(QueryResult src)
+        {
+            List<string> cols = new List<string>();
+            cols.Add(ExpectIdent());
+            while (Kind() == TokenKind.Comma)
+            {
+                Next();
+                cols.Add(ExpectIdent());
+            }
+            QueryResult r = QueryResult.Ok("RETURN");
+            int[] map = new int[cols.Count];
+            for (int i = 0; i < cols.Count; i++)
+            {
+                r.Columns.Add(cols[i]);
+                map[i] = -1;
+                for (int c = 0; c < src.Columns.Count; c++)
+                {
+                    if (src.Columns[c] == cols[i])
+                    {
+                        map[i] = c;
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < src.Rows.Count; i++)
+            {
+                List<object> row = new List<object>();
+                for (int k = 0; k < map.Length; k++)
+                {
+                    object cell = map[k] < 0 ? null : src.Rows[i][map[k]];
+                    row.Add(cell);
+                    IVertex v = cell as IVertex;
+                    if (v != null)
+                        r.Vertices.Add(v);
+                }
+                r.Rows.Add(row);
+            }
+            r.Message = r.Rows.Count.ToString() + " row";
+            return r;
+        }
+
+        QueryResult ExecMerge(Pattern pat)
+        {
+            if (pat.Rels.Count == 0)
+                return MergeNode(pat.Nodes[0]);
+            QueryResult left = MergeNode(pat.Nodes[0]);
+            QueryResult right = MergeNode(pat.Nodes[1]);
+            if (left.Vertices.Count == 0 || right.Vertices.Count == 0)
+                return QueryResult.Fail("MERGE nodes");
+            IVertex a = left.Vertices[0];
+            IVertex b = right.Vertices[0];
+            RelPat rel = pat.Rels[0];
+            foreach (IEdge e in a.OutgoingEdges)
+            {
+                if (object.ReferenceEquals(e.Target, b) &&
+                    (rel.TypeName == null || (e.Type != null && e.Type.Name == rel.TypeName)))
+                {
+                    QueryResult exist = QueryResult.Ok("MERGE");
+                    exist.Vertices.Add(a);
+                    exist.Vertices.Add(b);
+                    exist.Message = "exists";
+                    return exist;
+                }
+            }
+            IType et = rel.TypeName == null ? null : _graph.GetTypeByName(rel.TypeName);
+            if (et == null && rel.TypeName != null)
+                et = _graph.AddType(rel.TypeName, null);
+            _graph.AddEdge(a, b, et);
+            QueryResult created = QueryResult.Ok("MERGE");
+            created.Vertices.Add(a);
+            created.Vertices.Add(b);
+            created.Message = "created";
+            return created;
+        }
+
+        QueryResult MergeNode(NodePat node)
+        {
+            List<IVertex> found = Seeds(node);
+            if (found.Count > 0)
+            {
+                QueryResult r = QueryResult.Ok("MERGE");
+                r.Columns.Add(node.Var ?? "n");
+                for (int i = 0; i < found.Count; i++)
+                {
+                    List<object> row = new List<object>();
+                    row.Add(found[i]);
+                    r.Rows.Add(row);
+                    r.Vertices.Add(found[i]);
+                }
+                r.Message = "exists";
+                return r;
+            }
+            IType t = null;
+            if (node.TypeName != null)
+            {
+                t = _graph.GetTypeByName(node.TypeName);
+                if (t == null)
+                    t = _graph.AddType(node.TypeName, null);
+            }
+            Dictionary<string, object> attrs = new Dictionary<string, object>(StringComparer.Ordinal);
+            if (node.Props != null)
+            {
+                foreach (KeyValuePair<string, string> kv in node.Props)
+                    attrs[kv.Key] = kv.Value;
+            }
+            IVertex v = _graph.AddVertex(attrs, t);
+            QueryResult c = QueryResult.Ok("MERGE");
+            c.Columns.Add(node.Var ?? "n");
+            List<object> row2 = new List<object>();
+            row2.Add(v);
+            c.Rows.Add(row2);
+            c.Vertices.Add(v);
+            c.Message = "created";
+            return c;
         }
 
         Pattern ParsePattern(bool optional)
@@ -394,6 +634,13 @@ namespace KHGraphDB.Language
             if (Kind() != k)
                 throw new InvalidOperationException("expected " + k);
             Next();
+        }
+
+        sealed class WherePred
+        {
+            public string Var;
+            public string Key;
+            public string Value;
         }
 
         sealed class Pattern
