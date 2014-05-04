@@ -70,5 +70,13 @@ namespace KHGraphDB.Tests
             Assert.Eq(1, r.Rows.Count, "Alice Bob Carol");
             Assert.Eq("Carol", ((IVertex)r.Rows[0][2])["name"], "end Carol");
         }
+
+        public static void Where()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice'");
+            Assert.IsTrue(r.Succeeded, "where");
+            Assert.Eq(1, r.Rows.Count, "Alice only");
+        }
     }
 }
