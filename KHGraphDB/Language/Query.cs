@@ -12,6 +12,7 @@ namespace KHGraphDB.Language
         readonly IGraph _graph;
         List<Token> _toks;
         int _p;
+        Uniqueness _uniqueness = Uniqueness.NodePath;
 
         public Query(IGraph graph)
         {
