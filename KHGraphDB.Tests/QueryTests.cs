@@ -71,6 +71,19 @@ namespace KHGraphDB.Tests
             Assert.Eq("Carol", ((IVertex)r.Rows[0][2])["name"], "end Carol");
         }
 
+        public static void Cycle()
+        {
+            Graph g = Social();
+            IType knows = g.GetTypeByName("KNOWS");
+            IVertex alice = g.GetVertexByName("Alice");
+            IVertex carol = g.GetVertexByName("Carol");
+            g.AddEdge(carol, alice, knows);
+            Query q = new Query(g);
+            QueryResult r = q.Run("MATCH (a:Person)-[:KNOWS]->(b)-[:KNOWS]->(c)-[:KNOWS]->(d)");
+            Assert.IsTrue(r.Succeeded, "cycle query");
+            Assert.IsTrue(r.Rows.Count <= 6, "path uniqueness bounds the cycle");
+        }
+
         public static void Where()
         {
             Query q = new Query(Social());
