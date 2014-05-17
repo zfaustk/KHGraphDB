@@ -397,11 +397,27 @@ namespace KHGraphDB.Language
 
         QueryResult ExecPattern(Pattern pat)
         {
+            QueryResult r;
             if (pat.Rels.Count == 0)
-                return ExecNodes(pat.Nodes[0]);
-            if (pat.Rels.Count == 1)
-                return ExecOneHop(pat.Nodes[0], pat.Rels[0], pat.Nodes[1]);
-            return ExecChain(pat);
+                r = ExecNodes(pat.Nodes[0]);
+            else if (pat.Rels.Count == 1)
+                r = ExecOneHop(pat.Nodes[0], pat.Rels[0], pat.Nodes[1]);
+            else
+                r = ExecChain(pat);
+            if (pat.Optional && r.Rows.Count == 0)
+            {
+                List<object> row = new List<object>();
+                for (int i = 0; i < r.Columns.Count; i++)
+                    row.Add(null);
+                if (r.Columns.Count == 0)
+                {
+                    r.Columns.Add("n");
+                    row.Add(null);
+                }
+                r.Rows.Add(row);
+                r.Message = "optional empty";
+            }
+            return r;
         }
 
         QueryResult ExecChain(Pattern pat)
