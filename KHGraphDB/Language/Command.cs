@@ -7,7 +7,7 @@ using KHGraphDB.Structure.Interface;
 namespace KHGraphDB.Language
 {
     /// <summary>
-    /// 2013 command language: find / near / type / path / shortest.
+    /// find / near stay. MATCH / MERGE / RETURN go to Query.
     /// </summary>
     public class Command
     {
@@ -30,6 +30,19 @@ namespace KHGraphDB.Language
             if (s.Length == 0)
                 return CommandResult.Fail("empty");
 
+            string head0 = s.TrimStart();
+            int sp = 0;
+            while (sp < head0.Length && !char.IsWhiteSpace(head0[sp]))
+                sp++;
+            string word = head0.Substring(0, sp).ToUpperInvariant();
+            if (word == "MATCH" || word == "OPTIONAL" || word == "MERGE" || word == "RETURN")
+            {
+                QueryResult qr = new Query(_graph).Run(s);
+                if (!qr.Succeeded)
+                    return CommandResult.Fail(qr.Message);
+                return CommandResult.Ok(qr.Message, qr.Vertices);
+            }
+
             string[] parts = Split(s);
             if (parts.Length == 0)
                 return CommandResult.Fail("empty");
@@ -45,7 +58,7 @@ namespace KHGraphDB.Language
                 return PathOf(parts);
             if (head == "shortest")
                 return Shortest(parts);
-            return CommandResult.Fail("2013 language: find Person | find Person name=Alice | near Alice 2 | type Idea | path Alice Bob | shortest Alice Bob");
+            return CommandResult.Fail("find | near | path | MATCH (a:Person)-[:KNOWS]->(b) | MERGE (p:Person {name:Ada})");
         }
 
         CommandResult Find(string[] parts)
