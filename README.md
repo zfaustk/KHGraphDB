@@ -12,7 +12,9 @@ Type is a first-class object, not a string on the vertex or the edge.
 - Schema index on `(Type, key)`. Unique constraints.
 - BFS / DFS / Dijkstra scratch in AlgorithmObjs
 - KHG2 snapshots. KHG1 still reads.
-- Commands: `find Person` · `near Alice 2` · `path Alice Bob` · `shortest Alice Bob`
+- Commands: `find Person` · `near Alice 2` · `path Alice Bob`
+- MATCH: `MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b`
+- MERGE: `MERGE (p:Person {name:'Ada'})`
 
 ## Build
 
