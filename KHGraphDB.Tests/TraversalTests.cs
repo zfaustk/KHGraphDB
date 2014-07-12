@@ -37,6 +37,14 @@ namespace KHGraphDB.Tests
                 .Uniqueness(Uniqueness.NodeGlobal)
                 .Vertices();
             Assert.Eq(3, global.Count, "NODE_GLOBAL visits each once");
+
+            IList<IVertex> dfs = Traversal.Describe(alice)
+                .DepthFirst()
+                .Relationships("KNOWS")
+                .MaxDepth(2)
+                .Uniqueness(Uniqueness.NodePath)
+                .Vertices();
+            Assert.IsTrue(dfs.Count >= 3, "dfs walks");
         }
     }
 }
