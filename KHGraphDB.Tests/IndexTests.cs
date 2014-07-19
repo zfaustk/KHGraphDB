@@ -54,5 +54,18 @@ namespace KHGraphDB.Tests
             Assert.IsTrue(threw, "unique rejects Carol as Alice");
             Assert.Eq("Carol", carol["name"], "value unchanged on reject");
         }
+
+        public static void Age()
+        {
+            Graph g = new Graph();
+            IType person = g.AddType("Person", null);
+            g.CreateIndex("Person", "age");
+            Dictionary<string, object> a = new Dictionary<string, object>();
+            a["name"] = "Ada";
+            a["age"] = "36";
+            g.AddVertex(a, person);
+            IList<IVertex> hits = g.Find("Person", "age", "36");
+            Assert.Eq(1, hits.Count, "index on age");
+        }
     }
 }

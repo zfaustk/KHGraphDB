@@ -12,6 +12,7 @@ namespace KHGraphDB.Tests
             SnapshotTests.Run();
             IndexTests.Run();
             IndexTests.Unique();
+            IndexTests.Age();
             QueryTests.Nodes();
             QueryTests.OneHop();
             QueryTests.Inbound();
