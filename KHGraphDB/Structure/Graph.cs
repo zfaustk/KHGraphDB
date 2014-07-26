@@ -511,6 +511,18 @@ namespace KHGraphDB.Structure
             }
         }
 
+        public void Clear()
+        {
+            List<IVertex> verts = new List<IVertex>(_vertices.Values);
+            for (int i = 0; i < verts.Count; i++)
+                RemoveVertex(verts[i]);
+            List<IType> types = new List<IType>(_types.Values);
+            for (int i = 0; i < types.Count; i++)
+                RemoveType(types[i]);
+            _indexes.Clear();
+            _verticesByName.Clear();
+        }
+
         internal void OnVertexNameChanged(IVertex theVertex, object oldName, object newName)
         {
             UnindexName(theVertex, oldName);
