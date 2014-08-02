@@ -70,6 +70,8 @@ namespace KHGraphDB.Structure.Interface
 
         IList<IVertex> Find(string typeName, string key, object value);
 
+        IGraph Clone();
+
         void Clear();
     }
 }

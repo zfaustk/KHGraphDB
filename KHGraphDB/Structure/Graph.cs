@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using KHGraphDB.Helper;
 using KHGraphDB.Structure.Interface;
 
 namespace KHGraphDB.Structure
@@ -509,6 +511,14 @@ namespace KHGraphDB.Structure
                     continue;
                 idx.Remove(theVertex, theVertex[idx.Key]);
             }
+        }
+
+        public IGraph Clone()
+        {
+            MemoryStream ms = new MemoryStream();
+            GraphWriter.Write(this, ms);
+            ms.Position = 0;
+            return GraphReader.Read(ms);
         }
 
         public void Clear()
