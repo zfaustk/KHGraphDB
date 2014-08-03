@@ -513,6 +513,49 @@ namespace KHGraphDB.Structure
             }
         }
 
+        public IGraph Subgraph(IEnumerable<IVertex> keep)
+        {
+            HashSet<IVertex> set = new HashSet<IVertex>();
+            if (keep != null)
+            {
+                foreach (IVertex v in keep)
+                    set.Add(v);
+            }
+            Graph g = new Graph();
+            Dictionary<string, IVertex> map = new Dictionary<string, IVertex>(StringComparer.Ordinal);
+            foreach (IVertex v in set)
+            {
+                if (v == null || !_vertices.ContainsKey(v.KHID))
+                    continue;
+                Vertex nv = new Vertex(v.KHID, new Dictionary<string, object>(v.Attributes));
+                IType primary = null;
+                foreach (IType t in v.Types)
+                {
+                    IType nt = g.AddType(t.Name, null);
+                    if (primary == null)
+                        primary = nt;
+                    else
+                        nv.AddType(nt);
+                }
+                g.AddVertex(nv, primary);
+                map[v.KHID] = nv;
+            }
+            foreach (IEdge e in _edges.Values)
+            {
+                IVertex a, b;
+                if (!map.TryGetValue(e.Source.KHID, out a) || !map.TryGetValue(e.Target.KHID, out b))
+                    continue;
+                IType et = null;
+                if (e.Type != null)
+                    et = g.AddType(e.Type.Name, null);
+                Edge ne = new Edge(e.KHID, a, b, new Dictionary<string, object>(e.Attributes));
+                if (et != null)
+                    ne.Type = et;
+                g.AddEdge(ne);
+            }
+            return g;
+        }
+
         public IGraph Clone()
         {
             MemoryStream ms = new MemoryStream();

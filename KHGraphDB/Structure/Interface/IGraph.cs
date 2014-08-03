@@ -72,6 +72,8 @@ namespace KHGraphDB.Structure.Interface
 
         IGraph Clone();
 
+        IGraph Subgraph(IEnumerable<IVertex> keep);
+
         void Clear();
     }
 }
