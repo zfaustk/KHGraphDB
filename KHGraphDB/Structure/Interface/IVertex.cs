@@ -34,6 +34,10 @@ namespace KHGraphDB.Structure.Interface
 
         long OutDegree { get; }
 
+        IEdge OutgoingAt(int index);
+
+        IEdge IncomingAt(int index);
+
         bool AddOutgoingEdge(IEdge theEdge);
 
         bool AddIncomingEdge(IEdge theEdge);

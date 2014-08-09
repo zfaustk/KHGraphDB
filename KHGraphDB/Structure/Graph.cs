@@ -528,16 +528,13 @@ namespace KHGraphDB.Structure
                 if (v == null || !_vertices.ContainsKey(v.KHID))
                     continue;
                 Vertex nv = new Vertex(v.KHID, new Dictionary<string, object>(v.Attributes));
-                IType primary = null;
+                List<IType> worn = new List<IType>();
                 foreach (IType t in v.Types)
-                {
-                    IType nt = g.AddType(t.Name, null);
-                    if (primary == null)
-                        primary = nt;
-                    else
-                        nv.AddType(nt);
-                }
+                    worn.Add(g.AddType(t.Name, null));
+                IType primary = worn.Count > 0 ? worn[0] : null;
                 g.AddVertex(nv, primary);
+                for (int i = 1; i < worn.Count; i++)
+                    nv.AddType(worn[i]);
                 map[v.KHID] = nv;
             }
             foreach (IEdge e in _edges.Values)
