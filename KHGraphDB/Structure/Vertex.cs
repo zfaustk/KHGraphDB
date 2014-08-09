@@ -142,6 +142,16 @@ namespace KHGraphDB.Structure
             get { return _outgoing.Count; }
         }
 
+        public IEdge OutgoingAt(int index)
+        {
+            return _outgoing[index];
+        }
+
+        public IEdge IncomingAt(int index)
+        {
+            return _incoming[index];
+        }
+
         public override object this[string theKey]
         {
             get { return base[theKey]; }
