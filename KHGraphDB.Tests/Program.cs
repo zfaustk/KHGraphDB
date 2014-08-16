@@ -8,6 +8,7 @@ namespace KHGraphDB.Tests
         {
             GraphTests.Run();
             GraphTests.MultiType();
+            GraphTests.CloneAndSubgraph();
             GraphTests.TypedEdges();
             SnapshotTests.Run();
             IndexTests.Run();
