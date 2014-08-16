@@ -51,6 +51,35 @@ namespace KHGraphDB.Tests
             Assert.IsTrue(!ada.HasType("Person"), "Person gone");
         }
 
+        public static void CloneAndSubgraph()
+        {
+            Graph g = new Graph();
+            IType person = g.AddType("Person", null);
+            IType author = g.AddType("Author", null);
+            IType knows = g.AddType("KNOWS", null);
+            Dictionary<string, object> a = new Dictionary<string, object>();
+            a["name"] = "Ada";
+            IVertex ada = g.AddVertex(a, person);
+            ada.AddType(author);
+            Dictionary<string, object> b = new Dictionary<string, object>();
+            b["name"] = "Bob";
+            IVertex bob = g.AddVertex(b, person);
+            g.AddEdge(ada, bob, knows);
+            g.CreateUniqueConstraint("Person", "name");
+
+            Graph h = (Graph)g.Clone();
+            Assert.Eq(2L, h.VertexCount, "clone vertices");
+            Assert.IsTrue(h.GetVertexByName("Ada").HasType("Author"), "clone multi-type");
+            IList<IVertex> one = new List<IVertex>();
+            one.Add(ada);
+            Graph s = (Graph)g.Subgraph(one);
+            Assert.Eq(1L, s.VertexCount, "subgraph Ada");
+            Assert.Eq(0L, s.EdgeCount, "no Bob, no edge");
+
+            g.Clear();
+            Assert.Eq(0L, g.VertexCount, "cleared");
+        }
+
         public static void TypedEdges()
         {
             Graph g = new Graph();
