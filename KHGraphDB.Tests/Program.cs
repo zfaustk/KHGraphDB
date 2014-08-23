@@ -22,6 +22,7 @@ namespace KHGraphDB.Tests
             QueryTests.Where();
             QueryTests.Cycle();
             TraversalTests.Run();
+            PerfTests.Run();
             QueryTests.ReturnCols();
             QueryTests.Optional();
             QueryTests.MergeNode();
