@@ -397,6 +397,12 @@ namespace KHGraphDB.Language
 
         QueryResult ExecPattern(Pattern pat)
         {
+            for (int i = 0; i < pat.Nodes.Count; i++)
+            {
+                string tn = pat.Nodes[i].TypeName;
+                if (tn != null && _graph.GetTypeByName(tn) == null)
+                    return QueryResult.Fail("unknown type " + tn);
+            }
             QueryResult r;
             if (pat.Rels.Count == 0)
                 r = ExecNodes(pat.Nodes[0]);
