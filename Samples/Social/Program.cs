@@ -22,7 +22,7 @@ namespace KHGraphDB.Samples.Social
             g.AddEdge(bob, carol, knows);
 
             Command cmd = new Command(g);
-            CommandResult r = cmd.Run("near Alice 2");
+            CommandResult r = cmd.Run("MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b");
             Console.WriteLine(r.Message);
             for (int i = 0; i < r.Vertices.Count; i++)
                 Console.WriteLine("  " + r.Vertices[i]["name"]);
