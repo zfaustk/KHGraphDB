@@ -20,6 +20,11 @@ Type is a first-class object, not a string on the vertex or the edge.
 
 Open `KHGraphDB.sln` in Visual Studio 2013. Build. Run `KHGraphDB.Tests`.
 
+## Samples
+
+- `Samples/Social` — Alice KNOWS Bob KNOWS Carol, then MATCH
+- `Samples/Paths` — weighted shortest path
+
 ## Use
 
 ```
