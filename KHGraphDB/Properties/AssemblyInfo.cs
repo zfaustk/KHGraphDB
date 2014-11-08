@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("KHGraphDB")]
-[assembly: AssemblyDescription("A Graph Database. Vertex Edge Type.")]
+[assembly: AssemblyDescription("Directed property graph. Type is an object. MATCH and MERGE.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("kinghand")]
 [assembly: AssemblyProduct("KHGraphDB")]
