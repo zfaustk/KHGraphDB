@@ -91,5 +91,57 @@ namespace KHGraphDB.Tests
             Assert.IsTrue(r.Succeeded, "where");
             Assert.Eq(1, r.Rows.Count, "Alice only");
         }
+
+        public static void ReturnCols()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("MATCH (a:Person)-[:KNOWS]->(b) RETURN b");
+            Assert.IsTrue(r.Succeeded, "return");
+            Assert.Eq(1, r.Columns.Count, "one column");
+            Assert.Eq("b", r.Columns[0], "column b");
+        }
+
+        public static void Optional()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("OPTIONAL MATCH (a:Person {name:'Nobody'})-[:KNOWS]->(b)");
+            Assert.IsTrue(r.Succeeded, "optional");
+            Assert.Eq(1, r.Rows.Count, "one empty row");
+        }
+
+        public static void MergeNode()
+        {
+            Graph g = Social();
+            Query q = new Query(g);
+            QueryResult r = q.Run("MERGE (p:Person {name:'Ada'})");
+            Assert.IsTrue(r.Succeeded, "merge create");
+            Assert.Eq("created", r.Message, "created Ada");
+            QueryResult r2 = q.Run("MERGE (p:Person {name:'Ada'})");
+            Assert.Eq("exists", r2.Message, "second merge exists");
+            Assert.Eq(4L, g.VertexCount, "still four people");
+        }
+
+        public static void MergeEdge()
+        {
+            Graph g = Social();
+            Query q = new Query(g);
+            q.Run("MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Carol'})");
+            int n = 0;
+            foreach (IEdge e in g.GetEdgesByType("KNOWS"))
+                n++;
+            Assert.Eq(3, n, "third KNOWS");
+            q.Run("MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Carol'})");
+            n = 0;
+            foreach (IEdge e in g.GetEdgesByType("KNOWS"))
+                n++;
+            Assert.Eq(3, n, "merge edge idempotent");
+        }
+
+        public static void UnknownType()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("MATCH (n:Nope)");
+            Assert.IsTrue(!r.Succeeded, "unknown type fails");
+        }
     }
 }
