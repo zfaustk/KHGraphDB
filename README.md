@@ -37,3 +37,20 @@ g.AddEdge(alice, bob, knows);
 g.CreateUniqueConstraint("Person", "name");
 ```
 
+
+## Recipes
+
+```
+MATCH (n:Person)
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
+MATCH (a)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b
+OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)
+MERGE (p:Person {name:'Ada'})
+MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Carol'})
+```
+
+Unique names:
+
+```
+g.CreateUniqueConstraint("Person", "name");
+```
