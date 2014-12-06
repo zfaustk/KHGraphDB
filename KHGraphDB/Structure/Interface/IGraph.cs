@@ -5,6 +5,8 @@ namespace KHGraphDB.Structure.Interface
     /// <summary>
     /// A directed property graph. Type is a first-class object.
     /// Lookups are dictionaries. Algorithms do not write Attributes.
+    /// 2.2 surface: multi-type, typed edges, schema index, unique,
+    /// MATCH/MERGE via Query, Clone, Subgraph, Clear.
     /// </summary>
     public interface IGraph : IDBObject
     {
