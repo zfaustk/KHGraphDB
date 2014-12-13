@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.0 - 2014-12-13
+
+- Traversal builder, NODE_GLOBAL / NODE_PATH
+- Graph.Clone, Subgraph, Clear
+- OutgoingAt / IncomingAt
+- Samples: Social (MATCH), Paths (Dijkstra)
+- docs/type.md, docs/performance.md, CONTRIBUTING
+
 ## 2.1.0 - 2014-06-14
 
 - MATCH / OPTIONAL MATCH / WHERE / RETURN
