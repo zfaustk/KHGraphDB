@@ -8,3 +8,6 @@ obj/
 *.exe
 *.cache
 .vs/
+
+TestResult/
+*.suo
