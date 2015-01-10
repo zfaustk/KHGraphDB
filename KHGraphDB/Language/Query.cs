@@ -277,6 +277,8 @@ namespace KHGraphDB.Language
                     attrs[kv.Key] = kv.Value;
             }
             IVertex v = _graph.AddVertex(attrs, t);
+            if (v == null)
+                return QueryResult.Fail("MERGE unique");
             QueryResult c = QueryResult.Ok("MERGE");
             c.Columns.Add(node.Var ?? "n");
             List<object> row2 = new List<object>();
