@@ -137,6 +137,21 @@ namespace KHGraphDB.Tests
             Assert.Eq(3, n, "merge edge idempotent");
         }
 
+        public static void MergeUnique()
+        {
+            Graph g = new Graph();
+            IType person = g.AddType("Person", null);
+            g.CreateUniqueConstraint("Person", "name");
+            Dictionary<string, object> a = new Dictionary<string, object>();
+            a["name"] = "Alice";
+            g.AddVertex(a, person);
+            Query q = new Query(g);
+            QueryResult r = q.Run("MERGE (p:Person {name:'Alice'})");
+            Assert.IsTrue(r.Succeeded, "merge binds Alice");
+            Assert.Eq("exists", r.Message, "not created");
+            Assert.Eq(1L, g.VertexCount, "still one");
+        }
+
         public static void UnknownType()
         {
             Query q = new Query(Social());
