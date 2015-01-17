@@ -28,6 +28,7 @@ namespace KHGraphDB.Tests
             QueryTests.MergeNode();
             QueryTests.MergeEdge();
             QueryTests.MergeUnique();
+            QueryTests.BadSyntax();
             QueryTests.UnknownType();
             CommandTests.Run();
             Console.WriteLine("KHGraphDB.Tests");
