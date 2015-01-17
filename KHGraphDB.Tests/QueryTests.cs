@@ -152,6 +152,13 @@ namespace KHGraphDB.Tests
             Assert.Eq(1L, g.VertexCount, "still one");
         }
 
+        public static void BadSyntax()
+        {
+            Query q = new Query(Social());
+            QueryResult r = q.Run("MATCH ((");
+            Assert.IsTrue(!r.Succeeded, "bad syntax fails");
+        }
+
         public static void UnknownType()
         {
             Query q = new Query(Social());
