@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("kinghand")]
 [assembly: AssemblyProduct("KHGraphDB")]
-[assembly: AssemblyCopyright("Copyright © kinghand 2014")]
+[assembly: AssemblyCopyright("Copyright © kinghand 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]
