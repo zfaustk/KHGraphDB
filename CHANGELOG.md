@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.1 - 2015-01-31
+
+- Command MATCH regression tests
+- MERGE binds unique names instead of crashing on create
+- Broken MATCH syntax is a failed query
+
 ## 2.2.0 - 2014-12-13
 
 - Traversal builder, NODE_GLOBAL / NODE_PATH
