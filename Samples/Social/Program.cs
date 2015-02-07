@@ -22,6 +22,8 @@ namespace KHGraphDB.Samples.Social
             g.AddEdge(bob, carol, knows);
 
             Command cmd = new Command(g);
+            cmd.Run("MERGE (p:Person {name:'Ada'})");
+            cmd.Run("MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Ada'})");
             CommandResult r = cmd.Run("MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b");
             Console.WriteLine(r.Message);
             for (int i = 0; i < r.Vertices.Count; i++)
