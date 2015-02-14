@@ -2,7 +2,7 @@
 
 A graph database library. Vertex, Edge, Type. By kinghand.
 
-**2.2.0** (2014). C# 5 / .NET 4.5. No packages.
+**2.2.1** (2015). C# 5 / .NET 4.5. No packages. The C# kernel is frozen.
 
 C# 5 / .NET 4.5. No packages. The graph is directed.
 Type is a first-class object, not a string on the vertex or the edge.
