@@ -10,3 +10,5 @@ in the kernel. Tests are a console runner, also BCL only.
 
 Build `KHGraphDB.sln` in Visual Studio 2013. Run
 `KHGraphDB.Tests.exe`.
+
+The C# kernel is frozen at 2.2.1. Do not add C# 6.
