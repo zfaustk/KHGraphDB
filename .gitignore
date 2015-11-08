@@ -11,3 +11,5 @@ obj/
 
 TestResult/
 *.suo
+
+target/
