@@ -1,0 +1,261 @@
+use std::collections::HashMap;
+
+use error::{Error, Result};
+use vertex::Vertex;
+use edge::Edge;
+use ty::Type;
+
+/// Directed property graph. Lookups are HashMaps. KHID is identity.
+pub struct Graph {
+    id: String,
+    serial: u64,
+    vertices: HashMap<String, Vertex>,
+    edges: HashMap<String, Edge>,
+    types: HashMap<String, Type>,
+    types_by_name: HashMap<String, String>,
+    vertices_by_name: HashMap<String, String>,
+}
+
+impl Graph {
+    pub fn new() -> Graph {
+        Graph {
+            id: "g1".to_string(),
+            serial: 0,
+            vertices: HashMap::new(),
+            edges: HashMap::new(),
+            types: HashMap::new(),
+            types_by_name: HashMap::new(),
+            vertices_by_name: HashMap::new(),
+        }
+    }
+
+    pub fn khid(&self) -> &str {
+        &self.id
+    }
+
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+
+    pub fn type_count(&self) -> usize {
+        self.types.len()
+    }
+
+    fn next_id(&mut self) -> String {
+        self.serial += 1;
+        format!("k{:x}", self.serial)
+    }
+
+    pub fn vertex(&self, khid: &str) -> Option<&Vertex> {
+        self.vertices.get(khid)
+    }
+
+    pub fn vertex_mut(&mut self, khid: &str) -> Option<&mut Vertex> {
+        self.vertices.get_mut(khid)
+    }
+
+    pub fn edge(&self, khid: &str) -> Option<&Edge> {
+        self.edges.get(khid)
+    }
+
+    pub fn ty(&self, khid: &str) -> Option<&Type> {
+        self.types.get(khid)
+    }
+
+    pub fn type_by_name(&self, name: &str) -> Option<&Type> {
+        match self.types_by_name.get(name) {
+            Some(id) => self.types.get(id),
+            None => None,
+        }
+    }
+
+    pub fn vertex_by_name(&self, name: &str) -> Option<&Vertex> {
+        match self.vertices_by_name.get(name) {
+            Some(id) => self.vertices.get(id),
+            None => None,
+        }
+    }
+
+    pub fn add_type(&mut self, name: &str) -> Result<String> {
+        if name.is_empty() {
+            return Err(Error::new("empty type name"));
+        }
+        if let Some(id) = self.types_by_name.get(name) {
+            return Ok(id.clone());
+        }
+        let id = self.next_id();
+        let t = Type::new(id.clone(), name.to_string());
+        self.types_by_name.insert(name.to_string(), id.clone());
+        self.types.insert(id.clone(), t);
+        Ok(id)
+    }
+
+    pub fn add_vertex(&mut self,
+                      attrs: HashMap<String, String>,
+                      type_name: Option<&str>)
+                      -> Result<String> {
+        let id = self.next_id();
+        let mut v = Vertex::new(id.clone(), attrs);
+        if let Some(name) = v.get("name") {
+            if !self.vertices_by_name.contains_key(name) {
+                self.vertices_by_name.insert(name.to_string(), id.clone());
+            }
+        }
+        if let Some(tn) = type_name {
+            let tid = try!(self.add_type(tn));
+            v.attach_type(&tid);
+            match self.types.get_mut(&tid) {
+                Some(t) => {
+                    t.add_vertex(&id);
+                }
+                None => {}
+            }
+        }
+        self.vertices.insert(id.clone(), v);
+        Ok(id)
+    }
+
+    pub fn add_edge(&mut self,
+                    src: &str,
+                    dst: &str,
+                    type_name: Option<&str>)
+                    -> Result<String> {
+        if !self.vertices.contains_key(src) || !self.vertices.contains_key(dst) {
+            return Err(Error::new("missing vertex"));
+        }
+        let id = self.next_id();
+        let mut e = Edge::new(id.clone(), src.to_string(), dst.to_string(), HashMap::new());
+        if let Some(tn) = type_name {
+            let tid = try!(self.add_type(tn));
+            e.set_type(&tid);
+            if let Some(t) = self.types.get_mut(&tid) {
+                t.add_edge(&id);
+            }
+        }
+        {
+            let srcv = self.vertices.get_mut(src).unwrap();
+            srcv.add_out(&id);
+        }
+        {
+            let dstv = self.vertices.get_mut(dst).unwrap();
+            dstv.add_in(&id);
+        }
+        self.edges.insert(id.clone(), e);
+        Ok(id)
+    }
+
+    pub fn remove_edge(&mut self, eid: &str) -> bool {
+        let (src, dst, tid) = match self.edges.get(eid) {
+            Some(e) => (e.source().to_string(), e.target().to_string(), e.type_id().map(|s| s.to_string())),
+            None => return false,
+        };
+        if let Some(v) = self.vertices.get_mut(&src) {
+            v.remove_out(eid);
+        }
+        if let Some(v) = self.vertices.get_mut(&dst) {
+            v.remove_in(eid);
+        }
+        if let Some(t) = tid {
+            if let Some(ty) = self.types.get_mut(&t) {
+                ty.remove_edge(eid);
+            }
+        }
+        self.edges.remove(eid).is_some()
+    }
+
+    pub fn remove_vertex(&mut self, vid: &str) -> bool {
+        let (outs, ins, tps, name) = match self.vertices.get(vid) {
+            Some(v) => {
+                let o: Vec<String> = v.outgoing().iter().map(|s| s.clone()).collect();
+                let i: Vec<String> = v.incoming().iter().map(|s| s.clone()).collect();
+                let t: Vec<String> = v.types().iter().map(|s| s.clone()).collect();
+                let n = v.get("name").map(|s| s.to_string());
+                (o, i, t, n)
+            }
+            None => return false,
+        };
+        for e in outs.iter() {
+            self.remove_edge(e);
+        }
+        for e in ins.iter() {
+            self.remove_edge(e);
+        }
+        for t in tps.iter() {
+            if let Some(ty) = self.types.get_mut(t) {
+                ty.remove_vertex(vid);
+            }
+        }
+        if let Some(n) = name {
+            if let Some(owned) = self.vertices_by_name.get(&n).cloned() {
+                if owned == vid {
+                    self.vertices_by_name.remove(&n);
+                }
+            }
+        }
+        self.vertices.remove(vid).is_some()
+    }
+
+    pub fn add_type_to_vertex(&mut self, vid: &str, type_name: &str) -> Result<bool> {
+        let tid = try!(self.add_type(type_name));
+        {
+            let v = match self.vertices.get_mut(vid) {
+                Some(v) => v,
+                None => return Err(Error::new("missing vertex")),
+            };
+            if !v.attach_type(&tid) {
+                return Ok(false);
+            }
+        }
+        if let Some(t) = self.types.get_mut(&tid) {
+            t.add_vertex(vid);
+        }
+        Ok(true)
+    }
+
+    pub fn has_type(&self, vid: &str, type_name: &str) -> bool {
+        let v = match self.vertices.get(vid) {
+            Some(v) => v,
+            None => return false,
+        };
+        for tid in v.types().iter() {
+            if let Some(t) = self.types.get(tid) {
+                if t.name() == type_name {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn vertices_of_type(&self, type_name: &str) -> Vec<String> {
+        match self.type_by_name(type_name) {
+            Some(t) => t.vertices().iter().map(|s| s.clone()).collect(),
+            None => Vec::new(),
+        }
+    }
+
+    pub fn edges_of_type(&self, type_name: &str) -> Vec<String> {
+        match self.type_by_name(type_name) {
+            Some(t) => t.edges().iter().map(|s| s.clone()).collect(),
+            None => Vec::new(),
+        }
+    }
+
+    pub fn vertex_ids(&self) -> Vec<String> {
+        self.vertices.keys().map(|k| k.clone()).collect()
+    }
+
+    pub fn type_name_of(&self, tid: &str) -> Option<&str> {
+        self.types.get(tid).map(|t| t.name())
+    }
+}
+
+impl Default for Graph {
+    fn default() -> Graph {
+        Graph::new()
+    }
+}
