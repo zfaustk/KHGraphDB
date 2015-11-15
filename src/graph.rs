@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use error::{Error, Result};
-use vertex::Vertex;
-use edge::Edge;
-use ty::Type;
+use super::error::{Error, Result};
+use super::vertex::Vertex;
+use super::edge::Edge;
+use super::ty::Type;
 
 /// Directed property graph. Lookups are HashMaps. KHID is identity.
 pub struct Graph {
