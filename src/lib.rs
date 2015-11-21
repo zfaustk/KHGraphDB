@@ -12,6 +12,7 @@ pub mod graph;
 pub mod vertex;
 pub mod edge;
 pub mod ty;
+pub mod index;
 
 #[cfg(test)]
 mod tests {

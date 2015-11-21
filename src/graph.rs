@@ -4,6 +4,7 @@ use super::error::{Error, Result};
 use super::vertex::Vertex;
 use super::edge::Edge;
 use super::ty::Type;
+use super::index::SchemaIndex;
 
 /// Directed property graph. Lookups are HashMaps. KHID is identity.
 pub struct Graph {
@@ -14,6 +15,7 @@ pub struct Graph {
     types: HashMap<String, Type>,
     types_by_name: HashMap<String, String>,
     vertices_by_name: HashMap<String, String>,
+    indexes: HashMap<String, SchemaIndex>,
 }
 
 impl Graph {
@@ -26,6 +28,7 @@ impl Graph {
             types: HashMap::new(),
             types_by_name: HashMap::new(),
             vertices_by_name: HashMap::new(),
+            indexes: HashMap::new(),
         }
     }
 
@@ -98,6 +101,16 @@ impl Graph {
                       attrs: HashMap<String, String>,
                       type_name: Option<&str>)
                       -> Result<String> {
+        if let Some(tn) = type_name {
+            for (k, val) in attrs.iter() {
+                let iid = SchemaIndex::id(tn, k);
+                if let Some(idx) = self.indexes.get(&iid) {
+                    if idx.unique() && idx.contains_other(val, "") {
+                        return Err(Error::new("unique constraint"));
+                    }
+                }
+            }
+        }
         let id = self.next_id();
         let mut v = Vertex::new(id.clone(), attrs);
         if let Some(name) = v.get("name") {
@@ -113,6 +126,16 @@ impl Graph {
                     t.add_vertex(&id);
                 }
                 None => {}
+            }
+            let keys: Vec<(String, String)> = v.attrs()
+                .iter()
+                .map(|(k, val)| (k.clone(), val.clone()))
+                .collect();
+            for (k, val) in keys.iter() {
+                let iid = SchemaIndex::id(tn, k);
+                if let Some(idx) = self.indexes.get_mut(&iid) {
+                    idx.add(&id, val);
+                }
             }
         }
         self.vertices.insert(id.clone(), v);
@@ -253,6 +276,108 @@ impl Graph {
         self.types.get(tid).map(|t| t.name())
     }
 }
+
+
+    pub fn create_index(&mut self, type_name: &str, key: &str) -> bool {
+        self.create_index_inner(type_name, key, false)
+    }
+
+    pub fn create_unique(&mut self, type_name: &str, key: &str) -> bool {
+        self.create_index_inner(type_name, key, true)
+    }
+
+    fn create_index_inner(&mut self, type_name: &str, key: &str, unique: bool) -> bool {
+        if type_name.is_empty() || key.is_empty() {
+            return false;
+        }
+        let id = SchemaIndex::id(type_name, key);
+        if let Some(idx) = self.indexes.get_mut(&id) {
+            if unique {
+                idx.set_unique();
+            }
+            return true;
+        }
+        let mut idx = SchemaIndex::new(type_name, key, unique);
+        let vids = self.vertices_of_type(type_name);
+        for vid in vids.iter() {
+            let val = match self.vertices.get(vid) {
+                Some(v) => v.get(key).unwrap_or("").to_string(),
+                None => String::new(),
+            };
+            if unique && idx.contains_other(&val, vid) {
+                return false;
+            }
+            idx.add(vid, &val);
+        }
+        self.indexes.insert(id, idx);
+        true
+    }
+
+    pub fn find(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
+        let id = SchemaIndex::id(type_name, key);
+        if let Some(idx) = self.indexes.get(&id) {
+            return idx.get(value);
+        }
+        let mut hits = Vec::new();
+        for vid in self.vertices_of_type(type_name).iter() {
+            if let Some(v) = self.vertices.get(vid) {
+                if v.get(key) == Some(value) {
+                    hits.push(vid.clone());
+                }
+            }
+        }
+        hits
+    }
+
+    pub fn set_attr(&mut self, vid: &str, key: &str, value: &str) -> Result<()> {
+        let types: Vec<String> = match self.vertices.get(vid) {
+            Some(v) => v.types().iter().map(|s| s.clone()).collect(),
+            None => return Err(Error::new("missing vertex")),
+        };
+        let old = match self.vertices.get(vid) {
+            Some(v) => v.get(key).unwrap_or("").to_string(),
+            None => String::new(),
+        };
+        for tid in types.iter() {
+            let tname = match self.types.get(tid) {
+                Some(t) => t.name().to_string(),
+                None => continue,
+            };
+            let iid = SchemaIndex::id(&tname, key);
+            if let Some(idx) = self.indexes.get(&iid) {
+                if idx.unique() && idx.contains_other(value, vid) {
+                    return Err(Error::new("unique constraint"));
+                }
+            }
+        }
+        if let Some(v) = self.vertices.get_mut(vid) {
+            v.set_attr(key, value);
+        }
+        if key == "name" {
+            if !old.is_empty() {
+                if let Some(owned) = self.vertices_by_name.get(&old).cloned() {
+                    if owned == vid {
+                        self.vertices_by_name.remove(&old);
+                    }
+                }
+            }
+            if !self.vertices_by_name.contains_key(value) {
+                self.vertices_by_name.insert(value.to_string(), vid.to_string());
+            }
+        }
+        for tid in types.iter() {
+            let tname = match self.types.get(tid) {
+                Some(t) => t.name().to_string(),
+                None => continue,
+            };
+            let iid = SchemaIndex::id(&tname, key);
+            if let Some(idx) = self.indexes.get_mut(&iid) {
+                idx.remove(vid, &old);
+                idx.add(vid, value);
+            }
+        }
+        Ok(())
+    }
 
 impl Default for Graph {
     fn default() -> Graph {
