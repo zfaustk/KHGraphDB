@@ -50,4 +50,18 @@ mod tests {
         assert!(g.has_type(&ada, "Author"));
         assert_eq!(g.type_by_name("Author").unwrap().vertex_count(), 1);
     }
+
+    #[test]
+    fn unique_name() {
+        let mut g = Graph::new();
+        g.add_type("Person").unwrap();
+        assert!(g.create_unique("Person", "name"));
+        let a = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+        assert!(g.add_vertex(attrs("Alice"), Some("Person")).is_err());
+        assert_eq!(g.vertex_count(), 1);
+        let c = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
+        assert!(g.set_attr(&c, "name", "Alice").is_err());
+        assert_eq!(g.vertex(&c).unwrap().get("name"), Some("Carol"));
+        assert_eq!(g.find("Person", "name", "Alice"), vec![a.clone()]);
+    }
 }
