@@ -379,6 +379,100 @@ impl Graph {
         Ok(())
     }
 
+
+    pub fn all_types(&self) -> Vec<(String, String)> {
+        self.types.values().map(|t| (t.khid().to_string(), t.name().to_string())).collect()
+    }
+
+    pub fn all_edges(&self) -> Vec<(String, String, String, Option<String>)> {
+        self.edges
+            .values()
+            .map(|e| {
+                (e.khid().to_string(),
+                 e.source().to_string(),
+                 e.target().to_string(),
+                 e.type_id().map(|s| s.to_string()))
+            })
+            .collect()
+    }
+
+    pub fn restore_vertex(&mut self,
+                          id: String,
+                          attrs: HashMap<String, String>,
+                          type_names: Vec<String>)
+                          -> Result<String> {
+        let mut v = Vertex::new(id.clone(), attrs);
+        if let Some(name) = v.get("name") {
+            if !self.vertices_by_name.contains_key(name) {
+                self.vertices_by_name.insert(name.to_string(), id.clone());
+            }
+        }
+        let names = type_names;
+        for (i, tn) in names.iter().enumerate() {
+            let tid = try!(self.add_type(tn));
+            v.attach_type(&tid);
+            if let Some(t) = self.types.get_mut(&tid) {
+                t.add_vertex(&id);
+            }
+            let _ = i;
+        }
+        self.vertices.insert(id.clone(), v);
+        Ok(id)
+    }
+
+    pub fn restore_edge(&mut self,
+                        id: String,
+                        src: String,
+                        dst: String,
+                        type_name: Option<String>)
+                        -> Result<String> {
+        if !self.vertices.contains_key(&src) || !self.vertices.contains_key(&dst) {
+            return Err(Error::new("missing vertex"));
+        }
+        let mut e = Edge::new(id.clone(), src.clone(), dst.clone(), HashMap::new());
+        if let Some(ref tn) = type_name {
+            if !tn.is_empty() {
+                let tid = try!(self.add_type(tn));
+                e.set_type(&tid);
+                if let Some(t) = self.types.get_mut(&tid) {
+                    t.add_edge(&id);
+                }
+            }
+        }
+        {
+            let srcv = self.vertices.get_mut(&src).unwrap();
+            srcv.add_out(&id);
+        }
+        {
+            let dstv = self.vertices.get_mut(&dst).unwrap();
+            dstv.add_in(&id);
+        }
+        self.edges.insert(id.clone(), e);
+        Ok(id)
+    }
+
+    pub fn type_names_of_vertex(&self, vid: &str) -> Vec<String> {
+        match self.vertices.get(vid) {
+            Some(v) => {
+                let mut names = Vec::new();
+                for tid in v.types().iter() {
+                    if let Some(t) = self.types.get(tid) {
+                        names.push(t.name().to_string());
+                    }
+                }
+                names
+            }
+            None => Vec::new(),
+        }
+    }
+
+    pub fn edge_type_name(&self, eid: &str) -> Option<String> {
+        match self.edges.get(eid) {
+            Some(e) => e.type_id().and_then(|tid| self.types.get(tid).map(|t| t.name().to_string())),
+            None => None,
+        }
+    }
+
 impl Default for Graph {
     fn default() -> Graph {
         Graph::new()

@@ -13,6 +13,7 @@ pub mod vertex;
 pub mod edge;
 pub mod ty;
 pub mod index;
+pub mod io;
 
 #[cfg(test)]
 mod tests {
@@ -63,5 +64,24 @@ mod tests {
         assert!(g.set_attr(&c, "name", "Alice").is_err());
         assert_eq!(g.vertex(&c).unwrap().get("name"), Some("Carol"));
         assert_eq!(g.find("Person", "name", "Alice"), vec![a.clone()]);
+    }
+
+    #[test]
+    fn snapshot() {
+        use std::io::Cursor;
+        let mut g = Graph::new();
+        let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+        g.add_type_to_vertex(&ada, "Author").unwrap();
+        let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+        g.add_edge(&ada, &bob, Some("KNOWS")).unwrap();
+        let mut buf = Vec::new();
+        super::io::write_graph(&g, &mut buf).unwrap();
+        let mut cur = Cursor::new(buf);
+        let h = super::io::read_graph(&mut cur).unwrap();
+        assert_eq!(h.vertex_count(), 2);
+        assert!(h.vertex_by_name("Ada").is_some());
+        let ada2 = h.vertex_by_name("Ada").unwrap().khid().to_string();
+        assert!(h.has_type(&ada2, "Author"));
+        assert_eq!(h.edges_of_type("KNOWS").len(), 1);
     }
 }
