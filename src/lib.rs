@@ -14,6 +14,7 @@ pub mod edge;
 pub mod ty;
 pub mod index;
 pub mod io;
+pub mod algo;
 
 #[cfg(test)]
 mod tests {
@@ -83,5 +84,24 @@ mod tests {
         let ada2 = h.vertex_by_name("Ada").unwrap().khid().to_string();
         assert!(h.has_type(&ada2, "Author"));
         assert_eq!(h.edges_of_type("KNOWS").len(), 1);
+    }
+
+    #[test]
+    fn bfs_and_dijkstra() {
+        let mut g = Graph::new();
+        let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+        let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+        let c = g.add_vertex(attrs("C"), Some("City")).unwrap();
+        g.add_edge(&a, &b, Some("ROAD")).unwrap();
+        g.add_edge(&b, &c, Some("ROAD")).unwrap();
+        g.add_edge(&a, &c, Some("ROAD")).unwrap();
+        let near = super::algo::nearby(&g, &a, 2);
+        assert!(near.len() >= 1);
+        let p = super::algo::path(&g, &a, &c).unwrap();
+        assert_eq!(p[0], a);
+        assert_eq!(*p.last().unwrap(), c);
+        assert!(!super::algo::has_cycle(&g));
+        let s = super::algo::shortest(&g, &a, &c).unwrap();
+        assert_eq!(s.last().unwrap(), &c);
     }
 }
