@@ -50,4 +50,8 @@ impl Edge {
     pub fn attrs(&self) -> &HashMap<String, String> {
         &self.attrs
     }
+
+    pub fn set_attr(&mut self, key: &str, value: &str) {
+        self.attrs.insert(key.to_string(), value.to_string());
+    }
 }

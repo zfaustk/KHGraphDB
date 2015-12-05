@@ -104,4 +104,20 @@ mod tests {
         let s = super::algo::shortest(&g, &a, &c).unwrap();
         assert_eq!(s.last().unwrap(), &c);
     }
+
+    #[test]
+    fn weighted_shortest() {
+        let mut g = Graph::new();
+        let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+        let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+        let c = g.add_vertex(attrs("C"), Some("City")).unwrap();
+        let ab = g.add_edge(&a, &b, Some("ROAD")).unwrap();
+        let bc = g.add_edge(&b, &c, Some("ROAD")).unwrap();
+        let ac = g.add_edge(&a, &c, Some("ROAD")).unwrap();
+        g.set_edge_attr(&ab, "weight", "2");
+        g.set_edge_attr(&bc, "weight", "2");
+        g.set_edge_attr(&ac, "weight", "5");
+        let s = super::algo::shortest(&g, &a, &c).unwrap();
+        assert_eq!(s, vec![a.clone(), b.clone(), c.clone()]);
+    }
 }

@@ -473,6 +473,18 @@ impl Graph {
         }
     }
 
+
+    pub fn set_edge_attr(&mut self, eid: &str, key: &str, value: &str) -> bool {
+        match self.edges.get_mut(eid) {
+            Some(e) => {
+                // Edge attrs are private. Add a setter on Edge.
+                e.set_attr(key, value);
+                true
+            }
+            None => false,
+        }
+    }
+
 impl Default for Graph {
     fn default() -> Graph {
         Graph::new()
