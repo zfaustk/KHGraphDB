@@ -1,0 +1,730 @@
+use super::error::{Error, Result};
+use super::graph::Graph;
+
+#[derive(Clone, Copy, PartialEq)]
+enum TokenKind {
+    Eof,
+    Ident,
+    String,
+    Number,
+    LParen,
+    RParen,
+    LBrack,
+    RBrack,
+    LBrace,
+    RBrace,
+    Colon,
+    Comma,
+    Dot,
+    Eq,
+    Dash,
+    Arrow,
+    LArrow,
+}
+
+struct Token {
+    kind: TokenKind,
+    text: String,
+}
+
+struct Lexer {
+    s: Vec<char>,
+    i: usize,
+}
+
+impl Lexer {
+    fn new(text: &str) -> Lexer {
+        Lexer {
+            s: text.chars().collect(),
+            i: 0,
+        }
+    }
+
+    fn skip(&mut self) {
+        while self.i < self.s.len() && self.s[self.i].is_whitespace() {
+            self.i += 1;
+        }
+    }
+
+    fn next(&mut self) -> Result<Token> {
+        self.skip();
+        if self.i >= self.s.len() {
+            return Ok(Token {
+                kind: TokenKind::Eof,
+                text: String::new(),
+            });
+        }
+        let c = self.s[self.i];
+        if c == '(' {
+            self.i += 1;
+            return Ok(tok(TokenKind::LParen, "("));
+        }
+        if c == ')' {
+            self.i += 1;
+            return Ok(tok(TokenKind::RParen, ")"));
+        }
+        if c == '[' {
+            self.i += 1;
+            return Ok(tok(TokenKind::LBrack, "["));
+        }
+        if c == ']' {
+            self.i += 1;
+            return Ok(tok(TokenKind::RBrack, "]"));
+        }
+        if c == '{' {
+            self.i += 1;
+            return Ok(tok(TokenKind::LBrace, "{"));
+        }
+        if c == '}' {
+            self.i += 1;
+            return Ok(tok(TokenKind::RBrace, "}"));
+        }
+        if c == ':' {
+            self.i += 1;
+            return Ok(tok(TokenKind::Colon, ":"));
+        }
+        if c == ',' {
+            self.i += 1;
+            return Ok(tok(TokenKind::Comma, ","));
+        }
+        if c == '.' {
+            self.i += 1;
+            return Ok(tok(TokenKind::Dot, "."));
+        }
+        if c == '=' {
+            self.i += 1;
+            return Ok(tok(TokenKind::Eq, "="));
+        }
+        if c == '<' && self.i + 1 < self.s.len() && self.s[self.i + 1] == '-' {
+            self.i += 2;
+            return Ok(tok(TokenKind::LArrow, "<-"));
+        }
+        if c == '-' && self.i + 1 < self.s.len() && self.s[self.i + 1] == '>' {
+            self.i += 2;
+            return Ok(tok(TokenKind::Arrow, "->"));
+        }
+        if c == '-' {
+            self.i += 1;
+            return Ok(tok(TokenKind::Dash, "-"));
+        }
+        if c == '"' || c == '\'' {
+            return self.read_string(c);
+        }
+        if c.is_digit(10) {
+            return self.read_number();
+        }
+        if c.is_alphabetic() || c == '_' {
+            return self.read_ident();
+        }
+        Err(Error::new("bad char"))
+    }
+
+    fn read_ident(&mut self) -> Result<Token> {
+        let start = self.i;
+        self.i += 1;
+        while self.i < self.s.len() {
+            let c = self.s[self.i];
+            if c.is_alphanumeric() || c == '_' {
+                self.i += 1;
+            } else {
+                break;
+            }
+        }
+        let t: String = self.s[start..self.i].iter().cloned().collect();
+        Ok(tok(TokenKind::Ident, &t))
+    }
+
+    fn read_number(&mut self) -> Result<Token> {
+        let start = self.i;
+        while self.i < self.s.len() && self.s[self.i].is_digit(10) {
+            self.i += 1;
+        }
+        let t: String = self.s[start..self.i].iter().cloned().collect();
+        Ok(tok(TokenKind::Number, &t))
+    }
+
+    fn read_string(&mut self, q: char) -> Result<Token> {
+        self.i += 1;
+        let mut out = String::new();
+        while self.i < self.s.len() {
+            let c = self.s[self.i];
+            self.i += 1;
+            if c == q {
+                return Ok(tok(TokenKind::String, &out));
+            }
+            if c == '\\' && self.i < self.s.len() {
+                out.push(self.s[self.i]);
+                self.i += 1;
+                continue;
+            }
+            out.push(c);
+        }
+        Err(Error::new("unterminated string"))
+    }
+}
+
+fn tok(kind: TokenKind, text: &str) -> Token {
+    Token {
+        kind: kind,
+        text: text.to_string(),
+    }
+}
+
+struct NodePat {
+    var: Option<String>,
+    type_name: Option<String>,
+    props: Vec<(String, String)>,
+}
+
+struct RelPat {
+    type_name: Option<String>,
+    dir: i32, // 1 out, -1 in, 0 both
+}
+
+struct Pattern {
+    nodes: Vec<NodePat>,
+    rels: Vec<RelPat>,
+    optional: bool,
+}
+
+pub struct QueryResult {
+    pub ok: bool,
+    pub message: String,
+    pub columns: Vec<String>,
+    pub rows: Vec<Vec<Option<String>>>,
+}
+
+impl QueryResult {
+    fn fail(msg: &str) -> QueryResult {
+        QueryResult {
+            ok: false,
+            message: msg.to_string(),
+            columns: Vec::new(),
+            rows: Vec::new(),
+        }
+    }
+    fn ok_msg(msg: &str) -> QueryResult {
+        QueryResult {
+            ok: true,
+            message: msg.to_string(),
+            columns: Vec::new(),
+            rows: Vec::new(),
+        }
+    }
+}
+
+pub fn run(g: &mut Graph, text: &str) -> QueryResult {
+    match run_inner(g, text) {
+        Ok(r) => r,
+        Err(e) => QueryResult::fail(e.message()),
+    }
+}
+
+fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
+    let mut lx = Lexer::new(text);
+    let mut toks = Vec::new();
+    loop {
+        let t = try!(lx.next());
+        let eof = t.kind == TokenKind::Eof;
+        toks.push(t);
+        if eof {
+            break;
+        }
+    }
+    let mut p = Parser {
+        toks: toks,
+        i: 0,
+    };
+    p.exec(g)
+}
+
+struct Parser {
+    toks: Vec<Token>,
+    i: usize,
+}
+
+impl Parser {
+    fn kind(&self) -> TokenKind {
+        self.toks[self.i].kind
+    }
+    fn text(&self) -> String {
+        self.toks[self.i].text.clone()
+    }
+    fn next(&mut self) {
+        if self.i + 1 < self.toks.len() {
+            self.i += 1;
+        }
+    }
+    fn ident_is(&self, w: &str) -> bool {
+        self.kind() == TokenKind::Ident && self.toks[self.i].text.to_lowercase() == w.to_lowercase()
+    }
+    fn expect(&mut self, k: TokenKind) -> Result<()> {
+        if self.kind() != k {
+            return Err(Error::new("unexpected token"));
+        }
+        self.next();
+        Ok(())
+    }
+    fn expect_ident(&mut self) -> Result<String> {
+        if self.kind() != TokenKind::Ident {
+            return Err(Error::new("expected identifier"));
+        }
+        let s = self.text();
+        self.next();
+        Ok(s)
+    }
+
+    fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        let mut last: Option<QueryResult> = None;
+        while self.kind() != TokenKind::Eof {
+            if self.ident_is("OPTIONAL") {
+                self.next();
+                if !self.ident_is("MATCH") {
+                    return Err(Error::new("expected MATCH"));
+                }
+                self.next();
+                let mut pat = try!(self.parse_pattern());
+                pat.optional = true;
+                last = Some(exec_pattern(g, &pat));
+            } else if self.ident_is("MATCH") {
+                self.next();
+                let pat = try!(self.parse_pattern());
+                last = Some(exec_pattern(g, &pat));
+            } else if self.ident_is("WHERE") {
+                self.next();
+                let preds = try!(self.parse_where());
+                match last {
+                    Some(src) => last = Some(filter_where(g, src, &preds)),
+                    None => return Err(Error::new("WHERE without MATCH")),
+                }
+            } else if self.ident_is("RETURN") {
+                self.next();
+                let cols = try!(self.parse_return());
+                match last {
+                    Some(src) => {
+                        last = Some(project(&src, &cols));
+                        break;
+                    }
+                    None => return Err(Error::new("RETURN without MATCH")),
+                }
+            } else if self.ident_is("MERGE") {
+                self.next();
+                let pat = try!(self.parse_pattern());
+                last = Some(try!(exec_merge(g, &pat)));
+            } else {
+                break;
+            }
+        }
+        match last {
+            Some(r) => Ok(r),
+            None => Err(Error::new("expected MATCH")),
+        }
+    }
+
+    fn parse_pattern(&mut self) -> Result<Pattern> {
+        let mut pat = Pattern {
+            nodes: Vec::new(),
+            rels: Vec::new(),
+            optional: false,
+        };
+        pat.nodes.push(try!(self.parse_node()));
+        loop {
+            match self.kind() {
+                TokenKind::Dash | TokenKind::LArrow | TokenKind::Arrow => {
+                    pat.rels.push(try!(self.parse_rel()));
+                    pat.nodes.push(try!(self.parse_node()));
+                }
+                _ => break,
+            }
+        }
+        Ok(pat)
+    }
+
+    fn parse_node(&mut self) -> Result<NodePat> {
+        try!(self.expect(TokenKind::LParen));
+        let mut n = NodePat {
+            var: None,
+            type_name: None,
+            props: Vec::new(),
+        };
+        if self.kind() == TokenKind::Ident {
+            n.var = Some(self.text());
+            self.next();
+        }
+        if self.kind() == TokenKind::Colon {
+            self.next();
+            n.type_name = Some(try!(self.expect_ident()));
+        }
+        if self.kind() == TokenKind::LBrace {
+            n.props = try!(self.parse_props());
+        }
+        try!(self.expect(TokenKind::RParen));
+        Ok(n)
+    }
+
+    fn parse_rel(&mut self) -> Result<RelPat> {
+        let mut r = RelPat {
+            type_name: None,
+            dir: 1,
+        };
+        if self.kind() == TokenKind::LArrow {
+            r.dir = -1;
+            self.next();
+        } else if self.kind() == TokenKind::Dash {
+            self.next();
+        } else if self.kind() == TokenKind::Arrow {
+            r.dir = 1;
+            self.next();
+            return Ok(r);
+        }
+        if self.kind() == TokenKind::LBrack {
+            self.next();
+            if self.kind() == TokenKind::Ident {
+                self.next();
+            }
+            if self.kind() == TokenKind::Colon {
+                self.next();
+                r.type_name = Some(try!(self.expect_ident()));
+            }
+            try!(self.expect(TokenKind::RBrack));
+        }
+        if self.kind() == TokenKind::Arrow {
+            r.dir = 1;
+            self.next();
+        } else if self.kind() == TokenKind::Dash {
+            if r.dir != -1 {
+                r.dir = 0;
+            }
+            self.next();
+        }
+        Ok(r)
+    }
+
+    fn parse_props(&mut self) -> Result<Vec<(String, String)>> {
+        try!(self.expect(TokenKind::LBrace));
+        let mut d = Vec::new();
+        while self.kind() != TokenKind::RBrace && self.kind() != TokenKind::Eof {
+            let key = try!(self.expect_ident());
+            try!(self.expect(TokenKind::Colon));
+            match self.kind() {
+                TokenKind::String | TokenKind::Number | TokenKind::Ident => {
+                    d.push((key, self.text()));
+                    self.next();
+                }
+                _ => return Err(Error::new("bad property value")),
+            }
+            if self.kind() == TokenKind::Comma {
+                self.next();
+            }
+        }
+        try!(self.expect(TokenKind::RBrace));
+        Ok(d)
+    }
+
+    fn parse_where(&mut self) -> Result<Vec<(String, String, String)>> {
+        let mut list = Vec::new();
+        list.push(try!(self.parse_pred()));
+        while self.ident_is("AND") {
+            self.next();
+            list.push(try!(self.parse_pred()));
+        }
+        Ok(list)
+    }
+
+    fn parse_pred(&mut self) -> Result<(String, String, String)> {
+        let var = try!(self.expect_ident());
+        try!(self.expect(TokenKind::Dot));
+        let key = try!(self.expect_ident());
+        try!(self.expect(TokenKind::Eq));
+        match self.kind() {
+            TokenKind::String | TokenKind::Number | TokenKind::Ident => {
+                let val = self.text();
+                self.next();
+                Ok((var, key, val))
+            }
+            _ => Err(Error::new("bad WHERE value")),
+        }
+    }
+
+    fn parse_return(&mut self) -> Result<Vec<String>> {
+        let mut cols = Vec::new();
+        cols.push(try!(self.expect_ident()));
+        while self.kind() == TokenKind::Comma {
+            self.next();
+            cols.push(try!(self.expect_ident()));
+        }
+        Ok(cols)
+    }
+}
+
+fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
+    for n in pat.nodes.iter() {
+        if let Some(ref tn) = n.type_name {
+            if g.type_by_name(tn).is_none() {
+                return QueryResult::fail(&format!("unknown type {}", tn));
+            }
+        }
+    }
+    let mut r = if pat.rels.is_empty() {
+        exec_nodes(g, &pat.nodes[0])
+    } else {
+        exec_chain(g, pat)
+    };
+    if pat.optional && r.rows.is_empty() {
+        let mut row = Vec::new();
+        if r.columns.is_empty() {
+            r.columns.push("n".to_string());
+        }
+        for _ in 0..r.columns.len() {
+            row.push(None);
+        }
+        r.rows.push(row);
+        r.message = "optional empty".to_string();
+    }
+    r
+}
+
+fn exec_nodes(g: &Graph, n: &NodePat) -> QueryResult {
+    let seeds = seeds(g, n);
+    let mut r = QueryResult::ok_msg("MATCH");
+    r.columns.push(n.var.clone().unwrap_or("n".to_string()));
+    for id in seeds.iter() {
+        r.rows.push(vec![Some(id.clone())]);
+    }
+    r.message = format!("{} row", r.rows.len());
+    r
+}
+
+fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
+    let seeds0 = seeds(g, &pat.nodes[0]);
+    let mut r = QueryResult::ok_msg("MATCH");
+    for (i, n) in pat.nodes.iter().enumerate() {
+        r.columns.push(n.var.clone().unwrap_or(format!("n{}", i)));
+    }
+    for s in seeds0.iter() {
+        let mut path = vec![None; pat.nodes.len()];
+        path[0] = Some(s.clone());
+        walk(g, pat, 0, &mut path, &mut r);
+    }
+    r.message = format!("{} row", r.rows.len());
+    r
+}
+
+fn walk(g: &Graph, pat: &Pattern, rel_i: usize, path: &mut Vec<Option<String>>, r: &mut QueryResult) {
+    let a = match path[rel_i] {
+        Some(ref id) => id.clone(),
+        None => return,
+    };
+    let rel = &pat.rels[rel_i];
+    let next = &pat.nodes[rel_i + 1];
+    let eids = edges_of(g, &a, rel);
+    for eid in eids.iter() {
+        let e = match g.edge(eid) {
+            Some(e) => e,
+            None => continue,
+        };
+        let b = if rel.dir < 0 {
+            e.source().to_string()
+        } else if rel.dir == 0 {
+            if e.source() == a {
+                e.target().to_string()
+            } else {
+                e.source().to_string()
+            }
+        } else {
+            e.target().to_string()
+        };
+        if !node_ok(g, &b, next) {
+            continue;
+        }
+        let mut seen = false;
+        for i in 0..(rel_i + 1) {
+            if path[i].as_ref() == Some(&b) {
+                seen = true;
+                break;
+            }
+        }
+        if seen {
+            continue;
+        }
+        path[rel_i + 1] = Some(b);
+        if rel_i + 1 == pat.rels.len() {
+            r.rows.push(path.clone());
+        } else {
+            walk(g, pat, rel_i + 1, path, r);
+        }
+    }
+}
+
+fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
+    if n.type_name.is_some() && !n.props.is_empty() {
+        let tn = n.type_name.as_ref().unwrap();
+        let &(ref k, ref val) = &n.props[0];
+        let found = g.find(tn, k, val);
+        return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
+    }
+    let src = match n.type_name {
+        Some(ref tn) => g.vertices_of_type(tn),
+        None => g.vertex_ids(),
+    };
+    src.into_iter().filter(|id| node_ok(g, id, n)).collect()
+}
+
+fn node_ok(g: &Graph, vid: &str, n: &NodePat) -> bool {
+    if let Some(ref tn) = n.type_name {
+        if !g.has_type(vid, tn) {
+            return false;
+        }
+    }
+    for &(ref k, ref val) in n.props.iter() {
+        match g.vertex(vid).and_then(|v| v.get(k).map(|s| s.to_string())) {
+            Some(ref got) if got == val => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
+    let v = match g.vertex(vid) {
+        Some(v) => v,
+        None => return Vec::new(),
+    };
+    let mut ids = Vec::new();
+    let src: Vec<String> = if rel.dir > 0 {
+        v.outgoing().iter().map(|s| s.clone()).collect()
+    } else if rel.dir < 0 {
+        v.incoming().iter().map(|s| s.clone()).collect()
+    } else {
+        let mut both = v.outgoing().iter().map(|s| s.clone()).collect::<Vec<_>>();
+        both.extend(v.incoming().iter().map(|s| s.clone()));
+        both
+    };
+    for eid in src.iter() {
+        if let Some(ref tn) = rel.type_name {
+            if g.edge_type_name(eid).as_ref().map(|s| &s[..]) != Some(&tn[..]) {
+                continue;
+            }
+        }
+        ids.push(eid.clone());
+    }
+    ids
+}
+
+fn filter_where(g: &Graph, src: QueryResult, preds: &Vec<(String, String, String)>) -> QueryResult {
+    let mut r = QueryResult::ok_msg("WHERE");
+    r.columns = src.columns.clone();
+    for row in src.rows.iter() {
+        let mut ok = true;
+        for &(ref var, ref key, ref val) in preds.iter() {
+            let col = match src.columns.iter().position(|c| c == var) {
+                Some(i) => i,
+                None => {
+                    ok = false;
+                    break;
+                }
+            };
+            let vid = match row.get(col).and_then(|x| x.as_ref()) {
+                Some(id) => id,
+                None => {
+                    ok = false;
+                    break;
+                }
+            };
+            match g.vertex(vid).and_then(|v| v.get(key).map(|s| s.to_string())) {
+                Some(ref got) if got == val => {}
+                _ => {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        if ok {
+            r.rows.push(row.clone());
+        }
+    }
+    r.message = format!("{} row", r.rows.len());
+    r
+}
+
+fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
+    let mut r = QueryResult::ok_msg("RETURN");
+    let mut map = Vec::new();
+    for c in cols.iter() {
+        r.columns.push(c.clone());
+        map.push(src.columns.iter().position(|x| x == c));
+    }
+    for row in src.rows.iter() {
+        let mut nr = Vec::new();
+        for m in map.iter() {
+            match *m {
+                Some(i) => nr.push(row.get(i).cloned().unwrap_or(None)),
+                None => nr.push(None),
+            }
+        }
+        r.rows.push(nr);
+    }
+    r.message = format!("{} row", r.rows.len());
+    r
+}
+
+fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
+    if pat.rels.is_empty() {
+        return merge_node(g, &pat.nodes[0]);
+    }
+    let left = try!(merge_node(g, &pat.nodes[0]));
+    let right = try!(merge_node(g, &pat.nodes[1]));
+    let a = match left.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()) {
+        Some(id) => id.clone(),
+        None => return Err(Error::new("MERGE nodes")),
+    };
+    let b = match right.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()) {
+        Some(id) => id.clone(),
+        None => return Err(Error::new("MERGE nodes")),
+    };
+    let rel = &pat.rels[0];
+    let eids: Vec<String> = match g.vertex(&a) {
+        Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+        None => Vec::new(),
+    };
+    for eid in eids.iter() {
+        if let Some(e) = g.edge(eid) {
+            if e.target() == b {
+                let ok_t = match rel.type_name {
+                    Some(ref tn) => g.edge_type_name(eid).as_ref().map(|s| &s[..]) == Some(&tn[..]),
+                    None => true,
+                };
+                if ok_t {
+                    let mut r = QueryResult::ok_msg("exists");
+                    r.rows.push(vec![Some(a), Some(b)]);
+                    return Ok(r);
+                }
+            }
+        }
+    }
+    try!(g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..])));
+    let mut r = QueryResult::ok_msg("created");
+    r.rows.push(vec![Some(a), Some(b)]);
+    Ok(r)
+}
+
+fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
+    let found = seeds(g, n);
+    if !found.is_empty() {
+        let mut r = QueryResult::ok_msg("exists");
+        r.columns.push(n.var.clone().unwrap_or("n".to_string()));
+        for id in found.iter() {
+            r.rows.push(vec![Some(id.clone())]);
+        }
+        return Ok(r);
+    }
+    let mut attrs = std::collections::HashMap::new();
+    for &(ref k, ref v) in n.props.iter() {
+        attrs.insert(k.clone(), v.clone());
+    }
+    let id = try!(g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..])));
+    let mut r = QueryResult::ok_msg("created");
+    r.columns.push(n.var.clone().unwrap_or("n".to_string()));
+    r.rows.push(vec![Some(id)]);
+    Ok(r)
+}

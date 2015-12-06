@@ -6,6 +6,7 @@ pub use graph::Graph;
 pub use vertex::Vertex;
 pub use edge::Edge;
 pub use ty::Type;
+pub use query::{run as run_query, QueryResult};
 
 pub mod error;
 pub mod graph;
@@ -15,6 +16,7 @@ pub mod ty;
 pub mod index;
 pub mod io;
 pub mod algo;
+pub mod query;
 
 #[cfg(test)]
 mod tests {

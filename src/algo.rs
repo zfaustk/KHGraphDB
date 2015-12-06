@@ -20,13 +20,15 @@ pub fn nearby(g: &Graph, start: &str, depth: i32) -> Vec<String> {
         if d >= depth {
             continue;
         }
-        if let Some(v) = g.vertex(&u) {
-            for eid in v.outgoing() {
-                if let Some(e) = g.edge(eid) {
-                    let w = e.target().to_string();
-                    if seen.insert(w.clone()) {
-                        q.push_back((w, d + 1));
-                    }
+        let eids: Vec<String> = match g.vertex(&u) {
+            Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+            None => Vec::new(),
+        };
+        for eid in eids.iter() {
+            if let Some(e) = g.edge(eid) {
+                let w = e.target().to_string();
+                if seen.insert(w.clone()) {
+                    q.push_back((w, d + 1));
                 }
             }
         }
@@ -45,18 +47,20 @@ pub fn path(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
     q.push_back(start.to_string());
     let mut found = false;
     while let Some(u) = q.pop_front() {
-        if let Some(v) = g.vertex(&u) {
-            for eid in v.outgoing() {
-                if let Some(e) = g.edge(eid) {
-                    let w = e.target().to_string();
-                    if seen.insert(w.clone()) {
-                        pred.insert(w.clone(), u.clone());
-                        if w == goal {
-                            found = true;
-                            break;
-                        }
-                        q.push_back(w);
+        let eids: Vec<String> = match g.vertex(&u) {
+            Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+            None => Vec::new(),
+        };
+        for eid in eids.iter() {
+            if let Some(e) = g.edge(eid) {
+                let w = e.target().to_string();
+                if seen.insert(w.clone()) {
+                    pred.insert(w.clone(), u.clone());
+                    if w == goal {
+                        found = true;
+                        break;
                     }
+                    q.push_back(w);
                 }
             }
         }
@@ -105,19 +109,21 @@ pub fn has_cycle(g: &Graph) -> bool {
 
 fn dfs_cycle(g: &Graph, u: &str, color: &mut HashMap<String, i32>) -> bool {
     color.insert(u.to_string(), 1);
-    if let Some(v) = g.vertex(u) {
-        for eid in v.outgoing() {
-            if let Some(e) = g.edge(eid) {
-                let w = e.target();
-                match color.get(w).cloned() {
-                    Some(1) => return true,
-                    Some(0) => {
-                        if dfs_cycle(g, w, color) {
-                            return true;
-                        }
+    let eids: Vec<String> = match g.vertex(u) {
+        Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+        None => Vec::new(),
+    };
+    for eid in eids.iter() {
+        if let Some(e) = g.edge(eid) {
+            let w = e.target().to_string();
+            match color.get(&w).cloned() {
+                Some(1) => return true,
+                Some(0) => {
+                    if dfs_cycle(g, &w, color) {
+                        return true;
                     }
-                    _ => {}
                 }
+                _ => {}
             }
         }
     }
@@ -165,27 +171,29 @@ pub fn shortest(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
                 continue;
             }
         }
-        if let Some(v) = g.vertex(&u) {
-            for eid in v.outgoing() {
-                if let Some(e) = g.edge(eid) {
-                    let wgt = match e.get("weight") {
-                        Some(s) => s.parse::<i64>().unwrap_or(1),
-                        None => 1,
-                    };
-                    let nxt = e.target().to_string();
-                    let nd = d + wgt;
-                    let better = match dist.get(&nxt) {
-                        Some(&old) => nd < old,
-                        None => true,
-                    };
-                    if better {
-                        dist.insert(nxt.clone(), nd);
-                        pred.insert(nxt.clone(), u.clone());
-                        heap.push(State {
-                            dist: nd,
-                            id: nxt,
-                        });
-                    }
+        let eids: Vec<String> = match g.vertex(&u) {
+            Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+            None => Vec::new(),
+        };
+        for eid in eids.iter() {
+            if let Some(e) = g.edge(eid) {
+                let wgt = match e.get("weight") {
+                    Some(s) => s.parse::<i64>().unwrap_or(1),
+                    None => 1,
+                };
+                let nxt = e.target().to_string();
+                let nd = d + wgt;
+                let better = match dist.get(&nxt) {
+                    Some(&old) => nd < old,
+                    None => true,
+                };
+                if better {
+                    dist.insert(nxt.clone(), nd);
+                    pred.insert(nxt.clone(), u.clone());
+                    heap.push(State {
+                        dist: nd,
+                        id: nxt,
+                    });
                 }
             }
         }
