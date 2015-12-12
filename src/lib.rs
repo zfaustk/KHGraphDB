@@ -122,4 +122,39 @@ mod tests {
         let s = super::algo::shortest(&g, &a, &c).unwrap();
         assert_eq!(s, vec![a.clone(), b.clone(), c.clone()]);
     }
+
+    fn social() -> Graph {
+        let mut g = Graph::new();
+        g.create_index("Person", "name");
+        let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+        let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+        let _carol = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
+        g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
+        g.add_edge(&bob, &_carol, Some("KNOWS")).unwrap();
+        g
+    }
+
+    #[test]
+    fn match_one_hop() {
+        let mut g = social();
+        let r = super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+    }
+
+    #[test]
+    fn match_where() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+                                 "MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice'");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+    }
+
+    #[test]
+    fn match_unknown_type() {
+        let mut g = social();
+        let r = super::query::run(&mut g, "MATCH (n:Nope)");
+        assert!(!r.ok);
+    }
 }
