@@ -157,4 +157,24 @@ mod tests {
         let r = super::query::run(&mut g, "MATCH (n:Nope)");
         assert!(!r.ok);
     }
+
+    #[test]
+    fn merge_ada() {
+        let mut g = social();
+        let r = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
+        assert!(r.ok);
+        assert_eq!(r.message, "created");
+        let r2 = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
+        assert_eq!(r2.message, "exists");
+        assert_eq!(g.vertex_count(), 4);
+    }
+
+    #[test]
+    fn optional_nobody() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+                                 "OPTIONAL MATCH (a:Person {name:'Nobody'})-[:KNOWS]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+    }
 }
