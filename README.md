@@ -1,47 +1,34 @@
 # KHGraphDB
 
-A graph database library. Vertex, Edge, Type. By kinghand.
+A graph database. Vertex, Edge, Type. By kinghand.
 
-**2.2.1** (2015). C# 5 / .NET 4.5. No packages. The C# kernel is frozen.
+**3.0.0** (2015). Rust 1.5. No crates.io dependencies.
 
-C# 5 / .NET 4.5. No packages. The graph is directed.
-Type is a first-class object, not a string on the vertex or the edge.
+Type is a first-class object, not a string label. KHID is identity
+and the only pointer: the graph is an arena of HashMaps.
 
-## What it is
-
-- KHID identity map, O(1) lookup
-- A vertex may wear many Types. An edge wears one Type.
-- Schema index on `(Type, key)`. Unique constraints.
-- BFS / DFS / Dijkstra scratch in AlgorithmObjs
-- KHG2 snapshots. KHG1 still reads.
-- Commands: `find Person` · `near Alice 2` · `path Alice Bob`
-- MATCH: `MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b`
-- MERGE: `MERGE (p:Person {name:'Ada'})`
+The C# 2.2.1 kernel is frozen in `csharp/`.
 
 ## Build
 
-Open `KHGraphDB.sln` in Visual Studio 2013. Build. Run `KHGraphDB.Tests`.
+```
+cargo test
+```
 
-## Samples
-
-- `Samples/Social` — Alice KNOWS Bob KNOWS Carol, then MATCH
-- `Samples/Paths` — weighted shortest path
+Needs rustc 1.5 (December 2015). No `edition` key. No `?`.
 
 ## Use
 
 ```
-Graph g = new Graph();
-IType person = g.AddType("Person", null);
-IType knows = g.AddType("KNOWS", null);
-IVertex alice = g.AddVertex(new Dictionary<string, object> { { "name", "Alice" } }, person);
-IVertex bob = g.AddVertex(new Dictionary<string, object> { { "name", "Bob" } }, person);
-g.AddEdge(alice, bob, knows);
-g.CreateUniqueConstraint("Person", "name");
+let mut g = Graph::new();
+let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
+g.create_unique("Person", "name");
+let r = khgraphdb::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice'");
 ```
 
-The original homework lives in zfaustk/-GraphDB and is not modified.
-
-## Recipes
+## Language
 
 ```
 MATCH (n:Person)
@@ -49,11 +36,6 @@ MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
 MATCH (a)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b
 OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)
 MERGE (p:Person {name:'Ada'})
-MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Carol'})
 ```
 
-Unique names:
-
-```
-g.CreateUniqueConstraint("Person", "name");
-```
+See `docs/type.md`. Type is still not a string.
