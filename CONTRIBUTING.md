@@ -1,14 +1,11 @@
 # Contributing
 
-KHGraphDB is a C# 5 / .NET 4.5 library. No NuGet packages
-in the kernel. Tests are a console runner, also BCL only.
+KHGraphDB 3.x is Rust 1.5. The C# kernel in csharp/ is frozen.
 
-- One idea per commit.
-- Conventional subject, a body that says why.
-- Add a test when you change behaviour.
-- Type is an object. Do not turn it into a string.
+- rustc 1.5. No edition key. No question-mark operator.
+- No crates.io dependencies in the kernel.
+- One idea per commit. A body that says why.
+- Type is an object. KHID is the pointer.
+- `cargo test` is the gate.
 
-Build `KHGraphDB.sln` in Visual Studio 2013. Run
-`KHGraphDB.Tests.exe`.
-
-The C# kernel is frozen at 2.2.1. Do not add C# 6.
+Do not add C# 6. Do not flatten Type into a string.
