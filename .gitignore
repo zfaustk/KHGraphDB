@@ -13,3 +13,4 @@ TestResult/
 *.suo
 
 target/
+Cargo.lock
