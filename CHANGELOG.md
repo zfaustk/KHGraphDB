@@ -1,3 +1,13 @@
+## 3.0.0 - 2015-12-27
+
+- Rust 1.5 kernel. KHID arena, no Rc.
+- Type remains a first-class object.
+- Schema index and unique constraints.
+- KHG2 snapshots.
+- BFS / DFS cycle / Dijkstra.
+- MATCH / WHERE / OPTIONAL / RETURN / MERGE.
+- C# 2.2.1 moved to csharp/ and frozen.
+
 # Changelog
 
 ## 2.2.1 - 2015-01-31
