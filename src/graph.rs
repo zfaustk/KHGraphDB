@@ -275,8 +275,6 @@ impl Graph {
     pub fn type_name_of(&self, tid: &str) -> Option<&str> {
         self.types.get(tid).map(|t| t.name())
     }
-}
-
 
     pub fn create_index(&mut self, type_name: &str, key: &str) -> bool {
         self.create_index_inner(type_name, key, false)
@@ -484,6 +482,7 @@ impl Graph {
             None => false,
         }
     }
+}
 
 impl Default for Graph {
     fn default() -> Graph {
