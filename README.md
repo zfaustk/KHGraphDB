@@ -9,6 +9,17 @@ and the only pointer: the graph is an arena of HashMaps.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 
+## Vision
+
+Property graphs are the right model for multi-hop questions.
+A small declarative surface (MATCH, MERGE) will travel further
+than vendor-specific APIs. Type should stay an object, not a
+string tag, so schema and identity remain first-class.
+
+The kernel is Rust. Systems code that lives for years needs
+compile-time ownership more than a GC. std only: if the model
+needs a framework, the model is wrong.
+
 ## Build
 
 ```
