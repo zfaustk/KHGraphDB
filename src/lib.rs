@@ -177,4 +177,43 @@ mod tests {
         assert!(r.ok);
         assert_eq!(r.rows.len(), 1);
     }
+
+    #[test]
+    fn match_star_hops() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+    }
+
+    #[test]
+    fn match_star_exact() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[:KNOWS*2]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+    }
+
+    #[test]
+    fn match_star_zero() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[:KNOWS*0..1]->(b:Person)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+    }
+
+    #[test]
+    fn match_star_cycle_lid() {
+        let mut g = social();
+        let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
+        let carol = g.vertex_by_name("Carol").unwrap().khid().to_string();
+        g.add_edge(&carol, &alice, Some("KNOWS")).unwrap();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[:KNOWS*1..8]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+    }
 }
