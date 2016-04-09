@@ -20,6 +20,7 @@ enum TokenKind {
     Dash,
     Arrow,
     LArrow,
+    Star,
 }
 
 struct Token {
@@ -103,6 +104,10 @@ impl Lexer {
             self.i += 2;
             return Ok(tok(TokenKind::Arrow, "->"));
         }
+        if c == '*' {
+            self.i += 1;
+            return Ok(tok(TokenKind::Star, "*"));
+        }
         if c == '-' {
             self.i += 1;
             return Ok(tok(TokenKind::Dash, "-"));
@@ -170,15 +175,26 @@ fn tok(kind: TokenKind, text: &str) -> Token {
     }
 }
 
+fn parse_usize(s: &str) -> Result<usize> {
+    match s.parse::<usize>() {
+        Ok(n) => Ok(n),
+        Err(_) => Err(Error::new("bad length")),
+    }
+}
+
 struct NodePat {
     var: Option<String>,
     type_name: Option<String>,
     props: Vec<(String, String)>,
 }
 
+const STAR_CAP: usize = 16;
+
 struct RelPat {
     type_name: Option<String>,
     dir: i32, // 1 out, -1 in, 0 both
+    min: usize,
+    max: usize,
 }
 
 struct Pattern {
@@ -366,6 +382,8 @@ impl Parser {
         let mut r = RelPat {
             type_name: None,
             dir: 1,
+            min: 1,
+            max: 1,
         };
         if self.kind() == TokenKind::LArrow {
             r.dir = -1;
@@ -386,6 +404,10 @@ impl Parser {
                 self.next();
                 r.type_name = Some(try!(self.expect_ident()));
             }
+            if self.kind() == TokenKind::Star {
+                self.next();
+                try!(self.parse_star(&mut r));
+            }
             try!(self.expect(TokenKind::RBrack));
         }
         if self.kind() == TokenKind::Arrow {
@@ -398,6 +420,38 @@ impl Parser {
             self.next();
         }
         Ok(r)
+    }
+
+    fn parse_star(&mut self, r: &mut RelPat) -> Result<()> {
+        r.min = 1;
+        r.max = STAR_CAP;
+        if self.kind() == TokenKind::Number {
+            let n = try!(parse_usize(&self.text()));
+            self.next();
+            if self.kind() == TokenKind::Dot {
+                self.next();
+                try!(self.expect(TokenKind::Dot));
+                r.min = n;
+                if self.kind() == TokenKind::Number {
+                    r.max = try!(parse_usize(&self.text()));
+                    self.next();
+                }
+            } else {
+                r.min = n;
+                r.max = n;
+            }
+        } else if self.kind() == TokenKind::Dot {
+            self.next();
+            try!(self.expect(TokenKind::Dot));
+            if self.kind() == TokenKind::Number {
+                r.max = try!(parse_usize(&self.text()));
+                self.next();
+            }
+        }
+        if r.min > r.max {
+            return Err(Error::new("bad length"));
+        }
+        Ok(())
     }
 
     fn parse_props(&mut self) -> Result<Vec<(String, String)>> {
@@ -502,31 +556,75 @@ fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
         r.columns.push(n.var.clone().unwrap_or(format!("n{}", i)));
     }
     for s in seeds0.iter() {
-        let mut path = vec![None; pat.nodes.len()];
-        path[0] = Some(s.clone());
-        walk(g, pat, 0, &mut path, &mut r);
+        let mut bind = vec![None; pat.nodes.len()];
+        bind[0] = Some(s.clone());
+        let mut seen_v = vec![s.clone()];
+        let mut seen_e: Vec<String> = Vec::new();
+        walk_named(g, pat, 0, &mut bind, &mut seen_v, &mut seen_e, &mut r);
     }
     r.message = format!("{} row", r.rows.len());
     r
 }
 
-fn walk(g: &Graph, pat: &Pattern, rel_i: usize, path: &mut Vec<Option<String>>, r: &mut QueryResult) {
-    let a = match path[rel_i] {
+fn walk_named(g: &Graph,
+              pat: &Pattern,
+              node_i: usize,
+              bind: &mut Vec<Option<String>>,
+              seen_v: &mut Vec<String>,
+              seen_e: &mut Vec<String>,
+              r: &mut QueryResult) {
+    if node_i == pat.rels.len() {
+        r.rows.push(bind.clone());
+        return;
+    }
+    let from = match bind[node_i] {
         Some(ref id) => id.clone(),
         None => return,
     };
+    expand_rel(g, pat, node_i, &from, 0, bind, seen_v, seen_e, r);
+}
+
+fn contains_id(ids: &Vec<String>, id: &str) -> bool {
+    for x in ids.iter() {
+        if x == id {
+            return true;
+        }
+    }
+    false
+}
+
+fn expand_rel(g: &Graph,
+              pat: &Pattern,
+              rel_i: usize,
+              u: &str,
+              hops: usize,
+              bind: &mut Vec<Option<String>>,
+              seen_v: &mut Vec<String>,
+              seen_e: &mut Vec<String>,
+              r: &mut QueryResult) {
     let rel = &pat.rels[rel_i];
     let next = &pat.nodes[rel_i + 1];
-    let eids = edges_of(g, &a, rel);
+    if hops >= rel.min && hops <= rel.max && node_ok(g, u, next) {
+        bind[rel_i + 1] = Some(u.to_string());
+        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, r);
+        bind[rel_i + 1] = None;
+    }
+    if hops >= rel.max {
+        return;
+    }
+    let eids = edges_of(g, u, rel);
     for eid in eids.iter() {
+        if contains_id(seen_e, eid) {
+            continue;
+        }
         let e = match g.edge(eid) {
             Some(e) => e,
             None => continue,
         };
-        let b = if rel.dir < 0 {
+        let v = if rel.dir < 0 {
             e.source().to_string()
         } else if rel.dir == 0 {
-            if e.source() == a {
+            if e.source() == u {
                 e.target().to_string()
             } else {
                 e.source().to_string()
@@ -534,25 +632,14 @@ fn walk(g: &Graph, pat: &Pattern, rel_i: usize, path: &mut Vec<Option<String>>, 
         } else {
             e.target().to_string()
         };
-        if !node_ok(g, &b, next) {
+        if contains_id(seen_v, &v) {
             continue;
         }
-        let mut seen = false;
-        for i in 0..(rel_i + 1) {
-            if path[i].as_ref() == Some(&b) {
-                seen = true;
-                break;
-            }
-        }
-        if seen {
-            continue;
-        }
-        path[rel_i + 1] = Some(b);
-        if rel_i + 1 == pat.rels.len() {
-            r.rows.push(path.clone());
-        } else {
-            walk(g, pat, rel_i + 1, path, r);
-        }
+        seen_e.push(eid.clone());
+        seen_v.push(v.clone());
+        expand_rel(g, pat, rel_i, &v, hops + 1, bind, seen_v, seen_e, r);
+        seen_v.pop();
+        seen_e.pop();
     }
 }
 
@@ -669,6 +756,11 @@ fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
 }
 
 fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
+    for rel in pat.rels.iter() {
+        if rel.min != 1 || rel.max != 1 {
+            return Err(Error::new("MERGE length"));
+        }
+    }
     if pat.rels.is_empty() {
         return merge_node(g, &pat.nodes[0]);
     }
