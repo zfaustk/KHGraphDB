@@ -6,7 +6,7 @@ pub use graph::Graph;
 pub use vertex::Vertex;
 pub use edge::Edge;
 pub use ty::Type;
-pub use query::{run as run_query, QueryResult};
+pub use query::{run as run_query, QueryResult, Val};
 
 pub mod error;
 pub mod graph;
@@ -215,5 +215,22 @@ mod tests {
             "MATCH (a:Person {name:'Alice'})-[:KNOWS*1..8]->(b)");
         assert!(r.ok);
         assert_eq!(r.rows.len(), 2);
+    }
+
+    #[test]
+    fn match_path_bind() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH p = (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+        assert_eq!(&r.columns[0], "p");
+        let mut lens = Vec::new();
+        for row in r.rows.iter() {
+            let p = row[0].as_ref().and_then(|v| v.as_path()).unwrap();
+            lens.push(p.len());
+        }
+        lens.sort();
+        assert_eq!(lens, vec![3, 5]);
     }
 }

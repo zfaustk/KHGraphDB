@@ -201,13 +201,38 @@ struct Pattern {
     nodes: Vec<NodePat>,
     rels: Vec<RelPat>,
     optional: bool,
+    path_var: Option<String>,
+}
+
+/// A bound value. An id is a KHID. A path is
+/// node, edge, node, ... The vertices stay put.
+#[derive(Clone)]
+pub enum Val {
+    Id(String),
+    Path(Vec<String>),
+}
+
+impl Val {
+    pub fn as_id(&self) -> Option<&str> {
+        match *self {
+            Val::Id(ref s) => Some(&s[..]),
+            Val::Path(_) => None,
+        }
+    }
+
+    pub fn as_path(&self) -> Option<&[String]> {
+        match *self {
+            Val::Path(ref p) => Some(&p[..]),
+            Val::Id(_) => None,
+        }
+    }
 }
 
 pub struct QueryResult {
     pub ok: bool,
     pub message: String,
     pub columns: Vec<String>,
-    pub rows: Vec<Vec<Option<String>>>,
+    pub rows: Vec<Vec<Option<Val>>>,
 }
 
 impl QueryResult {
@@ -290,6 +315,18 @@ impl Parser {
         Ok(s)
     }
 
+    fn parse_path_eq(&mut self) -> Result<Option<String>> {
+        if self.kind() == TokenKind::Ident && self.i + 1 < self.toks.len() {
+            if self.toks[self.i + 1].kind == TokenKind::Eq {
+                let name = self.text();
+                self.next();
+                self.next();
+                return Ok(Some(name));
+            }
+        }
+        Ok(None)
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
         let mut last: Option<QueryResult> = None;
         while self.kind() != TokenKind::Eof {
@@ -299,12 +336,16 @@ impl Parser {
                     return Err(Error::new("expected MATCH"));
                 }
                 self.next();
+                let path_var = try!(self.parse_path_eq());
                 let mut pat = try!(self.parse_pattern());
                 pat.optional = true;
+                pat.path_var = path_var;
                 last = Some(exec_pattern(g, &pat));
             } else if self.ident_is("MATCH") {
                 self.next();
-                let pat = try!(self.parse_pattern());
+                let path_var = try!(self.parse_path_eq());
+                let mut pat = try!(self.parse_pattern());
+                pat.path_var = path_var;
                 last = Some(exec_pattern(g, &pat));
             } else if self.ident_is("WHERE") {
                 self.next();
@@ -342,6 +383,7 @@ impl Parser {
             nodes: Vec::new(),
             rels: Vec::new(),
             optional: false,
+            path_var: None,
         };
         pat.nodes.push(try!(self.parse_node()));
         loop {
@@ -511,6 +553,31 @@ impl Parser {
     }
 }
 
+fn columns_of(pat: &Pattern) -> Vec<String> {
+    let mut cols = Vec::new();
+    if let Some(ref p) = pat.path_var {
+        cols.push(p.clone());
+    }
+    for (i, n) in pat.nodes.iter().enumerate() {
+        cols.push(n.var.clone().unwrap_or(format!("n{}", i)));
+    }
+    cols
+}
+
+fn emit_row(pat: &Pattern, bind: &[Option<String>], trail: &[String], r: &mut QueryResult) {
+    let mut row = Vec::new();
+    if pat.path_var.is_some() {
+        row.push(Some(Val::Path(trail.to_vec())));
+    }
+    for b in bind.iter() {
+        match *b {
+            Some(ref id) => row.push(Some(Val::Id(id.clone()))),
+            None => row.push(None),
+        }
+    }
+    r.rows.push(row);
+}
+
 fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
     for n in pat.nodes.iter() {
         if let Some(ref tn) = n.type_name {
@@ -520,7 +587,7 @@ fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
         }
     }
     let mut r = if pat.rels.is_empty() {
-        exec_nodes(g, &pat.nodes[0])
+        exec_nodes(g, pat)
     } else {
         exec_chain(g, pat)
     };
@@ -538,12 +605,15 @@ fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
     r
 }
 
-fn exec_nodes(g: &Graph, n: &NodePat) -> QueryResult {
-    let seeds = seeds(g, n);
+fn exec_nodes(g: &Graph, pat: &Pattern) -> QueryResult {
+    let n = &pat.nodes[0];
+    let found = seeds(g, n);
     let mut r = QueryResult::ok_msg("MATCH");
-    r.columns.push(n.var.clone().unwrap_or("n".to_string()));
-    for id in seeds.iter() {
-        r.rows.push(vec![Some(id.clone())]);
+    r.columns = columns_of(pat);
+    for id in found.iter() {
+        let bind = vec![Some(id.clone())];
+        let trail = vec![id.clone()];
+        emit_row(pat, &bind, &trail, &mut r);
     }
     r.message = format!("{} row", r.rows.len());
     r
@@ -552,15 +622,21 @@ fn exec_nodes(g: &Graph, n: &NodePat) -> QueryResult {
 fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
     let seeds0 = seeds(g, &pat.nodes[0]);
     let mut r = QueryResult::ok_msg("MATCH");
-    for (i, n) in pat.nodes.iter().enumerate() {
-        r.columns.push(n.var.clone().unwrap_or(format!("n{}", i)));
-    }
+    r.columns = columns_of(pat);
     for s in seeds0.iter() {
         let mut bind = vec![None; pat.nodes.len()];
         bind[0] = Some(s.clone());
         let mut seen_v = vec![s.clone()];
         let mut seen_e: Vec<String> = Vec::new();
-        walk_named(g, pat, 0, &mut bind, &mut seen_v, &mut seen_e, &mut r);
+        let mut trail = vec![s.clone()];
+        walk_named(g,
+                   pat,
+                   0,
+                   &mut bind,
+                   &mut seen_v,
+                   &mut seen_e,
+                   &mut trail,
+                   &mut r);
     }
     r.message = format!("{} row", r.rows.len());
     r
@@ -572,16 +648,26 @@ fn walk_named(g: &Graph,
               bind: &mut Vec<Option<String>>,
               seen_v: &mut Vec<String>,
               seen_e: &mut Vec<String>,
+              trail: &mut Vec<String>,
               r: &mut QueryResult) {
     if node_i == pat.rels.len() {
-        r.rows.push(bind.clone());
+        emit_row(pat, bind, trail, r);
         return;
     }
     let from = match bind[node_i] {
         Some(ref id) => id.clone(),
         None => return,
     };
-    expand_rel(g, pat, node_i, &from, 0, bind, seen_v, seen_e, r);
+    expand_rel(g,
+               pat,
+               node_i,
+               &from,
+               0,
+               bind,
+               seen_v,
+               seen_e,
+               trail,
+               r);
 }
 
 fn contains_id(ids: &Vec<String>, id: &str) -> bool {
@@ -601,12 +687,13 @@ fn expand_rel(g: &Graph,
               bind: &mut Vec<Option<String>>,
               seen_v: &mut Vec<String>,
               seen_e: &mut Vec<String>,
+              trail: &mut Vec<String>,
               r: &mut QueryResult) {
     let rel = &pat.rels[rel_i];
     let next = &pat.nodes[rel_i + 1];
     if hops >= rel.min && hops <= rel.max && node_ok(g, u, next) {
         bind[rel_i + 1] = Some(u.to_string());
-        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, r);
+        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, trail, r);
         bind[rel_i + 1] = None;
     }
     if hops >= rel.max {
@@ -637,7 +724,20 @@ fn expand_rel(g: &Graph,
         }
         seen_e.push(eid.clone());
         seen_v.push(v.clone());
-        expand_rel(g, pat, rel_i, &v, hops + 1, bind, seen_v, seen_e, r);
+        trail.push(eid.clone());
+        trail.push(v.clone());
+        expand_rel(g,
+                   pat,
+                   rel_i,
+                   &v,
+                   hops + 1,
+                   bind,
+                   seen_v,
+                   seen_e,
+                   trail,
+                   r);
+        trail.pop();
+        trail.pop();
         seen_v.pop();
         seen_e.pop();
     }
@@ -711,7 +811,7 @@ fn filter_where(g: &Graph, src: QueryResult, preds: &Vec<(String, String, String
                     break;
                 }
             };
-            let vid = match row.get(col).and_then(|x| x.as_ref()) {
+            let vid = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
                 Some(id) => id,
                 None => {
                     ok = false;
@@ -766,12 +866,12 @@ fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     }
     let left = try!(merge_node(g, &pat.nodes[0]));
     let right = try!(merge_node(g, &pat.nodes[1]));
-    let a = match left.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()) {
-        Some(id) => id.clone(),
+    let a = match left.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+        Some(id) => id.to_string(),
         None => return Err(Error::new("MERGE nodes")),
     };
-    let b = match right.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()) {
-        Some(id) => id.clone(),
+    let b = match right.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+        Some(id) => id.to_string(),
         None => return Err(Error::new("MERGE nodes")),
     };
     let rel = &pat.rels[0];
@@ -788,7 +888,7 @@ fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
                 };
                 if ok_t {
                     let mut r = QueryResult::ok_msg("exists");
-                    r.rows.push(vec![Some(a), Some(b)]);
+                    r.rows.push(vec![Some(Val::Id(a)), Some(Val::Id(b))]);
                     return Ok(r);
                 }
             }
@@ -796,7 +896,7 @@ fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     }
     try!(g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..])));
     let mut r = QueryResult::ok_msg("created");
-    r.rows.push(vec![Some(a), Some(b)]);
+    r.rows.push(vec![Some(Val::Id(a)), Some(Val::Id(b))]);
     Ok(r)
 }
 
@@ -806,7 +906,7 @@ fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
         let mut r = QueryResult::ok_msg("exists");
         r.columns.push(n.var.clone().unwrap_or("n".to_string()));
         for id in found.iter() {
-            r.rows.push(vec![Some(id.clone())]);
+            r.rows.push(vec![Some(Val::Id(id.clone()))]);
         }
         return Ok(r);
     }
@@ -817,6 +917,6 @@ fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
     let id = try!(g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..])));
     let mut r = QueryResult::ok_msg("created");
     r.columns.push(n.var.clone().unwrap_or("n".to_string()));
-    r.rows.push(vec![Some(id)]);
+    r.rows.push(vec![Some(Val::Id(id))]);
     Ok(r)
 }
