@@ -74,6 +74,131 @@ pub fn path(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
     Some(walk_pred(&pred, start, goal))
 }
 
+/// Hop-count BFS along typed edges. `dir` is 1 out, -1 in, 0 both.
+/// The walk is node, edge, node. Weighted remains `shortest`.
+pub fn path_on(g: &Graph,
+               start: &str,
+               goal: &str,
+               type_name: Option<&str>,
+               dir: i32,
+               min_hops: usize,
+               max_hops: usize)
+               -> Option<Vec<String>> {
+    if start == goal && min_hops == 0 {
+        return Some(vec![start.to_string()]);
+    }
+    let mut pred: HashMap<String, (String, String)> = HashMap::new();
+    let mut dist: HashMap<String, usize> = HashMap::new();
+    let mut seen = HashSet::new();
+    let mut q = VecDeque::new();
+    seen.insert(start.to_string());
+    dist.insert(start.to_string(), 0);
+    q.push_back(start.to_string());
+    let mut found = false;
+    while let Some(u) = q.pop_front() {
+        let hops = match dist.get(&u) {
+            Some(&d) => d,
+            None => 0,
+        };
+        if hops >= max_hops {
+            continue;
+        }
+        let nxts = neighbors(g, &u, type_name, dir);
+        for &(ref eid, ref w) in nxts.iter() {
+            if w == goal {
+                let d = hops + 1;
+                if d >= min_hops && d <= max_hops {
+                    pred.insert(w.clone(), (u.clone(), eid.clone()));
+                    found = true;
+                    break;
+                }
+                continue;
+            }
+            if seen.contains(w) {
+                continue;
+            }
+            seen.insert(w.clone());
+            pred.insert(w.clone(), (u.clone(), eid.clone()));
+            dist.insert(w.clone(), hops + 1);
+            q.push_back(w.clone());
+        }
+        if found {
+            break;
+        }
+    }
+    if !found {
+        return None;
+    }
+    Some(walk_edges(&pred, start, goal))
+}
+
+fn neighbors(g: &Graph, u: &str, type_name: Option<&str>, dir: i32) -> Vec<(String, String)> {
+    let v = match g.vertex(u) {
+        Some(v) => v,
+        None => return Vec::new(),
+    };
+    let mut eids = Vec::new();
+    if dir >= 0 {
+        for e in v.outgoing().iter() {
+            eids.push(e.clone());
+        }
+    }
+    if dir <= 0 {
+        for e in v.incoming().iter() {
+            eids.push(e.clone());
+        }
+    }
+    let mut out = Vec::new();
+    for eid in eids.iter() {
+        if let Some(tn) = type_name {
+            if g.edge_type_name(eid).as_ref().map(|s| &s[..]) != Some(tn) {
+                continue;
+            }
+        }
+        let e = match g.edge(eid) {
+            Some(e) => e,
+            None => continue,
+        };
+        let w = if e.source() == u {
+            e.target().to_string()
+        } else {
+            e.source().to_string()
+        };
+        out.push((eid.clone(), w));
+    }
+    out
+}
+
+fn walk_edges(pred: &HashMap<String, (String, String)>, start: &str, goal: &str) -> Vec<String> {
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    let mut cur = goal.to_string();
+    nodes.push(cur.clone());
+    while cur != start {
+        match pred.get(&cur) {
+            Some(pair) => {
+                edges.push(pair.1.clone());
+                cur = pair.0.clone();
+                nodes.push(cur.clone());
+            }
+            None => break,
+        }
+    }
+    nodes.reverse();
+    edges.reverse();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < edges.len() {
+        out.push(nodes[i].clone());
+        out.push(edges[i].clone());
+        i += 1;
+    }
+    if !nodes.is_empty() {
+        out.push(nodes[nodes.len() - 1].clone());
+    }
+    out
+}
+
 fn walk_pred(pred: &HashMap<String, String>, start: &str, goal: &str) -> Vec<String> {
     let mut chain = Vec::new();
     let mut cur = goal.to_string();

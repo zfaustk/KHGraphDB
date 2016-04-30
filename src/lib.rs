@@ -233,4 +233,36 @@ mod tests {
         lens.sort();
         assert_eq!(lens, vec![3, 5]);
     }
+
+    #[test]
+    fn match_shortest_hops() {
+        let mut g = Graph::new();
+        let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+        let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+        let c = g.add_vertex(attrs("C"), Some("City")).unwrap();
+        let ab = g.add_edge(&a, &b, Some("ROAD")).unwrap();
+        let bc = g.add_edge(&b, &c, Some("ROAD")).unwrap();
+        let ac = g.add_edge(&a, &c, Some("ROAD")).unwrap();
+        g.set_edge_attr(&ab, "weight", "2");
+        g.set_edge_attr(&bc, "weight", "2");
+        g.set_edge_attr(&ac, "weight", "5");
+        let r = super::query::run(&mut g,
+            "MATCH p = shortestPath((x:City {name:'A'})-[:ROAD*]->(y:City {name:'C'}))");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
+        assert_eq!(p.len(), 3);
+        assert_eq!(p[0], a);
+        assert_eq!(p[1], ac);
+        assert_eq!(p[2], c);
+    }
+
+    #[test]
+    fn match_shortest_none() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH p = shortestPath((a:Person {name:'Carol'})-[:KNOWS*]->(b:Person {name:'Alice'}))");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 0);
+    }
 }
