@@ -202,6 +202,7 @@ struct Pattern {
     rels: Vec<RelPat>,
     optional: bool,
     path_var: Option<String>,
+    shortest: bool,
 }
 
 /// A bound value. An id is a KHID. A path is
@@ -336,16 +337,12 @@ impl Parser {
                     return Err(Error::new("expected MATCH"));
                 }
                 self.next();
-                let path_var = try!(self.parse_path_eq());
-                let mut pat = try!(self.parse_pattern());
+                let mut pat = try!(self.parse_match());
                 pat.optional = true;
-                pat.path_var = path_var;
                 last = Some(exec_pattern(g, &pat));
             } else if self.ident_is("MATCH") {
                 self.next();
-                let path_var = try!(self.parse_path_eq());
-                let mut pat = try!(self.parse_pattern());
-                pat.path_var = path_var;
+                let pat = try!(self.parse_match());
                 last = Some(exec_pattern(g, &pat));
             } else if self.ident_is("WHERE") {
                 self.next();
@@ -378,12 +375,29 @@ impl Parser {
         }
     }
 
+    fn parse_match(&mut self) -> Result<Pattern> {
+        let path_var = try!(self.parse_path_eq());
+        let shortest = self.ident_is("shortestpath");
+        if shortest {
+            self.next();
+            try!(self.expect(TokenKind::LParen));
+        }
+        let mut pat = try!(self.parse_pattern());
+        if shortest {
+            try!(self.expect(TokenKind::RParen));
+            pat.shortest = true;
+        }
+        pat.path_var = path_var;
+        Ok(pat)
+    }
+
     fn parse_pattern(&mut self) -> Result<Pattern> {
         let mut pat = Pattern {
             nodes: Vec::new(),
             rels: Vec::new(),
             optional: false,
             path_var: None,
+            shortest: false,
         };
         pat.nodes.push(try!(self.parse_node()));
         loop {
@@ -586,7 +600,9 @@ fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
             }
         }
     }
-    let mut r = if pat.rels.is_empty() {
+    let mut r = if pat.shortest {
+        exec_shortest(g, pat)
+    } else if pat.rels.is_empty() {
         exec_nodes(g, pat)
     } else {
         exec_chain(g, pat)
@@ -602,6 +618,34 @@ fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
         r.rows.push(row);
         r.message = "optional empty".to_string();
     }
+    r
+}
+
+fn exec_shortest(g: &Graph, pat: &Pattern) -> QueryResult {
+    if pat.rels.len() != 1 {
+        return QueryResult::fail("shortestPath");
+    }
+    let starts = seeds(g, &pat.nodes[0]);
+    let ends = seeds(g, &pat.nodes[1]);
+    let rel = &pat.rels[0];
+    let tn = match rel.type_name {
+        Some(ref s) => Some(&s[..]),
+        None => None,
+    };
+    let mut r = QueryResult::ok_msg("MATCH");
+    r.columns = columns_of(pat);
+    for s in starts.iter() {
+        for t in ends.iter() {
+            match super::algo::path_on(g, s, t, tn, rel.dir, rel.min, rel.max) {
+                Some(path) => {
+                    let bind = vec![Some(s.clone()), Some(t.clone())];
+                    emit_row(pat, &bind, &path, &mut r);
+                }
+                None => {}
+            }
+        }
+    }
+    r.message = format!("{} row", r.rows.len());
     r
 }
 
