@@ -119,7 +119,7 @@ impl Graph {
             }
         }
         if let Some(tn) = type_name {
-            let tid = try!(self.add_type(tn));
+            let tid = self.add_type(tn)?;
             v.attach_type(&tid);
             match self.types.get_mut(&tid) {
                 Some(t) => {
@@ -153,7 +153,7 @@ impl Graph {
         let id = self.next_id();
         let mut e = Edge::new(id.clone(), src.to_string(), dst.to_string(), HashMap::new());
         if let Some(tn) = type_name {
-            let tid = try!(self.add_type(tn));
+            let tid = self.add_type(tn)?;
             e.set_type(&tid);
             if let Some(t) = self.types.get_mut(&tid) {
                 t.add_edge(&id);
@@ -223,7 +223,7 @@ impl Graph {
     }
 
     pub fn add_type_to_vertex(&mut self, vid: &str, type_name: &str) -> Result<bool> {
-        let tid = try!(self.add_type(type_name));
+        let tid = self.add_type(type_name)?;
         {
             let v = match self.vertices.get_mut(vid) {
                 Some(v) => v,
@@ -407,7 +407,7 @@ impl Graph {
         }
         let names = type_names;
         for (i, tn) in names.iter().enumerate() {
-            let tid = try!(self.add_type(tn));
+            let tid = self.add_type(tn)?;
             v.attach_type(&tid);
             if let Some(t) = self.types.get_mut(&tid) {
                 t.add_vertex(&id);
@@ -430,7 +430,7 @@ impl Graph {
         let mut e = Edge::new(id.clone(), src.clone(), dst.clone(), HashMap::new());
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
-                let tid = try!(self.add_type(tn));
+                let tid = self.add_type(tn)?;
                 e.set_type(&tid);
                 if let Some(t) = self.types.get_mut(&tid) {
                     t.add_edge(&id);

@@ -266,7 +266,7 @@ fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
     let mut lx = Lexer::new(text);
     let mut toks = Vec::new();
     loop {
-        let t = try!(lx.next());
+        let t = lx.next()?;
         let eof = t.kind == TokenKind::Eof;
         toks.push(t);
         if eof {
@@ -337,23 +337,23 @@ impl Parser {
                     return Err(Error::new("expected MATCH"));
                 }
                 self.next();
-                let mut pat = try!(self.parse_match());
+                let mut pat = self.parse_match()?;
                 pat.optional = true;
                 last = Some(exec_pattern(g, &pat));
             } else if self.ident_is("MATCH") {
                 self.next();
-                let pat = try!(self.parse_match());
+                let pat = self.parse_match()?;
                 last = Some(exec_pattern(g, &pat));
             } else if self.ident_is("WHERE") {
                 self.next();
-                let preds = try!(self.parse_where());
+                let preds = self.parse_where()?;
                 match last {
                     Some(src) => last = Some(filter_where(g, src, &preds)),
                     None => return Err(Error::new("WHERE without MATCH")),
                 }
             } else if self.ident_is("RETURN") {
                 self.next();
-                let cols = try!(self.parse_return());
+                let cols = self.parse_return()?;
                 match last {
                     Some(src) => {
                         last = Some(project(&src, &cols));
@@ -363,8 +363,8 @@ impl Parser {
                 }
             } else if self.ident_is("MERGE") {
                 self.next();
-                let pat = try!(self.parse_pattern());
-                last = Some(try!(exec_merge(g, &pat)));
+                let pat = self.parse_pattern()?;
+                last = Some(exec_merge(g, &pat)?);
             } else {
                 break;
             }
@@ -376,15 +376,15 @@ impl Parser {
     }
 
     fn parse_match(&mut self) -> Result<Pattern> {
-        let path_var = try!(self.parse_path_eq());
+        let path_var = self.parse_path_eq()?;
         let shortest = self.ident_is("shortestpath");
         if shortest {
             self.next();
-            try!(self.expect(TokenKind::LParen));
+            self.expect(TokenKind::LParen)?;
         }
-        let mut pat = try!(self.parse_pattern());
+        let mut pat = self.parse_pattern()?;
         if shortest {
-            try!(self.expect(TokenKind::RParen));
+            self.expect(TokenKind::RParen)?;
             pat.shortest = true;
         }
         pat.path_var = path_var;
@@ -399,12 +399,12 @@ impl Parser {
             path_var: None,
             shortest: false,
         };
-        pat.nodes.push(try!(self.parse_node()));
+        pat.nodes.push(self.parse_node()?);
         loop {
             match self.kind() {
                 TokenKind::Dash | TokenKind::LArrow | TokenKind::Arrow => {
-                    pat.rels.push(try!(self.parse_rel()));
-                    pat.nodes.push(try!(self.parse_node()));
+                    pat.rels.push(self.parse_rel()?);
+                    pat.nodes.push(self.parse_node()?);
                 }
                 _ => break,
             }
@@ -413,7 +413,7 @@ impl Parser {
     }
 
     fn parse_node(&mut self) -> Result<NodePat> {
-        try!(self.expect(TokenKind::LParen));
+        self.expect(TokenKind::LParen)?;
         let mut n = NodePat {
             var: None,
             type_name: None,
@@ -425,12 +425,12 @@ impl Parser {
         }
         if self.kind() == TokenKind::Colon {
             self.next();
-            n.type_name = Some(try!(self.expect_ident()));
+            n.type_name = Some(self.expect_ident()?);
         }
         if self.kind() == TokenKind::LBrace {
-            n.props = try!(self.parse_props());
+            n.props = self.parse_props()?;
         }
-        try!(self.expect(TokenKind::RParen));
+        self.expect(TokenKind::RParen)?;
         Ok(n)
     }
 
@@ -458,13 +458,13 @@ impl Parser {
             }
             if self.kind() == TokenKind::Colon {
                 self.next();
-                r.type_name = Some(try!(self.expect_ident()));
+                r.type_name = Some(self.expect_ident()?);
             }
             if self.kind() == TokenKind::Star {
                 self.next();
-                try!(self.parse_star(&mut r));
+                self.parse_star(&mut r)?;
             }
-            try!(self.expect(TokenKind::RBrack));
+            self.expect(TokenKind::RBrack)?;
         }
         if self.kind() == TokenKind::Arrow {
             r.dir = 1;
@@ -482,14 +482,14 @@ impl Parser {
         r.min = 1;
         r.max = STAR_CAP;
         if self.kind() == TokenKind::Number {
-            let n = try!(parse_usize(&self.text()));
+            let n = parse_usize(&self.text())?;
             self.next();
             if self.kind() == TokenKind::Dot {
                 self.next();
-                try!(self.expect(TokenKind::Dot));
+                self.expect(TokenKind::Dot)?;
                 r.min = n;
                 if self.kind() == TokenKind::Number {
-                    r.max = try!(parse_usize(&self.text()));
+                    r.max = parse_usize(&self.text())?;
                     self.next();
                 }
             } else {
@@ -498,9 +498,9 @@ impl Parser {
             }
         } else if self.kind() == TokenKind::Dot {
             self.next();
-            try!(self.expect(TokenKind::Dot));
+            self.expect(TokenKind::Dot)?;
             if self.kind() == TokenKind::Number {
-                r.max = try!(parse_usize(&self.text()));
+                r.max = parse_usize(&self.text())?;
                 self.next();
             }
         }
@@ -511,11 +511,11 @@ impl Parser {
     }
 
     fn parse_props(&mut self) -> Result<Vec<(String, String)>> {
-        try!(self.expect(TokenKind::LBrace));
+        self.expect(TokenKind::LBrace)?;
         let mut d = Vec::new();
         while self.kind() != TokenKind::RBrace && self.kind() != TokenKind::Eof {
-            let key = try!(self.expect_ident());
-            try!(self.expect(TokenKind::Colon));
+            let key = self.expect_ident()?;
+            self.expect(TokenKind::Colon)?;
             match self.kind() {
                 TokenKind::String | TokenKind::Number | TokenKind::Ident => {
                     d.push((key, self.text()));
@@ -527,25 +527,25 @@ impl Parser {
                 self.next();
             }
         }
-        try!(self.expect(TokenKind::RBrace));
+        self.expect(TokenKind::RBrace)?;
         Ok(d)
     }
 
     fn parse_where(&mut self) -> Result<Vec<(String, String, String)>> {
         let mut list = Vec::new();
-        list.push(try!(self.parse_pred()));
+        list.push(self.parse_pred()?);
         while self.ident_is("AND") {
             self.next();
-            list.push(try!(self.parse_pred()));
+            list.push(self.parse_pred()?);
         }
         Ok(list)
     }
 
     fn parse_pred(&mut self) -> Result<(String, String, String)> {
-        let var = try!(self.expect_ident());
-        try!(self.expect(TokenKind::Dot));
-        let key = try!(self.expect_ident());
-        try!(self.expect(TokenKind::Eq));
+        let var = self.expect_ident()?;
+        self.expect(TokenKind::Dot)?;
+        let key = self.expect_ident()?;
+        self.expect(TokenKind::Eq)?;
         match self.kind() {
             TokenKind::String | TokenKind::Number | TokenKind::Ident => {
                 let val = self.text();
@@ -558,10 +558,10 @@ impl Parser {
 
     fn parse_return(&mut self) -> Result<Vec<String>> {
         let mut cols = Vec::new();
-        cols.push(try!(self.expect_ident()));
+        cols.push(self.expect_ident()?);
         while self.kind() == TokenKind::Comma {
             self.next();
-            cols.push(try!(self.expect_ident()));
+            cols.push(self.expect_ident()?);
         }
         Ok(cols)
     }
@@ -908,8 +908,8 @@ fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     if pat.rels.is_empty() {
         return merge_node(g, &pat.nodes[0]);
     }
-    let left = try!(merge_node(g, &pat.nodes[0]));
-    let right = try!(merge_node(g, &pat.nodes[1]));
+    let left = merge_node(g, &pat.nodes[0])?;
+    let right = merge_node(g, &pat.nodes[1])?;
     let a = match left.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
         Some(id) => id.to_string(),
         None => return Err(Error::new("MERGE nodes")),
@@ -938,7 +938,7 @@ fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
             }
         }
     }
-    try!(g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..])));
+    g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.rows.push(vec![Some(Val::Id(a)), Some(Val::Id(b))]);
     Ok(r)
@@ -958,7 +958,7 @@ fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
     for &(ref k, ref v) in n.props.iter() {
         attrs.insert(k.clone(), v.clone());
     }
-    let id = try!(g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..])));
+    let id = g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.columns.push(n.var.clone().unwrap_or("n".to_string()));
     r.rows.push(vec![Some(Val::Id(id))]);
