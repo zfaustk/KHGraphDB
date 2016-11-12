@@ -1,3 +1,11 @@
+## 3.1.0 - 2016-11-12
+
+- rustc 1.13. `?` in place of `try!`.
+- Variable-length MATCH `[:T*n..m]`. Cap 16.
+- Path as a column: interleaved KHIDs.
+- `shortestPath()` is hop-count BFS.
+- MERGE still refuses a star.
+
 ## 3.0.0 - 2015-12-27
 
 - Rust 1.5 kernel. KHID arena, no Rc.

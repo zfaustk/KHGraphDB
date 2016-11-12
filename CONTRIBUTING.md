@@ -1,8 +1,8 @@
 # Contributing
 
-KHGraphDB 3.x is Rust 1.5. The C# kernel in csharp/ is frozen.
+KHGraphDB 3.x is Rust 1.13. The C# kernel in csharp/ is frozen.
 
-- rustc 1.5. No edition key. No question-mark operator.
+- rustc 1.13. No edition key.
 - No crates.io dependencies in the kernel.
 - One idea per commit. A body that says why.
 - Type is an object. KHID is the pointer.

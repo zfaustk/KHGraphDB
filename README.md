@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**3.0.0** (2015). Rust 1.5. No crates.io dependencies.
+**3.1.0** (2016). Rust 1.13. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: the graph is an arena of HashMaps.
@@ -26,7 +26,7 @@ needs a framework, the model is wrong.
 cargo test
 ```
 
-Needs rustc 1.5 (December 2015). No `edition` key. No `?`.
+Needs rustc 1.13 (November 2016). No `edition` key.
 
 ## Use
 
@@ -44,6 +44,8 @@ let r = khgraphdb::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b) WHERE a.na
 ```
 MATCH (n:Person)
 MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
+MATCH (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)
+MATCH p = shortestPath((a)-[:KNOWS*]->(b))
 MATCH (a)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b
 OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)
 MERGE (p:Person {name:'Ada'})
