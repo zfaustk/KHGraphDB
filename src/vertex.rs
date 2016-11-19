@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 /// A node. KHID is identity. `types` is every type the vertex wears.
 /// The first type is the primary, same as C# `Type`.
+/// Paint for a walk does not live here.
 pub struct Vertex {
     id: String,
     attrs: HashMap<String, String>,
     types: Vec<String>,
     outgoing: Vec<String>,
     incoming: Vec<String>,
-    algo: HashMap<String, i64>,
 }
 
 impl Vertex {
@@ -19,7 +19,6 @@ impl Vertex {
             types: Vec::new(),
             outgoing: Vec::with_capacity(4),
             incoming: Vec::with_capacity(4),
-            algo: HashMap::new(),
         }
     }
 
@@ -74,10 +73,6 @@ impl Vertex {
         &self.incoming
     }
 
-    pub fn get_algo(&self, key: &str) -> Option<i64> {
-        self.algo.get(key).map(|v| *v)
-    }
-
     pub fn set_attr(&mut self, key: &str, value: &str) {
         self.attrs.insert(key.to_string(), value.to_string());
     }
@@ -122,13 +117,5 @@ impl Vertex {
 
     pub fn remove_in(&mut self, eid: &str) {
         self.incoming.retain(|e| e != eid);
-    }
-
-    pub fn set_algo(&mut self, key: &str, val: i64) {
-        self.algo.insert(key.to_string(), val);
-    }
-
-    pub fn clear_algo(&mut self) {
-        self.algo.clear();
     }
 }
