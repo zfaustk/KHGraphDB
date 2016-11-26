@@ -159,6 +159,13 @@ mod tests {
     }
 
     #[test]
+    fn match_unknown_rel() {
+        let mut g = social();
+        let r = super::query::run(&mut g, "MATCH (a)-[:Nope]->(b)");
+        assert!(!r.ok);
+    }
+
+    #[test]
     fn merge_ada() {
         let mut g = social();
         let r = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");

@@ -74,12 +74,13 @@ pub fn path(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
     Some(walk_pred(&pred, start, goal))
 }
 
-/// Hop-count BFS along typed edges. `dir` is 1 out, -1 in, 0 both.
+/// Hop-count BFS along typed edges. `type_id` is the Type's KHID.
+/// `dir` is 1 out, -1 in, 0 both.
 /// The walk is node, edge, node. Weighted remains `shortest`.
 pub fn path_on(g: &Graph,
                start: &str,
                goal: &str,
-               type_name: Option<&str>,
+               type_id: Option<&str>,
                dir: i32,
                min_hops: usize,
                max_hops: usize)
@@ -103,7 +104,7 @@ pub fn path_on(g: &Graph,
         if hops >= max_hops {
             continue;
         }
-        let nxts = neighbors(g, &u, type_name, dir);
+        let nxts = neighbors(g, &u, type_id, dir);
         for &(ref eid, ref w) in nxts.iter() {
             if w == goal {
                 let d = hops + 1;
@@ -132,7 +133,7 @@ pub fn path_on(g: &Graph,
     Some(walk_edges(&pred, start, goal))
 }
 
-fn neighbors(g: &Graph, u: &str, type_name: Option<&str>, dir: i32) -> Vec<(String, String)> {
+fn neighbors(g: &Graph, u: &str, type_id: Option<&str>, dir: i32) -> Vec<(String, String)> {
     let v = match g.vertex(u) {
         Some(v) => v,
         None => return Vec::new(),
@@ -150,15 +151,15 @@ fn neighbors(g: &Graph, u: &str, type_name: Option<&str>, dir: i32) -> Vec<(Stri
     }
     let mut out = Vec::new();
     for eid in eids.iter() {
-        if let Some(tn) = type_name {
-            if g.edge_type_name(eid).as_ref().map(|s| &s[..]) != Some(tn) {
-                continue;
-            }
-        }
         let e = match g.edge(eid) {
             Some(e) => e,
             None => continue,
         };
+        if let Some(tid) = type_id {
+            if e.type_id() != Some(tid) {
+                continue;
+            }
+        }
         let w = if e.source() == u {
             e.target().to_string()
         } else {
