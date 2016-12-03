@@ -6,7 +6,7 @@ pub use graph::Graph;
 pub use vertex::Vertex;
 pub use edge::Edge;
 pub use ty::Type;
-pub use query::{run as run_query, QueryResult, Val};
+pub use query::{run as run_query, QueryResult, Val, Path};
 
 pub mod error;
 pub mod graph;
@@ -233,12 +233,16 @@ mod tests {
         assert_eq!(r.rows.len(), 2);
         assert_eq!(&r.columns[0], "p");
         let mut lens = Vec::new();
+        let mut hops = Vec::new();
         for row in r.rows.iter() {
             let p = row[0].as_ref().and_then(|v| v.as_path()).unwrap();
             lens.push(p.len());
+            hops.push(p.hops());
         }
         lens.sort();
+        hops.sort();
         assert_eq!(lens, vec![3, 5]);
+        assert_eq!(hops, vec![1, 2]);
     }
 
     #[test]
@@ -259,9 +263,12 @@ mod tests {
         assert_eq!(r.rows.len(), 1);
         let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
         assert_eq!(p.len(), 3);
+        assert_eq!(p.hops(), 1);
         assert_eq!(p[0], a);
         assert_eq!(p[1], ac);
         assert_eq!(p[2], c);
+        assert_eq!(p.nodes(), vec![a.clone(), c.clone()]);
+        assert_eq!(p.edges(), vec![ac.clone()]);
     }
 
     #[test]

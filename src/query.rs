@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use super::error::{Error, Result};
 use super::graph::Graph;
 
@@ -210,12 +212,68 @@ struct Pattern {
     shortest: bool,
 }
 
+/// A walk. Interleaved node, edge, node. KHID only.
+/// The vertices stay in the arena.
+#[derive(Clone)]
+pub struct Path {
+    ids: Vec<String>,
+}
+
+impl Path {
+    pub fn new(ids: Vec<String>) -> Path {
+        Path { ids: ids }
+    }
+
+    pub fn ids(&self) -> &[String] {
+        &self.ids
+    }
+
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    pub fn hops(&self) -> usize {
+        if self.ids.is_empty() {
+            0
+        } else {
+            self.ids.len() / 2
+        }
+    }
+
+    pub fn nodes(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        let mut i = 0;
+        while i < self.ids.len() {
+            v.push(self.ids[i].clone());
+            i += 2;
+        }
+        v
+    }
+
+    pub fn edges(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        let mut i = 1;
+        while i < self.ids.len() {
+            v.push(self.ids[i].clone());
+            i += 2;
+        }
+        v
+    }
+}
+
+impl Index<usize> for Path {
+    type Output = String;
+    fn index(&self, i: usize) -> &String {
+        &self.ids[i]
+    }
+}
+
 /// A bound value. An id is a KHID. A path is
 /// node, edge, node, ... The vertices stay put.
 #[derive(Clone)]
 pub enum Val {
     Id(String),
-    Path(Vec<String>),
+    Path(Path),
 }
 
 impl Val {
@@ -226,9 +284,9 @@ impl Val {
         }
     }
 
-    pub fn as_path(&self) -> Option<&[String]> {
+    pub fn as_path(&self) -> Option<&Path> {
         match *self {
-            Val::Path(ref p) => Some(&p[..]),
+            Val::Path(ref p) => Some(p),
             Val::Id(_) => None,
         }
     }
@@ -588,7 +646,7 @@ fn columns_of(pat: &Pattern) -> Vec<String> {
 fn emit_row(pat: &Pattern, bind: &[Option<String>], trail: &[String], r: &mut QueryResult) {
     let mut row = Vec::new();
     if pat.path_var.is_some() {
-        row.push(Some(Val::Path(trail.to_vec())));
+        row.push(Some(Val::Path(Path::new(trail.to_vec()))));
     }
     for b in bind.iter() {
         match *b {
