@@ -1,3 +1,10 @@
+## 3.2.0 - 2016-12-24
+
+- The walk uses Type's KHID, not the name string.
+- Path is a value: hops, nodes, edges.
+- Paint is not a vertex attribute.
+- query/parse and query/walk.
+
 ## 3.1.0 - 2016-11-12
 
 - rustc 1.13. `?` in place of `try!`.

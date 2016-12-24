@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**3.1.0** (2016). Rust 1.13. No crates.io dependencies.
+**3.2.0** (2016). Rust 1.13. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: the graph is an arena of HashMaps.
@@ -51,4 +51,5 @@ OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)
 MERGE (p:Person {name:'Ada'})
 ```
 
-See `docs/type.md`. Type is still not a string.
+See `docs/type.md`. Type is still not a string. MATCH
+binds it by KHID. Path is a value.
