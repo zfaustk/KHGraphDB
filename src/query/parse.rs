@@ -362,6 +362,7 @@ impl Parser {
 
     fn parse_rel(&mut self) -> Result<RelPat> {
         let mut r = RelPat {
+            var: None,
             type_name: None,
             type_id: None,
             dir: 1,
@@ -381,6 +382,7 @@ impl Parser {
         if self.kind() == TokenKind::LBrack {
             self.next();
             if self.kind() == TokenKind::Ident {
+                r.var = Some(self.text());
                 self.next();
             }
             if self.kind() == TokenKind::Colon {
