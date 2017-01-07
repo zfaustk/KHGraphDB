@@ -9,19 +9,42 @@ fn columns_of(pat: &Pattern) -> Vec<String> {
     }
     for (i, n) in pat.nodes.iter().enumerate() {
         cols.push(n.var.clone().unwrap_or(format!("n{}", i)));
+        if i < pat.rels.len() {
+            if let Some(ref v) = pat.rels[i].var {
+                cols.push(v.clone());
+            }
+        }
     }
     cols
 }
 
-fn emit_row(pat: &Pattern, bind: &[Option<String>], trail: &[String], r: &mut QueryResult) {
+fn emit_row(pat: &Pattern,
+            bind: &[Option<String>],
+            trail: &[String],
+            rel_edges: &[Vec<String>],
+            r: &mut QueryResult) {
     let mut row = Vec::new();
     if pat.path_var.is_some() {
         row.push(Some(Val::Path(Path::new(trail.to_vec()))));
     }
-    for b in bind.iter() {
+    for (i, b) in bind.iter().enumerate() {
         match *b {
             Some(ref id) => row.push(Some(Val::Id(id.clone()))),
             None => row.push(None),
+        }
+        if i < pat.rels.len() {
+                if pat.rels[i].var.is_some() {
+                    let edges = if i < rel_edges.len() {
+                        rel_edges[i].clone()
+                    } else {
+                        Vec::new()
+                    };
+                    if edges.len() == 1 {
+                        row.push(Some(Val::Id(edges[0].clone())));
+                    } else {
+                        row.push(None);
+                    }
+                }
         }
     }
     r.rows.push(row);
@@ -99,7 +122,11 @@ fn exec_shortest(g: &Graph, pat: &Pattern) -> QueryResult {
             match super::super::algo::path_on(g, s, t, tid, rel.dir, rel.min, rel.max) {
                 Some(path) => {
                     let bind = vec![Some(s.clone()), Some(t.clone())];
-                    emit_row(pat, &bind, &path, &mut r);
+                    let mut rel_edges: Vec<Vec<String>> = vec![Vec::new(); pat.rels.len()];
+                    if pat.rels.len() == 1 {
+                        rel_edges[0] = Path::new(path.clone()).edges();
+                    }
+                    emit_row(pat, &bind, &path, &rel_edges, &mut r);
                 }
                 None => {}
             }
@@ -117,7 +144,8 @@ fn exec_nodes(g: &Graph, pat: &Pattern) -> QueryResult {
     for id in found.iter() {
         let bind = vec![Some(id.clone())];
         let trail = vec![id.clone()];
-        emit_row(pat, &bind, &trail, &mut r);
+        let rel_edges: Vec<Vec<String>> = Vec::new();
+        emit_row(pat, &bind, &trail, &rel_edges, &mut r);
     }
     r.message = format!("{} row", r.rows.len());
     r
@@ -133,6 +161,12 @@ fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
         let mut seen_v = vec![s.clone()];
         let mut seen_e: Vec<String> = Vec::new();
         let mut trail = vec![s.clone()];
+        let mut rel_edges: Vec<Vec<String>> = Vec::new();
+        let mut k = 0;
+        while k < pat.rels.len() {
+            rel_edges.push(Vec::new());
+            k += 1;
+        }
         walk_named(g,
                    pat,
                    0,
@@ -140,6 +174,7 @@ fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
                    &mut seen_v,
                    &mut seen_e,
                    &mut trail,
+                   &mut rel_edges,
                    &mut r);
     }
     r.message = format!("{} row", r.rows.len());
@@ -153,9 +188,10 @@ fn walk_named(g: &Graph,
               seen_v: &mut Vec<String>,
               seen_e: &mut Vec<String>,
               trail: &mut Vec<String>,
+              rel_edges: &mut Vec<Vec<String>>,
               r: &mut QueryResult) {
     if node_i == pat.rels.len() {
-        emit_row(pat, bind, trail, r);
+        emit_row(pat, bind, trail, rel_edges, r);
         return;
     }
     let from = match bind[node_i] {
@@ -171,6 +207,7 @@ fn walk_named(g: &Graph,
                seen_v,
                seen_e,
                trail,
+               rel_edges,
                r);
 }
 
@@ -192,12 +229,13 @@ fn expand_rel(g: &Graph,
               seen_v: &mut Vec<String>,
               seen_e: &mut Vec<String>,
               trail: &mut Vec<String>,
+              rel_edges: &mut Vec<Vec<String>>,
               r: &mut QueryResult) {
     let rel = &pat.rels[rel_i];
     let next = &pat.nodes[rel_i + 1];
     if hops >= rel.min && hops <= rel.max && node_ok(g, u, next) {
         bind[rel_i + 1] = Some(u.to_string());
-        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, trail, r);
+        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, trail, rel_edges, r);
         bind[rel_i + 1] = None;
     }
     if hops >= rel.max {
@@ -230,6 +268,7 @@ fn expand_rel(g: &Graph,
         seen_v.push(v.clone());
         trail.push(eid.clone());
         trail.push(v.clone());
+        rel_edges[rel_i].push(eid.clone());
         expand_rel(g,
                    pat,
                    rel_i,
@@ -239,7 +278,9 @@ fn expand_rel(g: &Graph,
                    seen_v,
                    seen_e,
                    trail,
+                   rel_edges,
                    r);
+        rel_edges[rel_i].pop();
         trail.pop();
         trail.pop();
         seen_v.pop();

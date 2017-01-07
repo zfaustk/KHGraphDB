@@ -16,6 +16,7 @@ struct NodePat {
 
 #[derive(Clone)]
 struct RelPat {
+    var: Option<String>,
     type_name: Option<String>,
     type_id: Option<String>,
     dir: i32, // 1 out, -1 in, 0 both
