@@ -225,6 +225,17 @@ mod tests {
     }
 
     #[test]
+    fn val_list() {
+        let v = super::Val::List(vec![
+            super::Val::Id("k1".to_string()),
+            super::Val::Id("k2".to_string()),
+        ]);
+        assert_eq!(v.as_list().unwrap().len(), 2);
+        assert!(v.as_id().is_none());
+        assert!(v.as_path().is_none());
+    }
+
+    #[test]
     fn match_rel_bind() {
         let mut g = social();
         let r = super::query::run(&mut g,
