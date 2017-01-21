@@ -91,24 +91,33 @@ impl Index<usize> for Path {
 
 /// A bound value. An id is a KHID. A path is
 /// node, edge, node, ... The vertices stay put.
+/// A list holds other values.
 #[derive(Clone)]
 pub enum Val {
     Id(String),
     Path(Path),
+    List(Vec<Val>),
 }
 
 impl Val {
     pub fn as_id(&self) -> Option<&str> {
         match *self {
             Val::Id(ref s) => Some(&s[..]),
-            Val::Path(_) => None,
+            Val::Path(_) | Val::List(_) => None,
         }
     }
 
     pub fn as_path(&self) -> Option<&Path> {
         match *self {
             Val::Path(ref p) => Some(p),
-            Val::Id(_) => None,
+            Val::Id(_) | Val::List(_) => None,
+        }
+    }
+
+    pub fn as_list(&self) -> Option<&[Val]> {
+        match *self {
+            Val::List(ref v) => Some(&v[..]),
+            Val::Id(_) | Val::Path(_) => None,
         }
     }
 }
