@@ -22,6 +22,7 @@ struct RelPat {
     dir: i32, // 1 out, -1 in, 0 both
     min: usize,
     max: usize,
+    star: bool,
 }
 
 #[derive(Clone)]
