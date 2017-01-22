@@ -39,7 +39,13 @@ fn emit_row(pat: &Pattern,
                     } else {
                         Vec::new()
                     };
-                    if edges.len() == 1 {
+                    if pat.rels[i].star {
+                        let mut ids = Vec::new();
+                        for e in edges.iter() {
+                            ids.push(Val::Id(e.clone()));
+                        }
+                        row.push(Some(Val::List(ids)));
+                    } else if edges.len() == 1 {
                         row.push(Some(Val::Id(edges[0].clone())));
                     } else {
                         row.push(None);

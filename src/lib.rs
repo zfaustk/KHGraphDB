@@ -249,6 +249,22 @@ mod tests {
     }
 
     #[test]
+    fn match_rel_star_list() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[e:KNOWS*1..2]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+        let mut lens = Vec::new();
+        for row in r.rows.iter() {
+            let list = row[1].as_ref().and_then(|v| v.as_list()).unwrap();
+            lens.push(list.len());
+        }
+        lens.sort();
+        assert_eq!(lens, vec![1, 2]);
+    }
+
+    #[test]
     fn match_path_bind() {
         let mut g = social();
         let r = super::query::run(&mut g,

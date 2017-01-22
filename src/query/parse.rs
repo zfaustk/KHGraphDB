@@ -368,6 +368,7 @@ impl Parser {
             dir: 1,
             min: 1,
             max: 1,
+            star: false,
         };
         if self.kind() == TokenKind::LArrow {
             r.dir = -1;
@@ -408,6 +409,7 @@ impl Parser {
     }
 
     fn parse_star(&mut self, r: &mut RelPat) -> Result<()> {
+        r.star = true;
         r.min = 1;
         r.max = STAR_CAP;
         if self.kind() == TokenKind::Number {
