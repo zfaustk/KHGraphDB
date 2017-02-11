@@ -166,6 +166,17 @@ mod tests {
     }
 
     #[test]
+    fn create_node() {
+        let mut g = Graph::new();
+        let r = super::query::run(&mut g, "CREATE (n:Person {name:'Ada'})");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(g.vertex_count(), 1);
+        assert!(g.vertex_by_name("Ada").is_some());
+        assert!(g.has_type(g.vertex_by_name("Ada").unwrap().khid(), "Person"));
+    }
+
+    #[test]
     fn merge_ada() {
         let mut g = social();
         let r = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");

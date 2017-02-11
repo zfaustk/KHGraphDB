@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_merge, exec_pattern, filter_where, project};
+use super::walk::{exec_create, exec_merge, exec_pattern, filter_where, project};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -290,6 +290,10 @@ impl Parser {
                 self.next();
                 let pat = self.parse_pattern()?;
                 last = Some(exec_merge(g, &pat)?);
+            } else if self.ident_is("CREATE") {
+                self.next();
+                let pat = self.parse_pattern()?;
+                last = Some(exec_create(g, &pat, last.as_ref())?);
             } else {
                 break;
             }

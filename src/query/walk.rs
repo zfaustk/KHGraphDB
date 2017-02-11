@@ -466,6 +466,44 @@ pub fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
     r
 }
 
+pub fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResult>) -> Result<QueryResult> {
+    if !pat.rels.is_empty() {
+        return Err(Error::new("CREATE edge"));
+    }
+    let n = match pat.nodes.get(0) {
+        Some(n) => n,
+        None => return Err(Error::new("CREATE nodes")),
+    };
+    let times = match prev {
+        Some(p) => {
+            if p.rows.is_empty() {
+                0
+            } else {
+                p.rows.len()
+            }
+        }
+        None => 1,
+    };
+    let mut r = QueryResult::ok_msg("created");
+    r.columns.push(n.var.clone().unwrap_or("n".to_string()));
+    let mut i = 0;
+    while i < times {
+        let id = create_node(g, n)?;
+        r.rows.push(vec![Some(Val::Id(id))]);
+        i += 1;
+    }
+    r.message = format!("{} created", r.rows.len());
+    Ok(r)
+}
+
+fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
+    let mut attrs = std::collections::HashMap::new();
+    for &(ref k, ref v) in n.props.iter() {
+        attrs.insert(k.clone(), v.clone());
+    }
+    g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..]))
+}
+
 pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     let mut pat = pat.clone();
     resolve_types(g, &mut pat, false);
