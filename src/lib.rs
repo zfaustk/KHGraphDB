@@ -177,6 +177,17 @@ mod tests {
     }
 
     #[test]
+    fn create_edge() {
+        let mut g = Graph::new();
+        let r = super::query::run(&mut g,
+            "CREATE (a:Person {name:'Ada'})-[:KNOWS]->(b:Person {name:'Bob'})");
+        assert!(r.ok);
+        assert_eq!(g.vertex_count(), 2);
+        assert_eq!(g.edge_count(), 1);
+        assert_eq!(g.edges_of_type("KNOWS").len(), 1);
+    }
+
+    #[test]
     fn merge_ada() {
         let mut g = social();
         let r = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");

@@ -467,33 +467,90 @@ pub fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
 }
 
 pub fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResult>) -> Result<QueryResult> {
-    if !pat.rels.is_empty() {
-        return Err(Error::new("CREATE edge"));
-    }
-    let n = match pat.nodes.get(0) {
-        Some(n) => n,
-        None => return Err(Error::new("CREATE nodes")),
-    };
-    let times = match prev {
-        Some(p) => {
-            if p.rows.is_empty() {
-                0
+    let binds = create_binds(prev);
+    let mut r = QueryResult::ok_msg("created");
+    r.columns = create_columns(pat);
+    for seed in binds.iter() {
+        let mut bound: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        for (k, v) in seed.iter() {
+            bound.insert(k.clone(), v.clone());
+        }
+        let mut node_ids: Vec<String> = Vec::new();
+        for (i, n) in pat.nodes.iter().enumerate() {
+            let key = n.var.clone().unwrap_or(format!("n{}", i));
+            let id = if let Some(existing) = bound.get(&key).cloned() {
+                existing
             } else {
-                p.rows.len()
+                let id = create_node(g, n)?;
+                bound.insert(key, id.clone());
+                id
+            };
+            node_ids.push(id);
+        }
+        let mut rel_ids: Vec<Option<String>> = Vec::new();
+        let mut i = 0;
+        while i < pat.rels.len() {
+            let a = &node_ids[i];
+            let b = &node_ids[i + 1];
+            let tn = pat.rels[i].type_name.as_ref().map(|s| &s[..]);
+            let eid = g.add_edge(a, b, tn)?;
+            if let Some(ref v) = pat.rels[i].var {
+                bound.insert(v.clone(), eid.clone());
+            }
+            rel_ids.push(Some(eid));
+            i += 1;
+        }
+        let mut row = Vec::new();
+        for c in r.columns.iter() {
+            match bound.get(c) {
+                Some(id) => row.push(Some(Val::Id(id.clone()))),
+                None => row.push(None),
             }
         }
-        None => 1,
-    };
-    let mut r = QueryResult::ok_msg("created");
-    r.columns.push(n.var.clone().unwrap_or("n".to_string()));
-    let mut i = 0;
-    while i < times {
-        let id = create_node(g, n)?;
-        r.rows.push(vec![Some(Val::Id(id))]);
-        i += 1;
+        r.rows.push(row);
+        let _ = rel_ids;
     }
     r.message = format!("{} created", r.rows.len());
     Ok(r)
+}
+
+fn create_columns(pat: &Pattern) -> Vec<String> {
+    let mut cols = Vec::new();
+    for (i, n) in pat.nodes.iter().enumerate() {
+        cols.push(n.var.clone().unwrap_or(format!("n{}", i)));
+        if i < pat.rels.len() {
+            if let Some(ref v) = pat.rels[i].var {
+                cols.push(v.clone());
+            }
+        }
+    }
+    cols
+}
+
+fn create_binds(prev: Option<&QueryResult>) -> Vec<std::collections::HashMap<String, String>> {
+    let mut out = Vec::new();
+    match prev {
+        None => {
+            out.push(std::collections::HashMap::new());
+        }
+        Some(p) => {
+            if p.rows.is_empty() {
+                return out;
+            }
+            for row in p.rows.iter() {
+                let mut m = std::collections::HashMap::new();
+                let mut i = 0;
+                while i < p.columns.len() {
+                    if let Some(id) = row.get(i).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+                        m.insert(p.columns[i].clone(), id.to_string());
+                    }
+                    i += 1;
+                }
+                out.push(m);
+            }
+        }
+    }
+    out
 }
 
 fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
