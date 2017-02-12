@@ -166,6 +166,16 @@ mod tests {
     }
 
     #[test]
+    fn set_property() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'}) SET a.city = 'London'");
+        assert!(r.ok);
+        let alice = g.vertex_by_name("Alice").unwrap();
+        assert_eq!(alice.get("city"), Some("London"));
+    }
+
+    #[test]
     fn create_node() {
         let mut g = Graph::new();
         let r = super::query::run(&mut g, "CREATE (n:Person {name:'Ada'})");

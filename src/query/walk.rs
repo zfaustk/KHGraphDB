@@ -445,6 +445,29 @@ pub fn filter_where(g: &Graph, src: QueryResult, preds: &Vec<(String, String, St
     r
 }
 
+pub fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, String)>) -> Result<QueryResult> {
+    for row in src.rows.iter() {
+        for &(ref var, ref key, ref val) in items.iter() {
+            let col = match src.columns.iter().position(|c| c == var) {
+                Some(i) => i,
+                None => return Err(Error::new("SET unknown name")),
+            };
+            let id = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+                Some(id) => id.to_string(),
+                None => return Err(Error::new("SET needs a node")),
+            };
+            if g.vertex(&id).is_some() {
+                g.set_attr(&id, key, val)?;
+            } else {
+                return Err(Error::new("SET needs a node"));
+            }
+        }
+    }
+    let mut r = src;
+    r.message = "set".to_string();
+    Ok(r)
+}
+
 pub fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
     let mut r = QueryResult::ok_msg("RETURN");
     let mut map = Vec::new();
