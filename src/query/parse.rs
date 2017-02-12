@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_create, exec_merge, exec_pattern, filter_where, project};
+use super::walk::{exec_create, exec_merge, exec_pattern, exec_set, filter_where, project};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -294,6 +294,13 @@ impl Parser {
                 self.next();
                 let pat = self.parse_pattern()?;
                 last = Some(exec_create(g, &pat, last.as_ref())?);
+            } else if self.ident_is("SET") {
+                self.next();
+                let items = self.parse_set()?;
+                match last {
+                    Some(src) => last = Some(exec_set(g, src, &items)?),
+                    None => return Err(Error::new("SET without MATCH")),
+                }
             } else {
                 break;
             }
@@ -499,6 +506,31 @@ impl Parser {
             cols.push(self.expect_ident()?);
         }
         Ok(cols)
+    }
+
+    fn parse_set(&mut self) -> Result<Vec<(String, String, String)>> {
+        let mut items = Vec::new();
+        items.push(self.parse_set_item()?);
+        while self.kind() == TokenKind::Comma {
+            self.next();
+            items.push(self.parse_set_item()?);
+        }
+        Ok(items)
+    }
+
+    fn parse_set_item(&mut self) -> Result<(String, String, String)> {
+        let var = self.expect_ident()?;
+        self.expect(TokenKind::Dot)?;
+        let key = self.expect_ident()?;
+        self.expect(TokenKind::Eq)?;
+        match self.kind() {
+            TokenKind::String | TokenKind::Number | TokenKind::Ident => {
+                let val = self.text();
+                self.next();
+                Ok((var, key, val))
+            }
+            _ => Err(Error::new("bad SET value")),
+        }
     }
 }
 
