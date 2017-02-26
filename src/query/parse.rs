@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_create, exec_merge, exec_pattern, exec_set, filter_where, project};
+use super::walk::{exec_create, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, project};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -301,6 +301,13 @@ impl Parser {
                     Some(src) => last = Some(exec_set(g, src, &items)?),
                     None => return Err(Error::new("SET without MATCH")),
                 }
+            } else if self.ident_is("REMOVE") {
+                self.next();
+                let items = self.parse_remove()?;
+                match last {
+                    Some(src) => last = Some(exec_remove(g, src, &items)?),
+                    None => return Err(Error::new("REMOVE without MATCH")),
+                }
             } else {
                 break;
             }
@@ -531,6 +538,23 @@ impl Parser {
             }
             _ => Err(Error::new("bad SET value")),
         }
+    }
+
+    fn parse_remove(&mut self) -> Result<Vec<(String, String)>> {
+        let mut items = Vec::new();
+        items.push(self.parse_remove_item()?);
+        while self.kind() == TokenKind::Comma {
+            self.next();
+            items.push(self.parse_remove_item()?);
+        }
+        Ok(items)
+    }
+
+    fn parse_remove_item(&mut self) -> Result<(String, String)> {
+        let var = self.expect_ident()?;
+        self.expect(TokenKind::Dot)?;
+        let key = self.expect_ident()?;
+        Ok((var, key))
     }
 }
 
