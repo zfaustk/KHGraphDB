@@ -166,6 +166,17 @@ mod tests {
     }
 
     #[test]
+    fn remove_property() {
+        let mut g = social();
+        super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.city = 'London'");
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'}) REMOVE a.city");
+        assert!(r.ok);
+        let alice = g.vertex_by_name("Alice").unwrap();
+        assert!(alice.get("city").is_none());
+    }
+
+    #[test]
     fn set_property() {
         let mut g = social();
         let r = super::query::run(&mut g,

@@ -377,6 +377,38 @@ impl Graph {
         Ok(())
     }
 
+    pub fn remove_attr(&mut self, vid: &str, key: &str) -> Result<Option<String>> {
+        let types: Vec<String> = match self.vertices.get(vid) {
+            Some(v) => v.types().iter().map(|s| s.clone()).collect(),
+            None => return Err(Error::new("missing vertex")),
+        };
+        let old = match self.vertices.get(vid) {
+            Some(v) => v.get(key).map(|s| s.to_string()),
+            None => None,
+        };
+        let old_s = old.clone().unwrap_or(String::new());
+        if key == "name" && !old_s.is_empty() {
+            if let Some(owned) = self.vertices_by_name.get(&old_s).cloned() {
+                if owned == vid {
+                    self.vertices_by_name.remove(&old_s);
+                }
+            }
+        }
+        for tid in types.iter() {
+            let tname = match self.types.get(tid) {
+                Some(t) => t.name().to_string(),
+                None => continue,
+            };
+            let iid = SchemaIndex::id(&tname, key);
+            if let Some(idx) = self.indexes.get_mut(&iid) {
+                idx.remove(vid, &old_s);
+            }
+        }
+        match self.vertices.get_mut(vid) {
+            Some(v) => Ok(v.remove_attr(key)),
+            None => Err(Error::new("missing vertex")),
+        }
+    }
 
     pub fn all_types(&self) -> Vec<(String, String)> {
         self.types.values().map(|t| (t.khid().to_string(), t.name().to_string())).collect()
