@@ -487,6 +487,39 @@ pub fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, String)
     Ok(r)
 }
 
+pub fn exec_delete(g: &mut Graph, src: QueryResult, names: &Vec<String>) -> Result<QueryResult> {
+    for row in src.rows.iter() {
+        for name in names.iter() {
+            let col = match src.columns.iter().position(|c| c == name) {
+                Some(i) => i,
+                None => return Err(Error::new("DELETE unknown name")),
+            };
+            let id = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+                Some(id) => id.to_string(),
+                None => continue,
+            };
+            if g.edge(&id).is_some() {
+                g.remove_edge(&id);
+                continue;
+            }
+            if g.vertex(&id).is_none() {
+                continue;
+            }
+            let (out_n, in_n) = match g.vertex(&id) {
+                Some(v) => (v.out_degree(), v.in_degree()),
+                None => (0, 0),
+            };
+            if out_n + in_n > 0 {
+                return Err(Error::new("DELETE edges"));
+            }
+            g.remove_vertex(&id);
+        }
+    }
+    let mut r = QueryResult::ok_msg("deleted");
+    r.columns = src.columns.clone();
+    Ok(r)
+}
+
 pub fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
     let mut r = QueryResult::ok_msg("RETURN");
     let mut map = Vec::new();
