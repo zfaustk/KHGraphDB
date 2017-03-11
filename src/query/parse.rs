@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_create, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, project};
+use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, project};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -308,6 +308,13 @@ impl Parser {
                     Some(src) => last = Some(exec_remove(g, src, &items)?),
                     None => return Err(Error::new("REMOVE without MATCH")),
                 }
+            } else if self.ident_is("DELETE") {
+                self.next();
+                let names = self.parse_names()?;
+                match last {
+                    Some(src) => last = Some(exec_delete(g, src, &names)?),
+                    None => return Err(Error::new("DELETE without MATCH")),
+                }
             } else {
                 break;
             }
@@ -555,6 +562,16 @@ impl Parser {
         self.expect(TokenKind::Dot)?;
         let key = self.expect_ident()?;
         Ok((var, key))
+    }
+
+    fn parse_names(&mut self) -> Result<Vec<String>> {
+        let mut names = Vec::new();
+        names.push(self.expect_ident()?);
+        while self.kind() == TokenKind::Comma {
+            self.next();
+            names.push(self.expect_ident()?);
+        }
+        Ok(names)
     }
 }
 

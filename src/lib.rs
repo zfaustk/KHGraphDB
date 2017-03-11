@@ -177,6 +177,23 @@ mod tests {
     }
 
     #[test]
+    fn delete_free_node() {
+        let mut g = Graph::new();
+        super::query::run(&mut g, "CREATE (n:Person {name:'Solo'})");
+        let r = super::query::run(&mut g, "MATCH (n:Person {name:'Solo'}) DELETE n");
+        assert!(r.ok);
+        assert_eq!(g.vertex_count(), 0);
+    }
+
+    #[test]
+    fn delete_refuses_edges() {
+        let mut g = social();
+        let r = super::query::run(&mut g, "MATCH (n:Person {name:'Alice'}) DELETE n");
+        assert!(!r.ok);
+        assert_eq!(g.vertex_count(), 3);
+    }
+
+    #[test]
     fn set_property() {
         let mut g = social();
         let r = super::query::run(&mut g,
