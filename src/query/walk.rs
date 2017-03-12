@@ -487,7 +487,11 @@ pub fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, String)
     Ok(r)
 }
 
-pub fn exec_delete(g: &mut Graph, src: QueryResult, names: &Vec<String>) -> Result<QueryResult> {
+pub fn exec_delete(g: &mut Graph,
+                   src: QueryResult,
+                   names: &Vec<String>,
+                   detach: bool)
+                   -> Result<QueryResult> {
     for row in src.rows.iter() {
         for name in names.iter() {
             let col = match src.columns.iter().position(|c| c == name) {
@@ -505,12 +509,14 @@ pub fn exec_delete(g: &mut Graph, src: QueryResult, names: &Vec<String>) -> Resu
             if g.vertex(&id).is_none() {
                 continue;
             }
-            let (out_n, in_n) = match g.vertex(&id) {
-                Some(v) => (v.out_degree(), v.in_degree()),
-                None => (0, 0),
-            };
-            if out_n + in_n > 0 {
-                return Err(Error::new("DELETE edges"));
+            if !detach {
+                let (out_n, in_n) = match g.vertex(&id) {
+                    Some(v) => (v.out_degree(), v.in_degree()),
+                    None => (0, 0),
+                };
+                if out_n + in_n > 0 {
+                    return Err(Error::new("DELETE edges"));
+                }
             }
             g.remove_vertex(&id);
         }
