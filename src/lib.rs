@@ -236,6 +236,20 @@ mod tests {
     }
 
     #[test]
+    fn merge_edge() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Dan'})");
+        assert!(r.ok);
+        assert_eq!(g.vertex_count(), 4);
+        assert_eq!(g.edge_count(), 3);
+        let r2 = super::query::run(&mut g,
+            "MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Dan'})");
+        assert_eq!(r2.message, "exists");
+        assert_eq!(g.edge_count(), 3);
+    }
+
+    #[test]
     fn merge_ada() {
         let mut g = social();
         let r = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");

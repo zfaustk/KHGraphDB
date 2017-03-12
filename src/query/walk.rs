@@ -668,6 +668,12 @@ pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
         Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
         None => Vec::new(),
     };
+    let mut cols = Vec::new();
+    cols.push(pat.nodes[0].var.clone().unwrap_or("a".to_string()));
+    if let Some(ref v) = rel.var {
+        cols.push(v.clone());
+    }
+    cols.push(pat.nodes[1].var.clone().unwrap_or("b".to_string()));
     for eid in eids.iter() {
         if let Some(e) = g.edge(eid) {
             if e.target() == b {
@@ -677,15 +683,27 @@ pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
                 };
                 if ok_t {
                     let mut r = QueryResult::ok_msg("exists");
-                    r.rows.push(vec![Some(Val::Id(a)), Some(Val::Id(b))]);
+                    r.columns = cols;
+                    let mut row = vec![Some(Val::Id(a.clone()))];
+                    if rel.var.is_some() {
+                        row.push(Some(Val::Id(eid.clone())));
+                    }
+                    row.push(Some(Val::Id(b.clone())));
+                    r.rows.push(row);
                     return Ok(r);
                 }
             }
         }
     }
-    g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..]))?;
+    let eid = g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
-    r.rows.push(vec![Some(Val::Id(a)), Some(Val::Id(b))]);
+    r.columns = cols;
+    let mut row = vec![Some(Val::Id(a))];
+    if rel.var.is_some() {
+        row.push(Some(Val::Id(eid)));
+    }
+    row.push(Some(Val::Id(b)));
+    r.rows.push(row);
     Ok(r)
 }
 
