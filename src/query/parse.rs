@@ -308,11 +308,22 @@ impl Parser {
                     Some(src) => last = Some(exec_remove(g, src, &items)?),
                     None => return Err(Error::new("REMOVE without MATCH")),
                 }
+            } else if self.ident_is("DETACH") {
+                self.next();
+                if !self.ident_is("DELETE") {
+                    return Err(Error::new("expected DELETE"));
+                }
+                self.next();
+                let names = self.parse_names()?;
+                match last {
+                    Some(src) => last = Some(exec_delete(g, src, &names, true)?),
+                    None => return Err(Error::new("DELETE without MATCH")),
+                }
             } else if self.ident_is("DELETE") {
                 self.next();
                 let names = self.parse_names()?;
                 match last {
-                    Some(src) => last = Some(exec_delete(g, src, &names)?),
+                    Some(src) => last = Some(exec_delete(g, src, &names, false)?),
                     None => return Err(Error::new("DELETE without MATCH")),
                 }
             } else {

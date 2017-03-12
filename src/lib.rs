@@ -177,6 +177,16 @@ mod tests {
     }
 
     #[test]
+    fn detach_delete() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (n:Person {name:'Alice'}) DETACH DELETE n");
+        assert!(r.ok);
+        assert_eq!(g.vertex_count(), 2);
+        assert_eq!(g.edge_count(), 1);
+    }
+
+    #[test]
     fn delete_free_node() {
         let mut g = Graph::new();
         super::query::run(&mut g, "CREATE (n:Person {name:'Solo'})");
