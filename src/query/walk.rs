@@ -651,7 +651,16 @@ pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
         }
     }
     if pat.rels.is_empty() {
-        return merge_node(g, &pat.nodes[0]);
+        let mut r = merge_node(g, &pat.nodes[0])?;
+        let created = r.message == "created";
+        if created {
+            r = exec_set(g, r, &pat.on_create)?;
+            r.message = "created".to_string();
+        } else {
+            r = exec_set(g, r, &pat.on_match)?;
+            r.message = "exists".to_string();
+        }
+        return Ok(r);
     }
     let left = merge_node(g, &pat.nodes[0])?;
     let right = merge_node(g, &pat.nodes[1])?;
@@ -690,6 +699,8 @@ pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
                     }
                     row.push(Some(Val::Id(b.clone())));
                     r.rows.push(row);
+                    r = exec_set(g, r, &pat.on_match)?;
+                    r.message = "exists".to_string();
                     return Ok(r);
                 }
             }
@@ -704,6 +715,8 @@ pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     }
     row.push(Some(Val::Id(b)));
     r.rows.push(row);
+    r = exec_set(g, r, &pat.on_create)?;
+    r.message = "created".to_string();
     Ok(r)
 }
 

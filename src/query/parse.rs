@@ -288,7 +288,8 @@ impl Parser {
                 }
             } else if self.ident_is("MERGE") {
                 self.next();
-                let pat = self.parse_pattern()?;
+                let mut pat = self.parse_pattern()?;
+                self.parse_merge_tail(&mut pat)?;
                 last = Some(exec_merge(g, &pat)?);
             } else if self.ident_is("CREATE") {
                 self.next();
@@ -359,6 +360,8 @@ impl Parser {
             optional: false,
             path_var: None,
             shortest: false,
+            on_create: Vec::new(),
+            on_match: Vec::new(),
         };
         pat.nodes.push(self.parse_node()?);
         loop {
@@ -371,6 +374,32 @@ impl Parser {
             }
         }
         Ok(pat)
+    }
+
+    fn parse_merge_tail(&mut self, pat: &mut Pattern) -> Result<()> {
+        loop {
+            if !self.ident_is("ON") {
+                return Ok(());
+            }
+            self.next();
+            if self.ident_is("CREATE") {
+                self.next();
+                if !self.ident_is("SET") {
+                    return Err(Error::new("expected SET"));
+                }
+                self.next();
+                pat.on_create = self.parse_set()?;
+            } else if self.ident_is("MATCH") {
+                self.next();
+                if !self.ident_is("SET") {
+                    return Err(Error::new("expected SET"));
+                }
+                self.next();
+                pat.on_match = self.parse_set()?;
+            } else {
+                return Err(Error::new("expected CREATE or MATCH"));
+            }
+        }
     }
 
     fn parse_node(&mut self) -> Result<NodePat> {
