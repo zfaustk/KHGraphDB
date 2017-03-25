@@ -250,6 +250,22 @@ mod tests {
     }
 
     #[test]
+    fn merge_on_create() {
+        let mut g = Graph::new();
+        g.create_index("Person", "name");
+        let r = super::query::run(&mut g,
+            "MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = '1815'");
+        assert!(r.ok);
+        assert_eq!(g.vertex_by_name("Ada").unwrap().get("born"), Some("1815"));
+        let r2 = super::query::run(&mut g,
+            "MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = 'x' ON MATCH SET p.hit = '1'");
+        assert_eq!(r2.message, "exists");
+        let ada = g.vertex_by_name("Ada").unwrap();
+        assert_eq!(ada.get("born"), Some("1815"));
+        assert_eq!(ada.get("hit"), Some("1"));
+    }
+
+    #[test]
     fn merge_ada() {
         let mut g = social();
         let r = super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");

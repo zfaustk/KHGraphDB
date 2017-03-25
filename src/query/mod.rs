@@ -32,6 +32,8 @@ struct Pattern {
     optional: bool,
     path_var: Option<String>,
     shortest: bool,
+    on_create: Vec<(String, String, String)>,
+    on_match: Vec<(String, String, String)>,
 }
 
 /// A walk. Interleaved node, edge, node. KHID only.
