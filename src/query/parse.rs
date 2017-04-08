@@ -1,6 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
-use super::{NodePat, Pattern, QueryResult, RelPat};
+use super::{Expr, NodePat, Pattern, QueryResult, RelPat};
 use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, project};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -527,17 +527,50 @@ impl Parser {
         Ok(d)
     }
 
-    fn parse_where(&mut self) -> Result<Vec<(String, String, String)>> {
-        let mut list = Vec::new();
-        list.push(self.parse_pred()?);
-        while self.ident_is("AND") {
-            self.next();
-            list.push(self.parse_pred()?);
-        }
-        Ok(list)
+    fn parse_where(&mut self) -> Result<Expr> {
+        self.parse_or()
     }
 
-    fn parse_pred(&mut self) -> Result<(String, String, String)> {
+    fn parse_or(&mut self) -> Result<Expr> {
+        let mut e = self.parse_and()?;
+        while self.ident_is("OR") {
+            self.next();
+            let r = self.parse_and()?;
+            e = Expr::Or(Box::new(e), Box::new(r));
+        }
+        Ok(e)
+    }
+
+    fn parse_and(&mut self) -> Result<Expr> {
+        let mut e = self.parse_not()?;
+        while self.ident_is("AND") {
+            self.next();
+            let r = self.parse_not()?;
+            e = Expr::And(Box::new(e), Box::new(r));
+        }
+        Ok(e)
+    }
+
+    fn parse_not(&mut self) -> Result<Expr> {
+        if self.ident_is("NOT") {
+            self.next();
+            let inner = self.parse_not()?;
+            return Ok(Expr::Not(Box::new(inner)));
+        }
+        self.parse_atom()
+    }
+
+    fn parse_atom(&mut self) -> Result<Expr> {
+        if self.kind() == TokenKind::LParen {
+            self.next();
+            let e = self.parse_or()?;
+            self.expect(TokenKind::RParen)?;
+            return Ok(e);
+        }
+        self.parse_pred()
+    }
+
+    fn parse_pred(&mut self) -> Result<Expr> {
         let var = self.expect_ident()?;
         self.expect(TokenKind::Dot)?;
         let key = self.expect_ident()?;
@@ -546,7 +579,7 @@ impl Parser {
             TokenKind::String | TokenKind::Number | TokenKind::Ident => {
                 let val = self.text();
                 self.next();
-                Ok((var, key, val))
+                Ok(Expr::Eq(var, key, val))
             }
             _ => Err(Error::new("bad WHERE value")),
         }
