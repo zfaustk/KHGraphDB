@@ -135,6 +135,16 @@ mod tests {
     }
 
     #[test]
+    fn return_as() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) RETURN b AS friend");
+        assert!(r.ok);
+        assert_eq!(r.columns, vec!["friend".to_string()]);
+        assert_eq!(r.rows.len(), 1);
+    }
+
+    #[test]
     fn match_one_hop() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");

@@ -552,14 +552,25 @@ impl Parser {
         }
     }
 
-    fn parse_return(&mut self) -> Result<Vec<String>> {
+    fn parse_return(&mut self) -> Result<Vec<(String, String)>> {
         let mut cols = Vec::new();
-        cols.push(self.expect_ident()?);
+        cols.push(self.parse_return_item()?);
         while self.kind() == TokenKind::Comma {
             self.next();
-            cols.push(self.expect_ident()?);
+            cols.push(self.parse_return_item()?);
         }
         Ok(cols)
+    }
+
+    fn parse_return_item(&mut self) -> Result<(String, String)> {
+        let name = self.expect_ident()?;
+        if self.ident_is("AS") {
+            self.next();
+            let alias = self.expect_ident()?;
+            Ok((name, alias))
+        } else {
+            Ok((name.clone(), name))
+        }
     }
 
     fn parse_set(&mut self) -> Result<Vec<(String, String, String)>> {

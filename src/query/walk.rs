@@ -526,12 +526,12 @@ pub fn exec_delete(g: &mut Graph,
     Ok(r)
 }
 
-pub fn project(src: &QueryResult, cols: &Vec<String>) -> QueryResult {
+pub fn project(src: &QueryResult, cols: &Vec<(String, String)>) -> QueryResult {
     let mut r = QueryResult::ok_msg("RETURN");
     let mut map = Vec::new();
-    for c in cols.iter() {
-        r.columns.push(c.clone());
-        map.push(src.columns.iter().position(|x| x == c));
+    for &(ref name, ref alias) in cols.iter() {
+        r.columns.push(alias.clone());
+        map.push(src.columns.iter().position(|x| x == name));
     }
     for row in src.rows.iter() {
         let mut nr = Vec::new();
