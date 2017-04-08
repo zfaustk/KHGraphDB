@@ -162,6 +162,18 @@ mod tests {
     }
 
     #[test]
+    fn where_or_not() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person) WHERE a.name = 'Alice' OR a.name = 'Carol'");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+        let r2 = super::query::run(&mut g,
+            "MATCH (a:Person) WHERE NOT a.name = 'Alice'");
+        assert_eq!(r2.rows.len(), 2);
+    }
+
+    #[test]
     fn match_unknown_type() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (n:Nope)");

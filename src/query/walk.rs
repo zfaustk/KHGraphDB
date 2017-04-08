@@ -1,6 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
-use super::{NodePat, Path, Pattern, QueryResult, RelPat, Val};
+use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, Val};
 
 fn columns_of(pat: &Pattern) -> Vec<String> {
     let mut cols = Vec::new();
@@ -409,40 +409,42 @@ fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
     ids
 }
 
-pub fn filter_where(g: &Graph, src: QueryResult, preds: &Vec<(String, String, String)>) -> QueryResult {
+pub fn filter_where(g: &Graph, src: QueryResult, pred: &Expr) -> QueryResult {
     let mut r = QueryResult::ok_msg("WHERE");
     r.columns = src.columns.clone();
     for row in src.rows.iter() {
-        let mut ok = true;
-        for &(ref var, ref key, ref val) in preds.iter() {
-            let col = match src.columns.iter().position(|c| c == var) {
-                Some(i) => i,
-                None => {
-                    ok = false;
-                    break;
-                }
-            };
-            let vid = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                Some(id) => id,
-                None => {
-                    ok = false;
-                    break;
-                }
-            };
-            match g.vertex(vid).and_then(|v| v.get(key).map(|s| s.to_string())) {
-                Some(ref got) if got == val => {}
-                _ => {
-                    ok = false;
-                    break;
-                }
-            }
-        }
-        if ok {
+        if eval_expr(g, &src.columns, row, pred) {
             r.rows.push(row.clone());
         }
     }
     r.message = format!("{} row", r.rows.len());
     r
+}
+
+fn eval_expr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, e: &Expr) -> bool {
+    match *e {
+        Expr::Eq(ref var, ref key, ref val) => {
+            match lookup_attr(g, cols, row, var, key) {
+                Some(ref got) if got == val => true,
+                _ => false,
+            }
+        }
+        Expr::And(ref a, ref b) => eval_expr(g, cols, row, a) && eval_expr(g, cols, row, b),
+        Expr::Or(ref a, ref b) => eval_expr(g, cols, row, a) || eval_expr(g, cols, row, b),
+        Expr::Not(ref a) => !eval_expr(g, cols, row, a),
+    }
+}
+
+fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str, key: &str) -> Option<String> {
+    let col = match cols.iter().position(|c| c == var) {
+        Some(i) => i,
+        None => return None,
+    };
+    let id = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+        Some(id) => id,
+        None => return None,
+    };
+    g.vertex(id).and_then(|v| v.get(key).map(|s| s.to_string()))
 }
 
 pub fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, String)>) -> Result<QueryResult> {

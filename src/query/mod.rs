@@ -36,6 +36,14 @@ struct Pattern {
     on_match: Vec<(String, String, String)>,
 }
 
+#[derive(Clone)]
+enum Expr {
+    Eq(String, String, String),
+    And(Box<Expr>, Box<Expr>),
+    Or(Box<Expr>, Box<Expr>),
+    Not(Box<Expr>),
+}
+
 /// A walk. Interleaved node, edge, node. KHID only.
 /// The vertices stay in the arena.
 #[derive(Clone)]
