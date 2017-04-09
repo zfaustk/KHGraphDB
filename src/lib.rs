@@ -174,6 +174,18 @@ mod tests {
     }
 
     #[test]
+    fn where_compare() {
+        let mut g = social();
+        super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+        super::query::run(&mut g, "MATCH (a:Person {name:'Bob'}) SET a.age = 20");
+        super::query::run(&mut g, "MATCH (a:Person {name:'Carol'}) SET a.age = 44");
+        let r = super::query::run(&mut g, "MATCH (a:Person) WHERE a.age > 30");
+        assert_eq!(r.rows.len(), 2);
+        let r2 = super::query::run(&mut g, "MATCH (a:Person) WHERE a.age <= 20");
+        assert_eq!(r2.rows.len(), 1);
+    }
+
+    #[test]
     fn match_unknown_type() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (n:Nope)");

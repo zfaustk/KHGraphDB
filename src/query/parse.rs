@@ -19,6 +19,11 @@ enum TokenKind {
     Comma,
     Dot,
     Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
     Dash,
     Arrow,
     LArrow,
@@ -98,9 +103,33 @@ impl Lexer {
             self.i += 1;
             return Ok(tok(TokenKind::Eq, "="));
         }
-        if c == '<' && self.i + 1 < self.s.len() && self.s[self.i + 1] == '-' {
+        if c == '!' && self.i + 1 < self.s.len() && self.s[self.i + 1] == '=' {
             self.i += 2;
-            return Ok(tok(TokenKind::LArrow, "<-"));
+            return Ok(tok(TokenKind::Ne, "!="));
+        }
+        if c == '<' {
+            if self.i + 1 < self.s.len() && self.s[self.i + 1] == '-' {
+                self.i += 2;
+                return Ok(tok(TokenKind::LArrow, "<-"));
+            }
+            if self.i + 1 < self.s.len() && self.s[self.i + 1] == '=' {
+                self.i += 2;
+                return Ok(tok(TokenKind::Le, "<="));
+            }
+            if self.i + 1 < self.s.len() && self.s[self.i + 1] == '>' {
+                self.i += 2;
+                return Ok(tok(TokenKind::Ne, "<>"));
+            }
+            self.i += 1;
+            return Ok(tok(TokenKind::Lt, "<"));
+        }
+        if c == '>' {
+            if self.i + 1 < self.s.len() && self.s[self.i + 1] == '=' {
+                self.i += 2;
+                return Ok(tok(TokenKind::Ge, ">="));
+            }
+            self.i += 1;
+            return Ok(tok(TokenKind::Gt, ">"));
         }
         if c == '-' && self.i + 1 < self.s.len() && self.s[self.i + 1] == '>' {
             self.i += 2;
@@ -574,12 +603,25 @@ impl Parser {
         let var = self.expect_ident()?;
         self.expect(TokenKind::Dot)?;
         let key = self.expect_ident()?;
-        self.expect(TokenKind::Eq)?;
+        let op = match self.kind() {
+            TokenKind::Eq => 0,
+            TokenKind::Lt => -1,
+            TokenKind::Gt => 1,
+            TokenKind::Le => -2,
+            TokenKind::Ge => 2,
+            TokenKind::Ne => 3,
+            _ => return Err(Error::new("bad WHERE op")),
+        };
+        self.next();
         match self.kind() {
             TokenKind::String | TokenKind::Number | TokenKind::Ident => {
                 let val = self.text();
                 self.next();
-                Ok(Expr::Eq(var, key, val))
+                if op == 0 {
+                    Ok(Expr::Eq(var, key, val))
+                } else {
+                    Ok(Expr::Cmp(var, key, op, val))
+                }
             }
             _ => Err(Error::new("bad WHERE value")),
         }

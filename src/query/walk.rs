@@ -429,6 +429,12 @@ fn eval_expr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, e: &Expr) ->
                 _ => false,
             }
         }
+        Expr::Cmp(ref var, ref key, op, ref val) => {
+            match lookup_attr(g, cols, row, var, key) {
+                Some(ref got) => cmp_attr(got, val, op),
+                None => false,
+            }
+        }
         Expr::And(ref a, ref b) => eval_expr(g, cols, row, a) && eval_expr(g, cols, row, b),
         Expr::Or(ref a, ref b) => eval_expr(g, cols, row, a) || eval_expr(g, cols, row, b),
         Expr::Not(ref a) => !eval_expr(g, cols, row, a),
@@ -445,6 +451,33 @@ fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str,
         None => return None,
     };
     g.vertex(id).and_then(|v| v.get(key).map(|s| s.to_string()))
+}
+
+fn cmp_attr(got: &str, val: &str, op: i32) -> bool {
+    let gi = got.parse::<i64>();
+    let vi = val.parse::<i64>();
+    match (gi, vi) {
+        (Ok(a), Ok(b)) => {
+            match op {
+                -2 => a <= b,
+                -1 => a < b,
+                1 => a > b,
+                2 => a >= b,
+                3 => a != b,
+                _ => a == b,
+            }
+        }
+        _ => {
+            match op {
+                -2 => got <= val,
+                -1 => got < val,
+                1 => got > val,
+                2 => got >= val,
+                3 => got != val,
+                _ => got == val,
+            }
+        }
+    }
 }
 
 pub fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, String)>) -> Result<QueryResult> {
