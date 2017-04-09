@@ -39,6 +39,7 @@ struct Pattern {
 #[derive(Clone)]
 enum Expr {
     Eq(String, String, String),
+    Cmp(String, String, i32, String),
     And(Box<Expr>, Box<Expr>),
     Or(Box<Expr>, Box<Expr>),
     Not(Box<Expr>),
