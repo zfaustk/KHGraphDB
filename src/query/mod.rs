@@ -40,6 +40,7 @@ struct Pattern {
 enum Expr {
     Eq(String, String, String),
     Cmp(String, String, i32, String),
+    In(String, String, Vec<String>),
     And(Box<Expr>, Box<Expr>),
     Or(Box<Expr>, Box<Expr>),
     Not(Box<Expr>),

@@ -435,6 +435,21 @@ fn eval_expr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, e: &Expr) ->
                 None => false,
             }
         }
+        Expr::In(ref var, ref key, ref vals) => {
+            match lookup_attr(g, cols, row, var, key) {
+                Some(ref got) => {
+                    let mut hit = false;
+                    for v in vals.iter() {
+                        if v == got {
+                            hit = true;
+                            break;
+                        }
+                    }
+                    hit
+                }
+                None => false,
+            }
+        }
         Expr::And(ref a, ref b) => eval_expr(g, cols, row, a) && eval_expr(g, cols, row, b),
         Expr::Or(ref a, ref b) => eval_expr(g, cols, row, a) || eval_expr(g, cols, row, b),
         Expr::Not(ref a) => !eval_expr(g, cols, row, a),
