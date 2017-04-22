@@ -603,6 +603,25 @@ impl Parser {
         let var = self.expect_ident()?;
         self.expect(TokenKind::Dot)?;
         let key = self.expect_ident()?;
+        if self.ident_is("IN") {
+            self.next();
+            self.expect(TokenKind::LBrack)?;
+            let mut vals = Vec::new();
+            while self.kind() != TokenKind::RBrack && self.kind() != TokenKind::Eof {
+                match self.kind() {
+                    TokenKind::String | TokenKind::Number | TokenKind::Ident => {
+                        vals.push(self.text());
+                        self.next();
+                    }
+                    _ => return Err(Error::new("bad IN value")),
+                }
+                if self.kind() == TokenKind::Comma {
+                    self.next();
+                }
+            }
+            self.expect(TokenKind::RBrack)?;
+            return Ok(Expr::In(var, key, vals));
+        }
         let op = match self.kind() {
             TokenKind::Eq => 0,
             TokenKind::Lt => -1,
