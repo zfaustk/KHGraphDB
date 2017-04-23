@@ -145,6 +145,17 @@ mod tests {
     }
 
     #[test]
+    fn order_by_name() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person) RETURN a ORDER BY a.name DESC");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 3);
+        let first = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
+        assert_eq!(g.vertex(first).unwrap().get("name"), Some("Carol"));
+    }
+
+    #[test]
     fn match_one_hop() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");
