@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{Expr, NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, project};
+use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, order_by, project};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -311,6 +311,9 @@ impl Parser {
                 match last {
                     Some(src) => {
                         last = Some(project(&src, &cols));
+                        if let Some(r) = last.take() {
+                            last = Some(self.parse_return_tail(g, r)?);
+                        }
                         break;
                     }
                     None => return Err(Error::new("RETURN without MATCH")),
@@ -403,6 +406,46 @@ impl Parser {
             }
         }
         Ok(pat)
+    }
+
+    fn parse_return_tail(&mut self, g: &Graph, mut r: QueryResult) -> Result<QueryResult> {
+        if self.ident_is("ORDER") {
+            self.next();
+            if !self.ident_is("BY") {
+                return Err(Error::new("expected BY"));
+            }
+            self.next();
+            let keys = self.parse_order()?;
+            r = order_by(g, r, &keys);
+        }
+        Ok(r)
+    }
+
+    fn parse_order(&mut self) -> Result<Vec<(String, Option<String>, bool)>> {
+        let mut keys = Vec::new();
+        keys.push(self.parse_order_key()?);
+        while self.kind() == TokenKind::Comma {
+            self.next();
+            keys.push(self.parse_order_key()?);
+        }
+        Ok(keys)
+    }
+
+    fn parse_order_key(&mut self) -> Result<(String, Option<String>, bool)> {
+        let var = self.expect_ident()?;
+        let mut key = None;
+        if self.kind() == TokenKind::Dot {
+            self.next();
+            key = Some(self.expect_ident()?);
+        }
+        let mut desc = false;
+        if self.ident_is("DESC") {
+            self.next();
+            desc = true;
+        } else if self.ident_is("ASC") {
+            self.next();
+        }
+        Ok((var, key, desc))
     }
 
     fn parse_merge_tail(&mut self, pat: &mut Pattern) -> Result<()> {

@@ -597,6 +597,50 @@ pub fn project(src: &QueryResult, cols: &Vec<(String, String)>) -> QueryResult {
     r
 }
 
+pub fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Option<String>, bool)>) -> QueryResult {
+    let cols = src.columns.clone();
+    src.rows.sort_by(|a, b| {
+        for &(ref var, ref key, desc) in keys.iter() {
+            let ca = order_cell(g, &cols, a, var, key.as_ref().map(|s| &s[..]));
+            let cb = order_cell(g, &cols, b, var, key.as_ref().map(|s| &s[..]));
+            let ord = if let (Ok(ia), Ok(ib)) = (ca.parse::<i64>(), cb.parse::<i64>()) {
+                ia.cmp(&ib)
+            } else {
+                ca.cmp(&cb)
+            };
+            if ord != std::cmp::Ordering::Equal {
+                if desc {
+                    return ord.reverse();
+                }
+                return ord;
+            }
+        }
+        std::cmp::Ordering::Equal
+    });
+    src.message = format!("{} row", src.rows.len());
+    src
+}
+
+fn order_cell(g: &Graph,
+              cols: &Vec<String>,
+              row: &Vec<Option<Val>>,
+              var: &str,
+              key: Option<&str>) -> String {
+    match key {
+        Some(k) => lookup_attr(g, cols, row, var, k).unwrap_or(String::new()),
+        None => {
+            let col = match cols.iter().position(|c| c == var) {
+                Some(i) => i,
+                None => return String::new(),
+            };
+            match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+                Some(id) => id.to_string(),
+                None => String::new(),
+            }
+        }
+    }
+}
+
 pub fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResult>) -> Result<QueryResult> {
     let binds = create_binds(prev);
     let mut r = QueryResult::ok_msg("created");
