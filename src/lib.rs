@@ -156,6 +156,16 @@ mod tests {
     }
 
     #[test]
+    fn skip_limit() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person) RETURN a ORDER BY a.name SKIP 1 LIMIT 1");
+        assert_eq!(r.rows.len(), 1);
+        let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
+        assert_eq!(g.vertex(id).unwrap().get("name"), Some("Bob"));
+    }
+
+    #[test]
     fn match_one_hop() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");
