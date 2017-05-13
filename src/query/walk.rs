@@ -621,6 +621,24 @@ pub fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Option<Stri
     src
 }
 
+pub fn skip_rows(mut src: QueryResult, n: usize) -> QueryResult {
+    if n >= src.rows.len() {
+        src.rows.clear();
+    } else {
+        src.rows = src.rows.split_off(n);
+    }
+    src.message = format!("{} row", src.rows.len());
+    src
+}
+
+pub fn limit_rows(mut src: QueryResult, n: usize) -> QueryResult {
+    if src.rows.len() > n {
+        src.rows.truncate(n);
+    }
+    src.message = format!("{} row", src.rows.len());
+    src
+}
+
 fn order_cell(g: &Graph,
               cols: &Vec<String>,
               row: &Vec<Option<Val>>,

@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{Expr, NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, order_by, project};
+use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, limit_rows, order_by, project, skip_rows};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -417,6 +417,24 @@ impl Parser {
             self.next();
             let keys = self.parse_order()?;
             r = order_by(g, r, &keys);
+        }
+        if self.ident_is("SKIP") {
+            self.next();
+            if self.kind() != TokenKind::Number {
+                return Err(Error::new("expected number"));
+            }
+            let n = parse_usize(&self.text())?;
+            self.next();
+            r = skip_rows(r, n);
+        }
+        if self.ident_is("LIMIT") {
+            self.next();
+            if self.kind() != TokenKind::Number {
+                return Err(Error::new("expected number"));
+            }
+            let n = parse_usize(&self.text())?;
+            self.next();
+            r = limit_rows(r, n);
         }
         Ok(r)
     }
