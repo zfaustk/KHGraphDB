@@ -621,6 +621,25 @@ pub fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Option<Stri
     src
 }
 
+pub fn distinct_rows(mut src: QueryResult) -> QueryResult {
+    let mut out: Vec<Vec<Option<Val>>> = Vec::new();
+    for row in src.rows.iter() {
+        let mut seen = false;
+        for o in out.iter() {
+            if o == row {
+                seen = true;
+                break;
+            }
+        }
+        if !seen {
+            out.push(row.clone());
+        }
+    }
+    src.rows = out;
+    src.message = format!("{} row", src.rows.len());
+    src
+}
+
 pub fn skip_rows(mut src: QueryResult, n: usize) -> QueryResult {
     if n >= src.rows.len() {
         src.rows.clear();

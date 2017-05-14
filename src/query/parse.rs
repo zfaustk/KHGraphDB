@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{Expr, NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, limit_rows, order_by, project, skip_rows};
+use super::walk::{distinct_rows, exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, limit_rows, order_by, project, skip_rows};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -307,13 +307,20 @@ impl Parser {
                 }
             } else if self.ident_is("RETURN") {
                 self.next();
+                let distinct = if self.ident_is("DISTINCT") {
+                    self.next();
+                    true
+                } else {
+                    false
+                };
                 let cols = self.parse_return()?;
                 match last {
                     Some(src) => {
-                        last = Some(project(&src, &cols));
-                        if let Some(r) = last.take() {
-                            last = Some(self.parse_return_tail(g, r)?);
+                        let mut r = project(&src, &cols);
+                        if distinct {
+                            r = distinct_rows(r);
                         }
+                        last = Some(self.parse_return_tail(g, r)?);
                         break;
                     }
                     None => return Err(Error::new("RETURN without MATCH")),
