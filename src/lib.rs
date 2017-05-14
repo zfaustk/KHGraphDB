@@ -156,6 +156,14 @@ mod tests {
     }
 
     #[test]
+    fn distinct_names() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person)-[:KNOWS]->(b) RETURN DISTINCT a");
+        assert_eq!(r.rows.len(), 2);
+    }
+
+    #[test]
     fn skip_limit() {
         let mut g = social();
         let r = super::query::run(&mut g,

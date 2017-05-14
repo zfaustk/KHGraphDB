@@ -48,7 +48,7 @@ enum Expr {
 
 /// A walk. Interleaved node, edge, node. KHID only.
 /// The vertices stay in the arena.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Path {
     ids: Vec<String>,
 }
@@ -105,7 +105,7 @@ impl Index<usize> for Path {
 /// A bound value. An id is a KHID. A path is
 /// node, edge, node, ... The vertices stay put.
 /// A list holds other values.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Val {
     Id(String),
     Path(Path),
