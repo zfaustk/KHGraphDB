@@ -305,6 +305,25 @@ impl Parser {
                     Some(src) => last = Some(filter_where(g, src, &preds)),
                     None => return Err(Error::new("WHERE without MATCH")),
                 }
+            } else if self.ident_is("WITH") {
+                self.next();
+                let distinct = if self.ident_is("DISTINCT") {
+                    self.next();
+                    true
+                } else {
+                    false
+                };
+                let cols = self.parse_return()?;
+                match last {
+                    Some(src) => {
+                        let mut r = project(&src, &cols);
+                        if distinct {
+                            r = distinct_rows(r);
+                        }
+                        last = Some(self.parse_return_tail(g, r)?);
+                    }
+                    None => return Err(Error::new("WITH without MATCH")),
+                }
             } else if self.ident_is("RETURN") {
                 self.next();
                 let distinct = if self.ident_is("DISTINCT") {
