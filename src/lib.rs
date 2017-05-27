@@ -156,6 +156,16 @@ mod tests {
     }
 
     #[test]
+    fn with_drops() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person)-[:KNOWS]->(b) WITH a WHERE a.name = 'Alice' RETURN a");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.columns, vec!["a".to_string()]);
+    }
+
+    #[test]
     fn distinct_names() {
         let mut g = social();
         let r = super::query::run(&mut g,
