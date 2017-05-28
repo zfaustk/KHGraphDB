@@ -640,6 +640,52 @@ pub fn distinct_rows(mut src: QueryResult) -> QueryResult {
     src
 }
 
+pub fn exec_unwind(prev: Option<QueryResult>,
+                   col: Option<String>,
+                   lits: Vec<Val>,
+                   alias: String)
+                   -> QueryResult {
+    let mut r = QueryResult::ok_msg("UNWIND");
+    match prev {
+        None => {
+            r.columns.push(alias);
+            if col.is_some() {
+                return QueryResult::fail("UNWIND without MATCH");
+            }
+            for v in lits.iter() {
+                r.rows.push(vec![Some(v.clone())]);
+            }
+        }
+        Some(src) => {
+            r.columns = src.columns.clone();
+            r.columns.push(alias.clone());
+            for row in src.rows.iter() {
+                let items: Vec<Val> = if let Some(ref c) = col {
+                    match src.columns.iter().position(|x| x == c) {
+                        Some(i) => {
+                            match row.get(i).and_then(|x| x.as_ref()) {
+                                Some(&Val::List(ref xs)) => xs.clone(),
+                                Some(v) => vec![v.clone()],
+                                None => Vec::new(),
+                            }
+                        }
+                        None => Vec::new(),
+                    }
+                } else {
+                    lits.clone()
+                };
+                for v in items.iter() {
+                    let mut nr = row.clone();
+                    nr.push(Some(v.clone()));
+                    r.rows.push(nr);
+                }
+            }
+        }
+    }
+    r.message = format!("{} row", r.rows.len());
+    r
+}
+
 pub fn skip_rows(mut src: QueryResult, n: usize) -> QueryResult {
     if n >= src.rows.len() {
         src.rows.clear();

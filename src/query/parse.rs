@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
-use super::{Expr, NodePat, Pattern, QueryResult, RelPat};
-use super::walk::{distinct_rows, exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, filter_where, limit_rows, order_by, project, skip_rows};
+use super::{Expr, NodePat, Pattern, QueryResult, RelPat, Val};
+use super::walk::{distinct_rows, exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, exec_unwind, filter_where, limit_rows, order_by, project, skip_rows};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -305,6 +305,15 @@ impl Parser {
                     Some(src) => last = Some(filter_where(g, src, &preds)),
                     None => return Err(Error::new("WHERE without MATCH")),
                 }
+            } else if self.ident_is("UNWIND") {
+                self.next();
+                let (col, lits) = self.parse_unwind_src()?;
+                if !self.ident_is("AS") {
+                    return Err(Error::new("expected AS"));
+                }
+                self.next();
+                let alias = self.expect_ident()?;
+                last = Some(exec_unwind(last, col, lits, alias));
             } else if self.ident_is("WITH") {
                 self.next();
                 let distinct = if self.ident_is("DISTINCT") {
@@ -752,6 +761,29 @@ impl Parser {
         } else {
             Ok((name.clone(), name))
         }
+    }
+
+    fn parse_unwind_src(&mut self) -> Result<(Option<String>, Vec<Val>)> {
+        if self.kind() == TokenKind::LBrack {
+            self.next();
+            let mut lits = Vec::new();
+            while self.kind() != TokenKind::RBrack && self.kind() != TokenKind::Eof {
+                match self.kind() {
+                    TokenKind::String | TokenKind::Number | TokenKind::Ident => {
+                        lits.push(Val::Id(self.text()));
+                        self.next();
+                    }
+                    _ => return Err(Error::new("bad UNWIND value")),
+                }
+                if self.kind() == TokenKind::Comma {
+                    self.next();
+                }
+            }
+            self.expect(TokenKind::RBrack)?;
+            return Ok((None, lits));
+        }
+        let col = self.expect_ident()?;
+        Ok((Some(col), Vec::new()))
     }
 
     fn parse_set(&mut self) -> Result<Vec<(String, String, String)>> {

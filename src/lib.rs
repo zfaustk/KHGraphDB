@@ -156,6 +156,24 @@ mod tests {
     }
 
     #[test]
+    fn unwind_list() {
+        let mut g = Graph::new();
+        let r = super::query::run(&mut g, "UNWIND ['Ada', 'Bob'] AS n RETURN n");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+        assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_id()), Some("Ada"));
+    }
+
+    #[test]
+    fn unwind_star() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[e:KNOWS*1..2]->(b) UNWIND e AS hop RETURN hop");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 3);
+    }
+
+    #[test]
     fn with_drops() {
         let mut g = social();
         let r = super::query::run(&mut g,
