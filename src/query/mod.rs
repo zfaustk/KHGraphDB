@@ -37,6 +37,13 @@ struct Pattern {
 }
 
 #[derive(Clone)]
+struct RetItem {
+    kind: i32, // 0 column, 1 count
+    name: String,
+    alias: String,
+}
+
+#[derive(Clone)]
 enum Expr {
     Eq(String, String, String),
     Cmp(String, String, i32, String),

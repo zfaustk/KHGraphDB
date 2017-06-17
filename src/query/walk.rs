@@ -1,6 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
-use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, Val};
+use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, RetItem, Val};
 
 fn columns_of(pat: &Pattern) -> Vec<String> {
     let mut cols = Vec::new();
@@ -576,19 +576,84 @@ pub fn exec_delete(g: &mut Graph,
     Ok(r)
 }
 
-pub fn project(src: &QueryResult, cols: &Vec<(String, String)>) -> QueryResult {
-    let mut r = QueryResult::ok_msg("RETURN");
-    let mut map = Vec::new();
-    for &(ref name, ref alias) in cols.iter() {
-        r.columns.push(alias.clone());
-        map.push(src.columns.iter().position(|x| x == name));
+pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
+    let mut agg = false;
+    for c in cols.iter() {
+        if c.kind != 0 {
+            agg = true;
+            break;
+        }
     }
+    if !agg {
+        let mut r = QueryResult::ok_msg("RETURN");
+        let mut map = Vec::new();
+        for c in cols.iter() {
+            r.columns.push(c.alias.clone());
+            map.push(src.columns.iter().position(|x| x == &c.name));
+        }
+        for row in src.rows.iter() {
+            let mut nr = Vec::new();
+            for m in map.iter() {
+                match *m {
+                    Some(i) => nr.push(row.get(i).cloned().unwrap_or(None)),
+                    None => nr.push(None),
+                }
+            }
+            r.rows.push(nr);
+        }
+        r.message = format!("{} row", r.rows.len());
+        return r;
+    }
+    // group by non-agg columns
+    let mut groups: Vec<(Vec<Option<Val>>, usize)> = Vec::new();
     for row in src.rows.iter() {
+        let mut key = Vec::new();
+        for c in cols.iter() {
+            if c.kind == 0 {
+                match src.columns.iter().position(|x| x == &c.name) {
+                    Some(i) => key.push(row.get(i).cloned().unwrap_or(None)),
+                    None => key.push(None),
+                }
+            }
+        }
+        let mut found = None;
+        let mut gi = 0;
+        while gi < groups.len() {
+            if groups[gi].0 == key {
+                found = Some(gi);
+                break;
+            }
+            gi += 1;
+        }
+        match found {
+            Some(i) => groups[i].1 += 1,
+            None => groups.push((key, 1)),
+        }
+    }
+    let mut r = QueryResult::ok_msg("RETURN");
+    for c in cols.iter() {
+        r.columns.push(c.alias.clone());
+    }
+    for &(ref key, n) in groups.iter() {
         let mut nr = Vec::new();
-        for m in map.iter() {
-            match *m {
-                Some(i) => nr.push(row.get(i).cloned().unwrap_or(None)),
-                None => nr.push(None),
+        let mut ki = 0;
+        for c in cols.iter() {
+            if c.kind == 0 {
+                nr.push(key.get(ki).cloned().unwrap_or(None));
+                ki += 1;
+            } else {
+                nr.push(Some(Val::Id(format!("{}", n))));
+            }
+        }
+        r.rows.push(nr);
+    }
+    if groups.is_empty() && src.rows.is_empty() {
+        let mut nr = Vec::new();
+        for c in cols.iter() {
+            if c.kind == 0 {
+                nr.push(None);
+            } else {
+                nr.push(Some(Val::Id("0".to_string())));
             }
         }
         r.rows.push(nr);

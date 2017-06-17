@@ -1,6 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
-use super::{Expr, NodePat, Pattern, QueryResult, RelPat, Val};
+use super::{Expr, NodePat, Pattern, QueryResult, RelPat, RetItem, Val};
 use super::walk::{distinct_rows, exec_create, exec_delete, exec_merge, exec_pattern, exec_remove, exec_set, exec_unwind, filter_where, limit_rows, order_by, project, skip_rows};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -742,7 +742,7 @@ impl Parser {
         }
     }
 
-    fn parse_return(&mut self) -> Result<Vec<(String, String)>> {
+    fn parse_return(&mut self) -> Result<Vec<RetItem>> {
         let mut cols = Vec::new();
         cols.push(self.parse_return_item()?);
         while self.kind() == TokenKind::Comma {
@@ -752,14 +752,44 @@ impl Parser {
         Ok(cols)
     }
 
-    fn parse_return_item(&mut self) -> Result<(String, String)> {
+    fn parse_return_item(&mut self) -> Result<RetItem> {
+        if self.ident_is("COUNT") {
+            self.next();
+            self.expect(TokenKind::LParen)?;
+            let name = if self.kind() == TokenKind::Star {
+                self.next();
+                "*".to_string()
+            } else {
+                self.expect_ident()?
+            };
+            self.expect(TokenKind::RParen)?;
+            let alias = if self.ident_is("AS") {
+                self.next();
+                self.expect_ident()?
+            } else {
+                "count".to_string()
+            };
+            return Ok(RetItem {
+                kind: 1,
+                name: name,
+                alias: alias,
+            });
+        }
         let name = self.expect_ident()?;
         if self.ident_is("AS") {
             self.next();
             let alias = self.expect_ident()?;
-            Ok((name, alias))
+            Ok(RetItem {
+                kind: 0,
+                name: name,
+                alias: alias,
+            })
         } else {
-            Ok((name.clone(), name))
+            Ok(RetItem {
+                kind: 0,
+                name: name.clone(),
+                alias: name,
+            })
         }
     }
 

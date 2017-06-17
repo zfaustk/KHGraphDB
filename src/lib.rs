@@ -156,6 +156,18 @@ mod tests {
     }
 
     #[test]
+    fn count_star() {
+        let mut g = social();
+        let r = super::query::run(&mut g, "MATCH (a:Person) RETURN count(a)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_id()), Some("3"));
+        let r2 = super::query::run(&mut g,
+            "MATCH (a:Person)-[:KNOWS]->(b) RETURN a, count(b)");
+        assert_eq!(r2.rows.len(), 2);
+    }
+
+    #[test]
     fn unwind_list() {
         let mut g = Graph::new();
         let r = super::query::run(&mut g, "UNWIND ['Ada', 'Bob'] AS n RETURN n");
