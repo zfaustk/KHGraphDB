@@ -775,6 +775,23 @@ impl Parser {
                 alias: alias,
             });
         }
+        if self.ident_is("COLLECT") {
+            self.next();
+            self.expect(TokenKind::LParen)?;
+            let name = self.expect_ident()?;
+            self.expect(TokenKind::RParen)?;
+            let alias = if self.ident_is("AS") {
+                self.next();
+                self.expect_ident()?
+            } else {
+                "collect".to_string()
+            };
+            return Ok(RetItem {
+                kind: 2,
+                name: name,
+                alias: alias,
+            });
+        }
         let name = self.expect_ident()?;
         if self.ident_is("AS") {
             self.next();

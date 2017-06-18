@@ -168,6 +168,21 @@ mod tests {
     }
 
     #[test]
+    fn collect_neighbors() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person)-[:KNOWS]->(b) RETURN a, collect(b) AS ns");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+        let mut lens = Vec::new();
+        for row in r.rows.iter() {
+            lens.push(row[1].as_ref().and_then(|v| v.as_list()).unwrap().len());
+        }
+        lens.sort();
+        assert_eq!(lens, vec![1, 1]);
+    }
+
+    #[test]
     fn unwind_list() {
         let mut g = Graph::new();
         let r = super::query::run(&mut g, "UNWIND ['Ada', 'Bob'] AS n RETURN n");
