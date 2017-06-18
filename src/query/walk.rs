@@ -605,7 +605,13 @@ pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
         return r;
     }
     // group by non-agg columns
-    let mut groups: Vec<(Vec<Option<Val>>, usize)> = Vec::new();
+    let mut groups: Vec<(Vec<Option<Val>>, usize, Vec<Vec<Val>>)> = Vec::new();
+    let mut n_collect = 0;
+    for c in cols.iter() {
+        if c.kind == 2 {
+            n_collect += 1;
+        }
+    }
     for row in src.rows.iter() {
         let mut key = Vec::new();
         for c in cols.iter() {
@@ -625,22 +631,54 @@ pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
             }
             gi += 1;
         }
-        match found {
-            Some(i) => groups[i].1 += 1,
-            None => groups.push((key, 1)),
+        let gi = match found {
+            Some(i) => {
+                groups[i].1 += 1;
+                i
+            }
+            None => {
+                let mut bags = Vec::new();
+                let mut b = 0;
+                while b < n_collect {
+                    bags.push(Vec::new());
+                    b += 1;
+                }
+                groups.push((key, 1, bags));
+                groups.len() - 1
+            }
+        };
+        let mut bi = 0;
+        for c in cols.iter() {
+            if c.kind == 2 {
+                if let Some(i) = src.columns.iter().position(|x| x == &c.name) {
+                    if let Some(Some(ref v)) = row.get(i).cloned() {
+                        groups[gi].2[bi].push(v.clone());
+                    }
+                }
+                bi += 1;
+            }
         }
     }
     let mut r = QueryResult::ok_msg("RETURN");
     for c in cols.iter() {
         r.columns.push(c.alias.clone());
     }
-    for &(ref key, n) in groups.iter() {
+    for &(ref key, n, ref bags) in groups.iter() {
         let mut nr = Vec::new();
         let mut ki = 0;
+        let mut bi = 0;
         for c in cols.iter() {
             if c.kind == 0 {
                 nr.push(key.get(ki).cloned().unwrap_or(None));
                 ki += 1;
+            } else if c.kind == 2 {
+                let list = if bi < bags.len() {
+                    bags[bi].clone()
+                } else {
+                    Vec::new()
+                };
+                nr.push(Some(Val::List(list)));
+                bi += 1;
             } else {
                 nr.push(Some(Val::Id(format!("{}", n))));
             }
@@ -652,6 +690,8 @@ pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
         for c in cols.iter() {
             if c.kind == 0 {
                 nr.push(None);
+            } else if c.kind == 2 {
+                nr.push(Some(Val::List(Vec::new())));
             } else {
                 nr.push(Some(Val::Id("0".to_string())));
             }
