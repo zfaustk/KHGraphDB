@@ -38,7 +38,7 @@ struct Pattern {
 
 #[derive(Clone)]
 struct RetItem {
-    kind: i32, // 0 column, 1 count, 2 collect
+    kind: i32, // 0 col, 1 count, 2 collect, 3 length, 4 nodes, 5 rels
     name: String,
     alias: String,
 }
