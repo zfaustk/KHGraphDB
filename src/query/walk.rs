@@ -576,10 +576,35 @@ pub fn exec_delete(g: &mut Graph,
     Ok(r)
 }
 
+fn path_fn(path: Option<&Path>, kind: i32) -> Option<Val> {
+    let p = match path {
+        Some(p) => p,
+        None => return None,
+    };
+    if kind == 3 {
+        return Some(Val::Id(format!("{}", p.hops())));
+    }
+    if kind == 4 {
+        let mut ids = Vec::new();
+        for n in p.nodes().iter() {
+            ids.push(Val::Id(n.clone()));
+        }
+        return Some(Val::List(ids));
+    }
+    if kind == 5 {
+        let mut ids = Vec::new();
+        for n in p.edges().iter() {
+            ids.push(Val::Id(n.clone()));
+        }
+        return Some(Val::List(ids));
+    }
+    None
+}
+
 pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
     let mut agg = false;
     for c in cols.iter() {
-        if c.kind != 0 {
+        if c.kind == 1 || c.kind == 2 {
             agg = true;
             break;
         }
@@ -593,10 +618,20 @@ pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
         }
         for row in src.rows.iter() {
             let mut nr = Vec::new();
-            for m in map.iter() {
-                match *m {
-                    Some(i) => nr.push(row.get(i).cloned().unwrap_or(None)),
-                    None => nr.push(None),
+            for m in map.iter().enumerate() {
+                let (ci, pos) = m;
+                let kind = cols[ci].kind;
+                if kind == 0 {
+                    match *pos {
+                        Some(i) => nr.push(row.get(i).cloned().unwrap_or(None)),
+                        None => nr.push(None),
+                    }
+                } else {
+                    let path = match *pos {
+                        Some(i) => row.get(i).and_then(|x| x.as_ref()).and_then(|v| v.as_path()),
+                        None => None,
+                    };
+                    nr.push(path_fn(path, kind));
                 }
             }
             r.rows.push(nr);

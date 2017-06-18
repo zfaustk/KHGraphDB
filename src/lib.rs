@@ -168,6 +168,21 @@ mod tests {
     }
 
     #[test]
+    fn path_functions() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH p = (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b) RETURN length(p), nodes(p), relationships(p)");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 2);
+        let mut hops = Vec::new();
+        for row in r.rows.iter() {
+            hops.push(row[0].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        }
+        hops.sort();
+        assert_eq!(hops, vec!["1".to_string(), "2".to_string()]);
+    }
+
+    #[test]
     fn collect_neighbors() {
         let mut g = social();
         let r = super::query::run(&mut g,

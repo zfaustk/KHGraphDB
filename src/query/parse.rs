@@ -792,6 +792,31 @@ impl Parser {
                 alias: alias,
             });
         }
+        if self.ident_is("LENGTH") || self.ident_is("NODES") || self.ident_is("RELATIONSHIPS") {
+            let fname = self.text().to_lowercase();
+            self.next();
+            self.expect(TokenKind::LParen)?;
+            let name = self.expect_ident()?;
+            self.expect(TokenKind::RParen)?;
+            let kind = if fname == "length" {
+                3
+            } else if fname == "nodes" {
+                4
+            } else {
+                5
+            };
+            let alias = if self.ident_is("AS") {
+                self.next();
+                self.expect_ident()?
+            } else {
+                fname
+            };
+            return Ok(RetItem {
+                kind: kind,
+                name: name,
+                alias: alias,
+            });
+        }
         let name = self.expect_ident()?;
         if self.ident_is("AS") {
             self.next();
