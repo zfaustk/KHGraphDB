@@ -244,6 +244,18 @@ mod tests {
     }
 
     #[test]
+    fn second_match() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) MATCH (b)-[:KNOWS]->(c) RETURN a, b, c");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.columns.len(), 3);
+        let c = r.rows[0][2].as_ref().and_then(|v| v.as_id()).unwrap();
+        assert_eq!(g.vertex(c).unwrap().get("name"), Some("Carol"));
+    }
+
+    #[test]
     fn match_one_hop() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");

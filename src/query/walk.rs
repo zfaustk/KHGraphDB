@@ -57,16 +57,79 @@ fn emit_row(pat: &Pattern,
 }
 
 pub fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
+    exec_pattern_on(g, pat, &std::collections::HashMap::new())
+}
+
+pub fn exec_match(g: &Graph, pat: &Pattern, prev: Option<QueryResult>) -> QueryResult {
+    match prev {
+        None => exec_pattern(g, pat),
+        Some(src) => {
+            if src.rows.is_empty() {
+                return src;
+            }
+            let mut out = QueryResult::ok_msg("MATCH");
+            let mut new_cols: Vec<String> = Vec::new();
+            let mut first = true;
+            for row in src.rows.iter() {
+                let mut seed = std::collections::HashMap::new();
+                let mut i = 0;
+                while i < src.columns.len() {
+                    if let Some(id) = row.get(i).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
+                        seed.insert(src.columns[i].clone(), id.to_string());
+                    }
+                    i += 1;
+                }
+                let r2 = exec_pattern_on(g, pat, &seed);
+                if first {
+                    out.columns = src.columns.clone();
+                    for c in r2.columns.iter() {
+                        if !contains_str(&out.columns, c) {
+                            new_cols.push(c.clone());
+                            out.columns.push(c.clone());
+                        }
+                    }
+                    first = false;
+                }
+                if r2.rows.is_empty() {
+                    continue;
+                }
+                for row2 in r2.rows.iter() {
+                    let mut nr = row.clone();
+                    for c in new_cols.iter() {
+                        match r2.columns.iter().position(|x| x == c) {
+                            Some(j) => nr.push(row2.get(j).cloned().unwrap_or(None)),
+                            None => nr.push(None),
+                        }
+                    }
+                    out.rows.push(nr);
+                }
+            }
+            out.message = format!("{} row", out.rows.len());
+            out
+        }
+    }
+}
+
+fn contains_str(cols: &Vec<String>, s: &str) -> bool {
+    for c in cols.iter() {
+        if c == s {
+            return true;
+        }
+    }
+    false
+}
+
+fn exec_pattern_on(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
     let mut pat = pat.clone();
     if let Some(msg) = resolve_types(g, &mut pat, true) {
         return QueryResult::fail(&msg);
     }
     let mut r = if pat.shortest {
-        exec_shortest(g, &pat)
+        exec_shortest(g, &pat, seed)
     } else if pat.rels.is_empty() {
-        exec_nodes(g, &pat)
+        exec_nodes(g, &pat, seed)
     } else {
-        exec_chain(g, &pat)
+        exec_chain(g, &pat, seed)
     };
     if pat.optional && r.rows.is_empty() {
         let mut row = Vec::new();
@@ -110,7 +173,19 @@ fn resolve_types(g: &Graph, pat: &mut Pattern, required: bool) -> Option<String>
     None
 }
 
-fn exec_shortest(g: &Graph, pat: &Pattern) -> QueryResult {
+fn seed_ok(seed: &std::collections::HashMap<String, String>, n: &NodePat, id: &str) -> bool {
+    match n.var {
+        Some(ref v) => {
+            match seed.get(v) {
+                Some(s) => s == id,
+                None => true,
+            }
+        }
+        None => true,
+    }
+}
+
+fn exec_shortest(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
     if pat.rels.len() != 1 {
         return QueryResult::fail("shortestPath");
     }
@@ -124,7 +199,13 @@ fn exec_shortest(g: &Graph, pat: &Pattern) -> QueryResult {
     let mut r = QueryResult::ok_msg("MATCH");
     r.columns = columns_of(pat);
     for s in starts.iter() {
+        if !seed_ok(seed, &pat.nodes[0], s) {
+            continue;
+        }
         for t in ends.iter() {
+            if !seed_ok(seed, &pat.nodes[1], t) {
+                continue;
+            }
             match super::super::algo::path_on(g, s, t, tid, rel.dir, rel.min, rel.max) {
                 Some(path) => {
                     let bind = vec![Some(s.clone()), Some(t.clone())];
@@ -142,12 +223,15 @@ fn exec_shortest(g: &Graph, pat: &Pattern) -> QueryResult {
     r
 }
 
-fn exec_nodes(g: &Graph, pat: &Pattern) -> QueryResult {
+fn exec_nodes(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
     let n = &pat.nodes[0];
     let found = seeds(g, n);
     let mut r = QueryResult::ok_msg("MATCH");
     r.columns = columns_of(pat);
     for id in found.iter() {
+        if !seed_ok(seed, n, id) {
+            continue;
+        }
         let bind = vec![Some(id.clone())];
         let trail = vec![id.clone()];
         let rel_edges: Vec<Vec<String>> = Vec::new();
@@ -157,11 +241,14 @@ fn exec_nodes(g: &Graph, pat: &Pattern) -> QueryResult {
     r
 }
 
-fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
+fn exec_chain(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
     let seeds0 = start_seeds(g, pat);
     let mut r = QueryResult::ok_msg("MATCH");
     r.columns = columns_of(pat);
     for s in seeds0.iter() {
+        if !seed_ok(seed, &pat.nodes[0], s) {
+            continue;
+        }
         let mut bind = vec![None; pat.nodes.len()];
         bind[0] = Some(s.clone());
         let mut seen_v = vec![s.clone()];
@@ -181,6 +268,7 @@ fn exec_chain(g: &Graph, pat: &Pattern) -> QueryResult {
                    &mut seen_e,
                    &mut trail,
                    &mut rel_edges,
+                   seed,
                    &mut r);
     }
     r.message = format!("{} row", r.rows.len());
@@ -195,6 +283,7 @@ fn walk_named(g: &Graph,
               seen_e: &mut Vec<String>,
               trail: &mut Vec<String>,
               rel_edges: &mut Vec<Vec<String>>,
+              seed: &std::collections::HashMap<String, String>,
               r: &mut QueryResult) {
     if node_i == pat.rels.len() {
         emit_row(pat, bind, trail, rel_edges, r);
@@ -214,6 +303,7 @@ fn walk_named(g: &Graph,
                seen_e,
                trail,
                rel_edges,
+               seed,
                r);
 }
 
@@ -236,12 +326,13 @@ fn expand_rel(g: &Graph,
               seen_e: &mut Vec<String>,
               trail: &mut Vec<String>,
               rel_edges: &mut Vec<Vec<String>>,
+              seed: &std::collections::HashMap<String, String>,
               r: &mut QueryResult) {
     let rel = &pat.rels[rel_i];
     let next = &pat.nodes[rel_i + 1];
-    if hops >= rel.min && hops <= rel.max && node_ok(g, u, next) {
+    if hops >= rel.min && hops <= rel.max && node_ok(g, u, next) && seed_ok(seed, next, u) {
         bind[rel_i + 1] = Some(u.to_string());
-        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, trail, rel_edges, r);
+        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, trail, rel_edges, seed, r);
         bind[rel_i + 1] = None;
     }
     if hops >= rel.max {
@@ -285,6 +376,7 @@ fn expand_rel(g: &Graph,
                    seen_e,
                    trail,
                    rel_edges,
+                   seed,
                    r);
         rel_edges[rel_i].pop();
         trail.pop();
