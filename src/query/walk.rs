@@ -959,7 +959,18 @@ fn order_cell(g: &Graph,
 pub fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResult>) -> Result<QueryResult> {
     let binds = create_binds(prev);
     let mut r = QueryResult::ok_msg("created");
-    r.columns = create_columns(pat);
+    r.columns = match prev {
+        Some(p) => {
+            let mut cols = p.columns.clone();
+            for c in create_columns(pat).iter() {
+                if !contains_str(&cols, c) {
+                    cols.push(c.clone());
+                }
+            }
+            cols
+        }
+        None => create_columns(pat),
+    };
     for seed in binds.iter() {
         let mut bound: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         for (k, v) in seed.iter() {

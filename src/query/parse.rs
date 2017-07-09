@@ -360,8 +360,15 @@ impl Parser {
                 last = Some(exec_merge(g, &pat)?);
             } else if self.ident_is("CREATE") {
                 self.next();
-                let pat = self.parse_pattern()?;
-                last = Some(exec_create(g, &pat, last.as_ref())?);
+                loop {
+                    let pat = self.parse_pattern()?;
+                    last = Some(exec_create(g, &pat, last.as_ref())?);
+                    if self.kind() == TokenKind::Comma {
+                        self.next();
+                    } else {
+                        break;
+                    }
+                }
             } else if self.ident_is("SET") {
                 self.next();
                 let items = self.parse_set()?;
