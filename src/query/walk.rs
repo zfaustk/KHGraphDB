@@ -56,11 +56,11 @@ fn emit_row(pat: &Pattern,
     r.rows.push(row);
 }
 
-pub fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
+pub(crate) fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
     exec_pattern_on(g, pat, &std::collections::HashMap::new())
 }
 
-pub fn exec_match(g: &Graph, pat: &Pattern, prev: Option<QueryResult>) -> QueryResult {
+pub(crate) fn exec_match(g: &Graph, pat: &Pattern, prev: Option<QueryResult>) -> QueryResult {
     match prev {
         None => exec_pattern(g, pat),
         Some(src) => {
@@ -501,7 +501,7 @@ fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
     ids
 }
 
-pub fn filter_where(g: &Graph, src: QueryResult, pred: &Expr) -> QueryResult {
+pub(crate) fn filter_where(g: &Graph, src: QueryResult, pred: &Expr) -> QueryResult {
     let mut r = QueryResult::ok_msg("WHERE");
     r.columns = src.columns.clone();
     for row in src.rows.iter() {
@@ -587,7 +587,7 @@ fn cmp_attr(got: &str, val: &str, op: i32) -> bool {
     }
 }
 
-pub fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, String)>) -> Result<QueryResult> {
+pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, String)>) -> Result<QueryResult> {
     for row in src.rows.iter() {
         for &(ref var, ref key, ref val) in items.iter() {
             let col = match src.columns.iter().position(|c| c == var) {
@@ -610,7 +610,7 @@ pub fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, St
     Ok(r)
 }
 
-pub fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, String)>) -> Result<QueryResult> {
+pub(crate) fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, String)>) -> Result<QueryResult> {
     for row in src.rows.iter() {
         for &(ref var, ref key) in items.iter() {
             let col = match src.columns.iter().position(|c| c == var) {
@@ -629,7 +629,7 @@ pub fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, String)
     Ok(r)
 }
 
-pub fn exec_delete(g: &mut Graph,
+pub(crate) fn exec_delete(g: &mut Graph,
                    src: QueryResult,
                    names: &Vec<String>,
                    detach: bool)
@@ -693,7 +693,7 @@ fn path_fn(path: Option<&Path>, kind: i32) -> Option<Val> {
     None
 }
 
-pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
+pub(crate) fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
     let mut agg = false;
     for c in cols.iter() {
         if c.kind == 1 || c.kind == 2 {
@@ -829,7 +829,7 @@ pub fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
     r
 }
 
-pub fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Option<String>, bool)>) -> QueryResult {
+pub(crate) fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Option<String>, bool)>) -> QueryResult {
     let cols = src.columns.clone();
     src.rows.sort_by(|a, b| {
         for &(ref var, ref key, desc) in keys.iter() {
@@ -853,7 +853,7 @@ pub fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Option<Stri
     src
 }
 
-pub fn distinct_rows(mut src: QueryResult) -> QueryResult {
+pub(crate) fn distinct_rows(mut src: QueryResult) -> QueryResult {
     let mut out: Vec<Vec<Option<Val>>> = Vec::new();
     for row in src.rows.iter() {
         let mut seen = false;
@@ -872,7 +872,7 @@ pub fn distinct_rows(mut src: QueryResult) -> QueryResult {
     src
 }
 
-pub fn exec_unwind(prev: Option<QueryResult>,
+pub(crate) fn exec_unwind(prev: Option<QueryResult>,
                    col: Option<String>,
                    lits: Vec<Val>,
                    alias: String)
@@ -918,7 +918,7 @@ pub fn exec_unwind(prev: Option<QueryResult>,
     r
 }
 
-pub fn skip_rows(mut src: QueryResult, n: usize) -> QueryResult {
+pub(crate) fn skip_rows(mut src: QueryResult, n: usize) -> QueryResult {
     if n >= src.rows.len() {
         src.rows.clear();
     } else {
@@ -928,7 +928,7 @@ pub fn skip_rows(mut src: QueryResult, n: usize) -> QueryResult {
     src
 }
 
-pub fn limit_rows(mut src: QueryResult, n: usize) -> QueryResult {
+pub(crate) fn limit_rows(mut src: QueryResult, n: usize) -> QueryResult {
     if src.rows.len() > n {
         src.rows.truncate(n);
     }
@@ -956,7 +956,7 @@ fn order_cell(g: &Graph,
     }
 }
 
-pub fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResult>) -> Result<QueryResult> {
+pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResult>) -> Result<QueryResult> {
     let binds = create_binds(prev);
     let mut r = QueryResult::ok_msg("created");
     r.columns = match prev {
@@ -1062,7 +1062,7 @@ fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
     g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..]))
 }
 
-pub fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
+pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     let mut pat = pat.clone();
     resolve_types(g, &mut pat, false);
     for rel in pat.rels.iter() {
