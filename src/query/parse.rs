@@ -216,7 +216,7 @@ fn parse_usize(s: &str) -> Result<usize> {
 
 const STAR_CAP: usize = 16;
 
-pub fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
+pub(crate) fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
     let mut lx = Lexer::new(text);
     let mut toks = Vec::new();
     loop {
