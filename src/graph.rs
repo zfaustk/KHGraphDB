@@ -20,8 +20,12 @@ pub struct Graph {
 
 impl Graph {
     pub fn new() -> Graph {
+        Graph::named("g1")
+    }
+
+    pub fn named(id: &str) -> Graph {
         Graph {
-            id: "g1".to_string(),
+            id: id.to_string(),
             serial: 0,
             vertices: HashMap::new(),
             edges: HashMap::new(),

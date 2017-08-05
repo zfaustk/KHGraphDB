@@ -30,6 +30,12 @@ mod tests {
     }
 
     #[test]
+    fn named_graph() {
+        let g = Graph::named("social");
+        assert_eq!(g.khid(), "social");
+    }
+
+    #[test]
     fn add_and_lookup() {
         let mut g = Graph::new();
         let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
