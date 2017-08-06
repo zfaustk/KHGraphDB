@@ -57,6 +57,19 @@ impl Graph {
         format!("k{:x}", self.serial)
     }
 
+    fn note_id(&mut self, id: &str) {
+        if id.len() > 1 && id.as_bytes()[0] == b'k' {
+            match u64::from_str_radix(&id[1..], 16) {
+                Ok(n) => {
+                    if n > self.serial {
+                        self.serial = n;
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+    }
+
     pub fn vertex(&self, khid: &str) -> Option<&Vertex> {
         self.vertices.get(khid)
     }
@@ -435,6 +448,7 @@ impl Graph {
                           attrs: HashMap<String, String>,
                           type_names: Vec<String>)
                           -> Result<String> {
+        self.note_id(&id);
         let mut v = Vertex::new(id.clone(), attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
@@ -463,6 +477,7 @@ impl Graph {
         if !self.vertices.contains_key(&src) || !self.vertices.contains_key(&dst) {
             return Err(Error::new("missing vertex"));
         }
+        self.note_id(&id);
         let mut e = Edge::new(id.clone(), src.clone(), dst.clone(), HashMap::new());
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {

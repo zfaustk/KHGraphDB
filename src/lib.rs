@@ -86,12 +86,16 @@ mod tests {
         let mut buf = Vec::new();
         super::io::write_graph(&g, &mut buf).unwrap();
         let mut cur = Cursor::new(buf);
-        let h = super::io::read_graph(&mut cur).unwrap();
+        let mut h = super::io::read_graph(&mut cur).unwrap();
         assert_eq!(h.vertex_count(), 2);
         assert!(h.vertex_by_name("Ada").is_some());
         let ada2 = h.vertex_by_name("Ada").unwrap().khid().to_string();
         assert!(h.has_type(&ada2, "Author"));
         assert_eq!(h.edges_of_type("KNOWS").len(), 1);
+        assert_eq!(h.khid(), "g1");
+        let before = h.vertex_count();
+        h.add_vertex(attrs("Zoe"), Some("Person")).unwrap();
+        assert_eq!(h.vertex_count(), before + 1);
     }
 
     #[test]

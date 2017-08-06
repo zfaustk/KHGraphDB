@@ -110,8 +110,12 @@ pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
     if &magic != MAGIC {
         return Err(Error::new(ErrorKind::InvalidData, "not KHG2"));
     }
-    let _gid = read_str(r)?;
-    let mut g = Graph::new();
+    let gid = read_str(r)?;
+    let mut g = if gid.is_empty() {
+        Graph::new()
+    } else {
+        Graph::named(&gid)
+    };
 
     let n_t = read_u32(r)? as usize;
     for _ in 0..n_t {
