@@ -40,6 +40,16 @@ impl Graph {
         &self.id
     }
 
+    pub fn clear(&mut self) {
+        self.serial = 0;
+        self.vertices.clear();
+        self.edges.clear();
+        self.types.clear();
+        self.types_by_name.clear();
+        self.vertices_by_name.clear();
+        self.indexes.clear();
+    }
+
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
