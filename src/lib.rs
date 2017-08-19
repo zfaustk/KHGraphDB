@@ -30,6 +30,15 @@ mod tests {
     }
 
     #[test]
+    fn clear_graph() {
+        let mut g = social();
+        g.clear();
+        assert_eq!(g.vertex_count(), 0);
+        assert_eq!(g.edge_count(), 0);
+        assert_eq!(g.khid(), "g1");
+    }
+
+    #[test]
     fn named_graph() {
         let g = Graph::named("social");
         assert_eq!(g.khid(), "social");
