@@ -30,6 +30,16 @@ mod tests {
     }
 
     #[test]
+    fn clone_graph() {
+        let mut g = social();
+        let mut h = g.clone();
+        h.add_vertex(attrs("Dan"), Some("Person")).unwrap();
+        assert_eq!(g.vertex_count(), 3);
+        assert_eq!(h.vertex_count(), 4);
+        assert_eq!(h.khid(), g.khid());
+    }
+
+    #[test]
     fn clear_graph() {
         let mut g = social();
         g.clear();

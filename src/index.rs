@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 /// Posting list for (Type, key) -> value -> vertex ids.
+#[derive(Clone)]
 pub struct SchemaIndex {
     type_name: String,
     key: String,
