@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 /// First-class type. Not a string label. Vertices and edges wear it.
+#[derive(Clone)]
 pub struct Type {
     id: String,
     name: String,

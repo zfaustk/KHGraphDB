@@ -3,6 +3,7 @@ use std::collections::HashMap;
 /// A node. KHID is identity. `types` is every type the vertex wears.
 /// The first type is the primary, same as C# `Type`.
 /// Paint for a walk does not live here.
+#[derive(Clone)]
 pub struct Vertex {
     id: String,
     attrs: HashMap<String, String>,

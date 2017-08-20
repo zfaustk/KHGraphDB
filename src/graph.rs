@@ -7,6 +7,7 @@ use super::ty::Type;
 use super::index::SchemaIndex;
 
 /// Directed property graph. Lookups are HashMaps. KHID is identity.
+#[derive(Clone)]
 pub struct Graph {
     id: String,
     serial: u64,
