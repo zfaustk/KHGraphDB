@@ -30,6 +30,18 @@ mod tests {
     }
 
     #[test]
+    fn subgraph_alice() {
+        let g = social();
+        let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
+        let bob = g.vertex_by_name("Bob").unwrap().khid().to_string();
+        let h = g.subgraph(&[alice.clone(), bob.clone()]);
+        assert_eq!(h.vertex_count(), 2);
+        assert_eq!(h.edge_count(), 1);
+        assert!(h.vertex_by_name("Carol").is_none());
+        assert_eq!(g.vertex_count(), 3);
+    }
+
+    #[test]
     fn clone_graph() {
         let mut g = social();
         let mut h = g.clone();

@@ -51,6 +51,24 @@ impl Graph {
         self.indexes.clear();
     }
 
+    pub fn subgraph(&self, vids: &[String]) -> Graph {
+        let mut g = self.clone();
+        let ids = g.vertex_ids();
+        for id in ids.iter() {
+            let mut keep = false;
+            for v in vids.iter() {
+                if v == id {
+                    keep = true;
+                    break;
+                }
+            }
+            if !keep {
+                g.remove_vertex(id);
+            }
+        }
+        g
+    }
+
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
