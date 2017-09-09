@@ -17,6 +17,7 @@ pub struct Graph {
     types_by_name: HashMap<String, String>,
     vertices_by_name: HashMap<String, String>,
     indexes: HashMap<String, SchemaIndex>,
+    edge_indexes: HashMap<String, SchemaIndex>,
 }
 
 impl Graph {
@@ -34,6 +35,7 @@ impl Graph {
             types_by_name: HashMap::new(),
             vertices_by_name: HashMap::new(),
             indexes: HashMap::new(),
+            edge_indexes: HashMap::new(),
         }
     }
 
@@ -49,6 +51,7 @@ impl Graph {
         self.types_by_name.clear();
         self.vertices_by_name.clear();
         self.indexes.clear();
+        self.edge_indexes.clear();
     }
 
     pub fn subgraph(&self, vids: &[String]) -> Graph {
@@ -357,6 +360,43 @@ impl Graph {
         true
     }
 
+    pub fn create_edge_index(&mut self, type_name: &str, key: &str) -> bool {
+        if type_name.is_empty() || key.is_empty() {
+            return false;
+        }
+        let id = SchemaIndex::id(type_name, key);
+        if self.edge_indexes.contains_key(&id) {
+            return true;
+        }
+        let mut idx = SchemaIndex::new(type_name, key, false);
+        let eids = self.edges_of_type(type_name);
+        for eid in eids.iter() {
+            let val = match self.edges.get(eid) {
+                Some(e) => e.get(key).unwrap_or("").to_string(),
+                None => String::new(),
+            };
+            idx.add(eid, &val);
+        }
+        self.edge_indexes.insert(id, idx);
+        true
+    }
+
+    pub fn find_edge(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
+        let id = SchemaIndex::id(type_name, key);
+        if let Some(idx) = self.edge_indexes.get(&id) {
+            return idx.get(value);
+        }
+        let mut hits = Vec::new();
+        for eid in self.edges_of_type(type_name).iter() {
+            if let Some(e) = self.edges.get(eid) {
+                if e.get(key) == Some(value) {
+                    hits.push(eid.clone());
+                }
+            }
+        }
+        hits
+    }
+
     pub fn find(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.indexes.get(&id) {
@@ -553,14 +593,28 @@ impl Graph {
 
 
     pub fn set_edge_attr(&mut self, eid: &str, key: &str, value: &str) -> bool {
+        let tid = match self.edges.get(eid) {
+            Some(e) => e.type_id().map(|s| s.to_string()),
+            None => return false,
+        };
+        let old = match self.edges.get(eid) {
+            Some(e) => e.get(key).unwrap_or("").to_string(),
+            None => String::new(),
+        };
         match self.edges.get_mut(eid) {
             Some(e) => {
-                // Edge attrs are private. Add a setter on Edge.
                 e.set_attr(key, value);
-                true
             }
-            None => false,
+            None => return false,
         }
+        if let Some(tn) = tid.and_then(|t| self.type_name_of(&t).map(|s| s.to_string())) {
+            let iid = SchemaIndex::id(&tn, key);
+            if let Some(idx) = self.edge_indexes.get_mut(&iid) {
+                idx.remove(eid, &old);
+                idx.add(eid, value);
+            }
+        }
+        true
     }
 }
 

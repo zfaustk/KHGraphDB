@@ -30,6 +30,15 @@ mod tests {
     }
 
     #[test]
+    fn edge_index() {
+        let mut g = social();
+        let eids = g.edges_of_type("KNOWS");
+        g.set_edge_attr(&eids[0], "since", "2010");
+        g.create_edge_index("KNOWS", "since");
+        assert_eq!(g.find_edge("KNOWS", "since", "2010").len(), 1);
+    }
+
+    #[test]
     fn subgraph_alice() {
         let g = social();
         let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
@@ -43,7 +52,7 @@ mod tests {
 
     #[test]
     fn clone_graph() {
-        let mut g = social();
+        let g = social();
         let mut h = g.clone();
         h.add_vertex(attrs("Dan"), Some("Person")).unwrap();
         assert_eq!(g.vertex_count(), 3);
