@@ -30,6 +30,17 @@ mod tests {
     }
 
     #[test]
+    fn add_edge_with_attrs() {
+        let mut g = Graph::new();
+        let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+        let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+        let mut w = HashMap::new();
+        w.insert("weight".to_string(), "5".to_string());
+        let e = g.add_edge_with(&a, &b, Some("ROAD"), w).unwrap();
+        assert_eq!(g.edge(&e).unwrap().get("weight"), Some("5"));
+    }
+
+    #[test]
     fn edge_index() {
         let mut g = social();
         let eids = g.edges_of_type("KNOWS");

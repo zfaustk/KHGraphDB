@@ -196,16 +196,35 @@ impl Graph {
                     dst: &str,
                     type_name: Option<&str>)
                     -> Result<String> {
+        self.add_edge_with(src, dst, type_name, HashMap::new())
+    }
+
+    pub fn add_edge_with(&mut self,
+                         src: &str,
+                         dst: &str,
+                         type_name: Option<&str>,
+                         attrs: HashMap<String, String>)
+                         -> Result<String> {
         if !self.vertices.contains_key(src) || !self.vertices.contains_key(dst) {
             return Err(Error::new("missing vertex"));
         }
         let id = self.next_id();
-        let mut e = Edge::new(id.clone(), src.to_string(), dst.to_string(), HashMap::new());
+        let mut e = Edge::new(id.clone(), src.to_string(), dst.to_string(), attrs);
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
             e.set_type(&tid);
             if let Some(t) = self.types.get_mut(&tid) {
                 t.add_edge(&id);
+            }
+            let keys: Vec<(String, String)> = e.attrs()
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            for (k, val) in keys.iter() {
+                let iid = SchemaIndex::id(tn, k);
+                if let Some(idx) = self.edge_indexes.get_mut(&iid) {
+                    idx.add(&id, val);
+                }
             }
         }
         {
