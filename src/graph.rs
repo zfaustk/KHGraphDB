@@ -560,13 +560,14 @@ impl Graph {
                         id: String,
                         src: String,
                         dst: String,
-                        type_name: Option<String>)
+                        type_name: Option<String>,
+                        attrs: HashMap<String, String>)
                         -> Result<String> {
         if !self.vertices.contains_key(&src) || !self.vertices.contains_key(&dst) {
             return Err(Error::new("missing vertex"));
         }
         self.note_id(&id);
-        let mut e = Edge::new(id.clone(), src.clone(), dst.clone(), HashMap::new());
+        let mut e = Edge::new(id.clone(), src.clone(), dst.clone(), attrs);
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
                 let tid = self.add_type(tn)?;

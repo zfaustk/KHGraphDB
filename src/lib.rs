@@ -127,6 +127,24 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_edge_attrs() {
+        use std::io::Cursor;
+        let mut g = Graph::new();
+        let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+        let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+        let mut w = HashMap::new();
+        w.insert("weight".to_string(), "7".to_string());
+        g.add_edge_with(&a, &b, Some("ROAD"), w).unwrap();
+        let mut buf = Vec::new();
+        super::io::write_graph(&g, &mut buf).unwrap();
+        let mut cur = Cursor::new(buf);
+        let h = super::io::read_graph(&mut cur).unwrap();
+        let eids = h.edges_of_type("ROAD");
+        assert_eq!(eids.len(), 1);
+        assert_eq!(h.edge(&eids[0]).unwrap().get("weight"), Some("7"));
+    }
+
+    #[test]
     fn snapshot() {
         use std::io::Cursor;
         let mut g = Graph::new();

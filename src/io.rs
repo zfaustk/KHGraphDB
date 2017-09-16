@@ -4,6 +4,7 @@ use std::io::{Read, Write, Result, Error, ErrorKind};
 use super::graph::Graph;
 
 const MAGIC: &'static [u8] = b"KHG2";
+const MAGIC3: &'static [u8] = b"KHG3";
 
 fn write_u32<W: Write>(w: &mut W, n: u32) -> Result<()> {
     let b = [n as u8, (n >> 8) as u8, (n >> 16) as u8, (n >> 24) as u8];
@@ -65,9 +66,10 @@ fn read_attrs<R: Read>(r: &mut R) -> Result<HashMap<String, String>> {
     Ok(m)
 }
 
-/// KHG2 snapshot. View state stays out.
+/// KHG3 snapshot. Edge attributes travel with the hop.
+/// KHG2 still reads.
 pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
-    w.write_all(MAGIC)?;
+    w.write_all(MAGIC3)?;
     write_str(w, g.khid())?;
 
     let types = g.all_types();
@@ -100,6 +102,10 @@ pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
         write_str(w, dst)?;
         let tn = g.edge_type_name(id).unwrap_or(String::new());
         write_str(w, &tn)?;
+        match g.edge(id) {
+            Some(e) => write_attrs(w, e.attrs())?,
+            None => write_u32(w, 0)?,
+        }
     }
     Ok(())
 }
@@ -107,9 +113,10 @@ pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
 pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
     let mut magic = [0u8; 4];
     read_exact(r, &mut magic)?;
-    if &magic != MAGIC {
+    if &magic != MAGIC && &magic != MAGIC3 {
         return Err(Error::new(ErrorKind::InvalidData, "not KHG2"));
     }
+    let v3 = &magic == MAGIC3;
     let gid = read_str(r)?;
     let mut g = if gid.is_empty() {
         Graph::new()
@@ -149,7 +156,12 @@ pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
         let dst = read_str(r)?;
         let tn = read_str(r)?;
         let tno = if tn.is_empty() { None } else { Some(tn) };
-        match g.restore_edge(id, src, dst, tno) {
+        let attrs = if v3 {
+            read_attrs(r)?
+        } else {
+            HashMap::new()
+        };
+        match g.restore_edge(id, src, dst, tno, attrs) {
             Ok(_) => {}
             Err(e) => return Err(Error::new(ErrorKind::InvalidData, e.message())),
         }
