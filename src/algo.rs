@@ -329,3 +329,55 @@ pub fn shortest(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
     }
     Some(walk_pred(&pred, start, goal))
 }
+
+/// Undirected components. Parent pointers live in scratch.
+pub fn components(g: &Graph) -> Vec<Vec<String>> {
+    let ids = g.vertex_ids();
+    let mut parent: HashMap<String, String> = HashMap::new();
+    for id in ids.iter() {
+        parent.insert(id.clone(), id.clone());
+    }
+    for id in ids.iter() {
+        let eids: Vec<String> = match g.vertex(id) {
+            Some(v) => {
+                let mut e = v.outgoing().iter().map(|s| s.clone()).collect::<Vec<_>>();
+                e.extend(v.incoming().iter().map(|s| s.clone()));
+                e
+            }
+            None => Vec::new(),
+        };
+        for eid in eids.iter() {
+            if let Some(e) = g.edge(eid) {
+                let a = uf_find(&mut parent, e.source());
+                let b = uf_find(&mut parent, e.target());
+                if a != b {
+                    parent.insert(a, b);
+                }
+            }
+        }
+    }
+    let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+    for id in ids.iter() {
+        let r = uf_find(&mut parent, id);
+        groups.entry(r).or_insert(Vec::new()).push(id.clone());
+    }
+    let mut out: Vec<Vec<String>> = Vec::new();
+    for (_, v) in groups {
+        out.push(v);
+    }
+    out
+}
+
+fn uf_find(parent: &mut HashMap<String, String>, x: &str) -> String {
+    let p = match parent.get(x) {
+        Some(s) => s.clone(),
+        None => x.to_string(),
+    };
+    if p != x {
+        let r = uf_find(parent, &p);
+        parent.insert(x.to_string(), r.clone());
+        r
+    } else {
+        p
+    }
+}
