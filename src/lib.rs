@@ -168,6 +168,17 @@ mod tests {
     }
 
     #[test]
+    fn two_components() {
+        let mut g = Graph::new();
+        let a = g.add_vertex(attrs("A"), Some("N")).unwrap();
+        let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
+        g.add_vertex(attrs("C"), Some("N")).unwrap();
+        g.add_edge(&a, &b, Some("E")).unwrap();
+        let comps = super::algo::components(&g);
+        assert_eq!(comps.len(), 2);
+    }
+
+    #[test]
     fn bfs_and_dijkstra() {
         let mut g = Graph::new();
         let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
@@ -184,6 +195,8 @@ mod tests {
         assert!(!super::algo::has_cycle(&g));
         let s = super::algo::shortest(&g, &a, &c).unwrap();
         assert_eq!(s.last().unwrap(), &c);
+        let comps = super::algo::components(&g);
+        assert_eq!(comps.len(), 1);
     }
 
     #[test]
