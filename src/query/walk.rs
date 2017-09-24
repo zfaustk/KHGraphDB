@@ -60,6 +60,38 @@ pub(crate) fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
     exec_pattern_on(g, pat, &std::collections::HashMap::new())
 }
 
+pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
+    let mut pat = pat.clone();
+    if let Some(msg) = resolve_types(g, &mut pat, true) {
+        return Ok(QueryResult::fail(&msg));
+    }
+    let mut r = QueryResult::ok_msg("EXPLAIN");
+    r.columns.push("slot".to_string());
+    r.columns.push("name".to_string());
+    r.columns.push("khid".to_string());
+    for (i, n) in pat.nodes.iter().enumerate() {
+        let slot = n.var.clone().unwrap_or(format!("n{}", i));
+        let name = n.type_name.clone().unwrap_or(String::new());
+        let khid = n.type_id.clone().unwrap_or(String::new());
+        r.rows.push(vec![
+            Some(Val::Id(slot)),
+            Some(Val::Id(name)),
+            Some(Val::Id(khid)),
+        ]);
+    }
+    for (i, rel) in pat.rels.iter().enumerate() {
+        let slot = rel.var.clone().unwrap_or(format!("e{}", i));
+        let name = rel.type_name.clone().unwrap_or(String::new());
+        let khid = rel.type_id.clone().unwrap_or(String::new());
+        r.rows.push(vec![
+            Some(Val::Id(slot)),
+            Some(Val::Id(name)),
+            Some(Val::Id(khid)),
+        ]);
+    }
+    Ok(r)
+}
+
 pub(crate) fn exec_match(g: &Graph, pat: &Pattern, prev: Option<QueryResult>) -> QueryResult {
     match prev {
         None => exec_pattern(g, pat),
