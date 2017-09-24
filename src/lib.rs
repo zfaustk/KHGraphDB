@@ -348,6 +348,25 @@ mod tests {
     }
 
     #[test]
+    fn explain_types() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)");
+        assert!(r.ok);
+        assert_eq!(r.columns, vec!["slot".to_string(), "name".to_string(), "khid".to_string()]);
+        assert!(r.rows.len() >= 2);
+        let person = g.type_by_name("Person").unwrap().khid().to_string();
+        let mut saw = false;
+        for row in r.rows.iter() {
+            if row[1].as_ref().and_then(|v| v.as_id()) == Some("Person") {
+                assert_eq!(row[2].as_ref().and_then(|v| v.as_id()), Some(person.as_str()));
+                saw = true;
+            }
+        }
+        assert!(saw);
+    }
+
+    #[test]
     fn match_one_hop() {
         let mut g = social();
         let r = super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");

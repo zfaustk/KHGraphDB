@@ -1,7 +1,7 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::{Expr, NodePat, Pattern, QueryResult, RelPat, RetItem, Val};
-use super::walk::{distinct_rows, exec_create, exec_delete, exec_match, exec_merge, exec_remove, exec_set, exec_unwind, filter_where, limit_rows, order_by, project, skip_rows};
+use super::walk::{distinct_rows, exec_create, exec_delete, exec_explain, exec_match, exec_merge, exec_remove, exec_set, exec_unwind, filter_where, limit_rows, order_by, project, skip_rows};
 
 #[derive(Clone, Copy, PartialEq)]
 enum TokenKind {
@@ -284,6 +284,22 @@ impl Parser {
 
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
         let mut last: Option<QueryResult> = None;
+        if self.ident_is("EXPLAIN") {
+            self.next();
+            if self.ident_is("OPTIONAL") {
+                self.next();
+                if !self.ident_is("MATCH") {
+                    return Err(Error::new("expected MATCH"));
+                }
+                self.next();
+            } else if self.ident_is("MATCH") {
+                self.next();
+            } else {
+                return Err(Error::new("EXPLAIN expected MATCH"));
+            }
+            let pat = self.parse_match()?;
+            return exec_explain(g, &pat);
+        }
         while self.kind() != TokenKind::Eof {
             if self.ident_is("OPTIONAL") {
                 self.next();
