@@ -589,7 +589,10 @@ fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str,
         Some(id) => id,
         None => return None,
     };
-    g.vertex(id).and_then(|v| v.get(key).map(|s| s.to_string()))
+    if let Some(s) = g.vertex(id).and_then(|v| v.get(key).map(|s| s.to_string())) {
+        return Some(s);
+    }
+    g.edge(id).and_then(|e| e.get(key).map(|s| s.to_string()))
 }
 
 fn cmp_attr(got: &str, val: &str, op: i32) -> bool {

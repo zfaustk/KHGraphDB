@@ -396,6 +396,16 @@ mod tests {
     }
 
     #[test]
+    fn where_edge_attr() {
+        let mut g = social();
+        let eids = g.edges_of_type("KNOWS");
+        g.set_edge_attr(&eids[0], "weight", "3");
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person)-[e:KNOWS]->(b) WHERE e.weight > 1 RETURN e");
+        assert_eq!(r.rows.len(), 1);
+    }
+
+    #[test]
     fn where_compare() {
         let mut g = social();
         super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
