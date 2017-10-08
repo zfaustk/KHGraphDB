@@ -635,8 +635,12 @@ pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, Str
             };
             if g.vertex(&id).is_some() {
                 g.set_attr(&id, key, val)?;
+            } else if g.edge(&id).is_some() {
+                if !g.set_edge_attr(&id, key, val) {
+                    return Err(Error::new("SET missing"));
+                }
             } else {
-                return Err(Error::new("SET needs a node"));
+                return Err(Error::new("SET missing"));
             }
         }
     }

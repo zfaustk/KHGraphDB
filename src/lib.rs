@@ -478,6 +478,22 @@ mod tests {
     }
 
     #[test]
+    fn set_edge() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) SET e.since = '2011'");
+        assert!(r.ok);
+        let eids = g.edges_of_type("KNOWS");
+        let mut saw = false;
+        for eid in eids.iter() {
+            if g.edge(eid).unwrap().get("since") == Some("2011") {
+                saw = true;
+            }
+        }
+        assert!(saw);
+    }
+
+    #[test]
     fn set_property() {
         let mut g = social();
         let r = super::query::run(&mut g,
