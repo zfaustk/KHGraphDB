@@ -432,6 +432,11 @@ impl Graph {
         hits
     }
 
+    /// True when (Type, key) has a posting list.
+    pub fn has_index(&self, type_name: &str, key: &str) -> bool {
+        self.indexes.contains_key(&SchemaIndex::id(type_name, key))
+    }
+
     pub fn set_attr(&mut self, vid: &str, key: &str, value: &str) -> Result<()> {
         let types: Vec<String> = match self.vertices.get(vid) {
             Some(v) => v.types().iter().map(|s| s.clone()).collect(),

@@ -274,26 +274,33 @@ fn exec_nodes(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String,
 }
 
 fn exec_chain(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
-    let seeds0 = start_seeds(g, pat);
+    let orig_cols = columns_of(pat);
+    let flipped = should_flip(pat, seed);
+    let walk_pat = if flipped {
+        flip_one_hop(pat)
+    } else {
+        pat.clone()
+    };
+    let seeds0 = start_seeds(g, &walk_pat);
     let mut r = QueryResult::ok_msg("MATCH");
-    r.columns = columns_of(pat);
+    r.columns = columns_of(&walk_pat);
     for s in seeds0.iter() {
-        if !seed_ok(seed, &pat.nodes[0], s) {
+        if !seed_ok(seed, &walk_pat.nodes[0], s) {
             continue;
         }
-        let mut bind = vec![None; pat.nodes.len()];
+        let mut bind = vec![None; walk_pat.nodes.len()];
         bind[0] = Some(s.clone());
         let mut seen_v = vec![s.clone()];
         let mut seen_e: Vec<String> = Vec::new();
         let mut trail = vec![s.clone()];
         let mut rel_edges: Vec<Vec<String>> = Vec::new();
         let mut k = 0;
-        while k < pat.rels.len() {
+        while k < walk_pat.rels.len() {
             rel_edges.push(Vec::new());
             k += 1;
         }
         walk_named(g,
-                   pat,
+                   &walk_pat,
                    0,
                    &mut bind,
                    &mut seen_v,
@@ -302,6 +309,9 @@ fn exec_chain(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String,
                    &mut rel_edges,
                    seed,
                    &mut r);
+    }
+    if flipped {
+        r = unflip_result(r, &orig_cols);
     }
     r.message = format!("{} row", r.rows.len());
     r
@@ -419,11 +429,22 @@ fn expand_rel(g: &Graph,
 }
 
 fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
-    if n.type_name.is_some() && !n.props.is_empty() {
-        let tn = n.type_name.as_ref().unwrap();
-        let &(ref k, ref val) = &n.props[0];
-        let found = g.find(tn, k, val);
-        return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
+    if let Some(ref tn) = n.type_name {
+        if !n.props.is_empty() {
+            let mut picked: Option<(String, String)> = None;
+            for &(ref k, ref val) in n.props.iter() {
+                if g.has_index(tn, k) {
+                    picked = Some((k.clone(), val.clone()));
+                    break;
+                }
+            }
+            let (k, val) = match picked {
+                Some(p) => p,
+                None => (n.props[0].0.clone(), n.props[0].1.clone()),
+            };
+            let found = g.find(tn, &k, &val);
+            return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
+        }
     }
     let src: Vec<String> = match n.type_id {
         Some(ref tid) => {
@@ -435,6 +456,69 @@ fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
         None => g.vertex_ids(),
     };
     src.into_iter().filter(|id| node_ok(g, id, n)).collect()
+}
+
+fn keyed(n: &NodePat) -> bool {
+    n.type_name.is_some() && !n.props.is_empty()
+}
+
+fn should_flip(pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> bool {
+    if pat.shortest {
+        return false;
+    }
+    if pat.rels.len() != 1 || pat.nodes.len() != 2 {
+        return false;
+    }
+    if keyed(&pat.nodes[0]) {
+        return false;
+    }
+    if !keyed(&pat.nodes[1]) {
+        return false;
+    }
+    if let Some(ref v) = pat.nodes[0].var {
+        if seed.contains_key(v) {
+            return false;
+        }
+    }
+    true
+}
+
+fn flip_one_hop(pat: &Pattern) -> Pattern {
+    let mut p = pat.clone();
+    let n0 = p.nodes[0].clone();
+    p.nodes[0] = p.nodes[1].clone();
+    p.nodes[1] = n0;
+    p.rels[0].dir = -p.rels[0].dir;
+    p
+}
+
+fn unflip_result(mut r: QueryResult, orig_cols: &[String]) -> QueryResult {
+    let src_cols = r.columns.clone();
+    let mut new_rows = Vec::new();
+    for row in r.rows.iter() {
+        let mut nr = Vec::new();
+        for c in orig_cols.iter() {
+            match src_cols.iter().position(|x| x == c) {
+                Some(j) => {
+                    let cell = row.get(j).cloned().unwrap_or(None);
+                    let cell = match cell {
+                        Some(Val::Path(p)) => {
+                            let mut ids = p.ids().to_vec();
+                            ids.reverse();
+                            Some(Val::Path(Path::new(ids)))
+                        }
+                        other => other,
+                    };
+                    nr.push(cell);
+                }
+                None => nr.push(None),
+            }
+        }
+        new_rows.push(nr);
+    }
+    r.columns = orig_cols.to_vec();
+    r.rows = new_rows;
+    r
 }
 
 fn start_seeds(g: &Graph, pat: &Pattern) -> Vec<String> {

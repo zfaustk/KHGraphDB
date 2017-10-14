@@ -720,4 +720,48 @@ mod tests {
         assert!(r.ok);
         assert_eq!(r.rows.len(), 0);
     }
+
+    #[test]
+    fn match_keyed_end() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        assert_eq!(r.columns, vec!["a".to_string(), "b".to_string()]);
+        let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
+        assert_eq!(g.vertex(a).unwrap().get("name"), Some("Alice"));
+        let b = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
+        assert_eq!(g.vertex(b).unwrap().get("name"), Some("Bob"));
+    }
+
+    #[test]
+    fn match_keyed_end_path() {
+        let mut g = social();
+        let r = super::query::run(&mut g,
+            "MATCH p = (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
+        assert_eq!(p.hops(), 1);
+        let a = g.vertex_by_name("Alice").unwrap().khid();
+        let b = g.vertex_by_name("Bob").unwrap().khid();
+        assert_eq!(p[0], a);
+        assert_eq!(p[2], b);
+    }
+
+    #[test]
+    fn match_keyed_end_scan() {
+        let mut g = Graph::new();
+        let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+        let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+        g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
+        assert!(!g.has_index("Person", "name"));
+        let r = super::query::run(&mut g,
+            "MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
+        assert!(r.ok);
+        assert_eq!(r.rows.len(), 1);
+        let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
+        assert_eq!(a, alice);
+    }
 }
