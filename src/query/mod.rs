@@ -147,6 +147,8 @@ pub struct QueryResult {
     pub message: String,
     pub columns: Vec<String>,
     pub rows: Vec<Vec<Option<Val>>>,
+    pub created: usize,
+    pub deleted: usize,
 }
 
 impl QueryResult {
@@ -156,6 +158,8 @@ impl QueryResult {
             message: msg.to_string(),
             columns: Vec::new(),
             rows: Vec::new(),
+            created: 0,
+            deleted: 0,
         }
     }
     fn ok_msg(msg: &str) -> QueryResult {
@@ -164,6 +168,8 @@ impl QueryResult {
             message: msg.to_string(),
             columns: Vec::new(),
             rows: Vec::new(),
+            created: 0,
+            deleted: 0,
         }
     }
 }

@@ -757,6 +757,7 @@ pub(crate) fn exec_delete(g: &mut Graph,
                    names: &Vec<String>,
                    detach: bool)
                    -> Result<QueryResult> {
+    let mut deleted = 0;
     for row in src.rows.iter() {
         for name in names.iter() {
             let col = match src.columns.iter().position(|c| c == name) {
@@ -769,6 +770,7 @@ pub(crate) fn exec_delete(g: &mut Graph,
             };
             if g.edge(&id).is_some() {
                 g.remove_edge(&id);
+                deleted += 1;
                 continue;
             }
             if g.vertex(&id).is_none() {
@@ -784,10 +786,12 @@ pub(crate) fn exec_delete(g: &mut Graph,
                 }
             }
             g.remove_vertex(&id);
+            deleted += 1;
         }
     }
     let mut r = QueryResult::ok_msg("deleted");
     r.columns = src.columns.clone();
+    r.deleted = deleted;
     Ok(r)
 }
 
@@ -1099,6 +1103,7 @@ pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResul
         for (k, v) in seed.iter() {
             bound.insert(k.clone(), v.clone());
         }
+        let mut created = 0;
         let mut node_ids: Vec<String> = Vec::new();
         for (i, n) in pat.nodes.iter().enumerate() {
             let key = n.var.clone().unwrap_or(format!("n{}", i));
@@ -1107,21 +1112,21 @@ pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResul
             } else {
                 let id = create_node(g, n)?;
                 bound.insert(key, id.clone());
+                created += 1;
                 id
             };
             node_ids.push(id);
         }
-        let mut rel_ids: Vec<Option<String>> = Vec::new();
         let mut i = 0;
         while i < pat.rels.len() {
             let a = &node_ids[i];
             let b = &node_ids[i + 1];
             let tn = pat.rels[i].type_name.as_ref().map(|s| &s[..]);
             let eid = g.add_edge(a, b, tn)?;
+            created += 1;
             if let Some(ref v) = pat.rels[i].var {
                 bound.insert(v.clone(), eid.clone());
             }
-            rel_ids.push(Some(eid));
             i += 1;
         }
         let mut row = Vec::new();
@@ -1132,7 +1137,7 @@ pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResul
             }
         }
         r.rows.push(row);
-        let _ = rel_ids;
+        r.created += created;
     }
     r.message = format!("{} created", r.rows.len());
     Ok(r)

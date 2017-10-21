@@ -519,6 +519,7 @@ mod tests {
         let mut g = Graph::new();
         let r = super::query::run(&mut g, "CREATE (n:Person {name:'Ada'})");
         assert!(r.ok);
+        assert_eq!(r.created, 1);
         assert_eq!(r.rows.len(), 1);
         assert_eq!(g.vertex_count(), 1);
         assert!(g.vertex_by_name("Ada").is_some());
