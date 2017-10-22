@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// First-class type. Not a string label. Vertices and edges wear it.
 #[derive(Clone)]
@@ -7,7 +7,6 @@ pub struct Type {
     name: String,
     vertices: HashSet<String>,
     edges: HashSet<String>,
-    attrs: HashMap<String, String>,
 }
 
 impl Type {
@@ -17,7 +16,6 @@ impl Type {
             name: name,
             vertices: HashSet::new(),
             edges: HashSet::new(),
-            attrs: HashMap::new(),
         }
     }
 
