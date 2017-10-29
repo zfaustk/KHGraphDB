@@ -765,4 +765,21 @@ mod tests {
         let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
         assert_eq!(a, alice);
     }
+
+    #[test]
+    fn parse_names_the_token() {
+        let mut g = Graph::new();
+        let r = super::query::run(&mut g, "MATCH (a:Person");
+        assert!(!r.ok);
+        assert!(r.message.contains("at end"));
+        let r = super::query::run(&mut g, "MATCH (a) SET 1");
+        assert!(!r.ok);
+        assert!(r.message.contains("near 1"));
+        let r = super::query::run(&mut g, "@nope");
+        assert!(!r.ok);
+        assert!(r.message.contains("near @"));
+        let r = super::query::run(&mut g, "EXPLAIN CREATE (n)");
+        assert!(!r.ok);
+        assert!(r.message.contains("near CREATE"));
+    }
 }

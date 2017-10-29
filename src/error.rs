@@ -10,6 +10,15 @@ impl Error {
         Error { message: message.to_string() }
     }
 
+    /// The token that did not belong.
+    pub fn near(message: &str, tok: &str) -> Error {
+        if tok.is_empty() {
+            Error { message: format!("{} at end", message) }
+        } else {
+            Error { message: format!("{} near {}", message, tok) }
+        }
+    }
+
     pub fn message(&self) -> &str {
         &self.message
     }
