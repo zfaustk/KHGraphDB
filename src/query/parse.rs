@@ -152,7 +152,7 @@ impl Lexer {
         if c.is_alphabetic() || c == '_' {
             return self.read_ident();
         }
-        Err(Error::new("bad char"))
+        Err(Error::near("bad char", &c.to_string()))
     }
 
     fn read_ident(&mut self) -> Result<Token> {
@@ -195,7 +195,7 @@ impl Lexer {
             }
             out.push(c);
         }
-        Err(Error::new("unterminated string"))
+        Err(Error::near("unterminated string", "'"))
     }
 }
 
@@ -254,16 +254,19 @@ impl Parser {
     fn ident_is(&self, w: &str) -> bool {
         self.kind() == TokenKind::Ident && self.toks[self.i].text.to_lowercase() == w.to_lowercase()
     }
+    fn err_here(&self, msg: &str) -> Error {
+        Error::near(msg, &self.text())
+    }
     fn expect(&mut self, k: TokenKind) -> Result<()> {
         if self.kind() != k {
-            return Err(Error::new("unexpected token"));
+            return Err(self.err_here("unexpected token"));
         }
         self.next();
         Ok(())
     }
     fn expect_ident(&mut self) -> Result<String> {
         if self.kind() != TokenKind::Ident {
-            return Err(Error::new("expected identifier"));
+            return Err(self.err_here("expected identifier"));
         }
         let s = self.text();
         self.next();
@@ -289,13 +292,13 @@ impl Parser {
             if self.ident_is("OPTIONAL") {
                 self.next();
                 if !self.ident_is("MATCH") {
-                    return Err(Error::new("expected MATCH"));
+                    return Err(self.err_here("expected MATCH"));
                 }
                 self.next();
             } else if self.ident_is("MATCH") {
                 self.next();
             } else {
-                return Err(Error::new("EXPLAIN expected MATCH"));
+                return Err(self.err_here("EXPLAIN expected MATCH"));
             }
             let pat = self.parse_match()?;
             return exec_explain(g, &pat);
@@ -304,7 +307,7 @@ impl Parser {
             if self.ident_is("OPTIONAL") {
                 self.next();
                 if !self.ident_is("MATCH") {
-                    return Err(Error::new("expected MATCH"));
+                    return Err(self.err_here("expected MATCH"));
                 }
                 self.next();
                 let mut pat = self.parse_match()?;
@@ -319,13 +322,13 @@ impl Parser {
                 let preds = self.parse_where()?;
                 match last {
                     Some(src) => last = Some(filter_where(g, src, &preds)),
-                    None => return Err(Error::new("WHERE without MATCH")),
+                    None => return Err(self.err_here("WHERE without MATCH")),
                 }
             } else if self.ident_is("UNWIND") {
                 self.next();
                 let (col, lits) = self.parse_unwind_src()?;
                 if !self.ident_is("AS") {
-                    return Err(Error::new("expected AS"));
+                    return Err(self.err_here("expected AS"));
                 }
                 self.next();
                 let alias = self.expect_ident()?;
@@ -347,7 +350,7 @@ impl Parser {
                         }
                         last = Some(self.parse_return_tail(g, r)?);
                     }
-                    None => return Err(Error::new("WITH without MATCH")),
+                    None => return Err(self.err_here("WITH without MATCH")),
                 }
             } else if self.ident_is("RETURN") {
                 self.next();
@@ -367,7 +370,7 @@ impl Parser {
                         last = Some(self.parse_return_tail(g, r)?);
                         break;
                     }
-                    None => return Err(Error::new("RETURN without MATCH")),
+                    None => return Err(self.err_here("RETURN without MATCH")),
                 }
             } else if self.ident_is("MERGE") {
                 self.next();
@@ -390,32 +393,32 @@ impl Parser {
                 let items = self.parse_set()?;
                 match last {
                     Some(src) => last = Some(exec_set(g, src, &items)?),
-                    None => return Err(Error::new("SET without MATCH")),
+                    None => return Err(self.err_here("SET without MATCH")),
                 }
             } else if self.ident_is("REMOVE") {
                 self.next();
                 let items = self.parse_remove()?;
                 match last {
                     Some(src) => last = Some(exec_remove(g, src, &items)?),
-                    None => return Err(Error::new("REMOVE without MATCH")),
+                    None => return Err(self.err_here("REMOVE without MATCH")),
                 }
             } else if self.ident_is("DETACH") {
                 self.next();
                 if !self.ident_is("DELETE") {
-                    return Err(Error::new("expected DELETE"));
+                    return Err(self.err_here("expected DELETE"));
                 }
                 self.next();
                 let names = self.parse_names()?;
                 match last {
                     Some(src) => last = Some(exec_delete(g, src, &names, true)?),
-                    None => return Err(Error::new("DELETE without MATCH")),
+                    None => return Err(self.err_here("DELETE without MATCH")),
                 }
             } else if self.ident_is("DELETE") {
                 self.next();
                 let names = self.parse_names()?;
                 match last {
                     Some(src) => last = Some(exec_delete(g, src, &names, false)?),
-                    None => return Err(Error::new("DELETE without MATCH")),
+                    None => return Err(self.err_here("DELETE without MATCH")),
                 }
             } else {
                 break;
@@ -423,7 +426,7 @@ impl Parser {
         }
         match last {
             Some(r) => Ok(r),
-            None => Err(Error::new("expected MATCH")),
+            None => Err(self.err_here("expected MATCH")),
         }
     }
 
@@ -470,7 +473,7 @@ impl Parser {
         if self.ident_is("ORDER") {
             self.next();
             if !self.ident_is("BY") {
-                return Err(Error::new("expected BY"));
+                return Err(self.err_here("expected BY"));
             }
             self.next();
             let keys = self.parse_order()?;
@@ -479,7 +482,7 @@ impl Parser {
         if self.ident_is("SKIP") {
             self.next();
             if self.kind() != TokenKind::Number {
-                return Err(Error::new("expected number"));
+                return Err(self.err_here("expected number"));
             }
             let n = parse_usize(&self.text())?;
             self.next();
@@ -488,7 +491,7 @@ impl Parser {
         if self.ident_is("LIMIT") {
             self.next();
             if self.kind() != TokenKind::Number {
-                return Err(Error::new("expected number"));
+                return Err(self.err_here("expected number"));
             }
             let n = parse_usize(&self.text())?;
             self.next();
@@ -533,19 +536,19 @@ impl Parser {
             if self.ident_is("CREATE") {
                 self.next();
                 if !self.ident_is("SET") {
-                    return Err(Error::new("expected SET"));
+                    return Err(self.err_here("expected SET"));
                 }
                 self.next();
                 pat.on_create = self.parse_set()?;
             } else if self.ident_is("MATCH") {
                 self.next();
                 if !self.ident_is("SET") {
-                    return Err(Error::new("expected SET"));
+                    return Err(self.err_here("expected SET"));
                 }
                 self.next();
                 pat.on_match = self.parse_set()?;
             } else {
-                return Err(Error::new("expected CREATE or MATCH"));
+                return Err(self.err_here("expected CREATE or MATCH"));
             }
         }
     }
@@ -649,7 +652,7 @@ impl Parser {
             }
         }
         if r.min > r.max {
-            return Err(Error::new("bad length"));
+            return Err(self.err_here("bad length"));
         }
         Ok(())
     }
@@ -665,7 +668,7 @@ impl Parser {
                     d.push((key, self.text()));
                     self.next();
                 }
-                _ => return Err(Error::new("bad property value")),
+                _ => return Err(self.err_here("bad property value")),
             }
             if self.kind() == TokenKind::Comma {
                 self.next();
@@ -732,7 +735,7 @@ impl Parser {
                         vals.push(self.text());
                         self.next();
                     }
-                    _ => return Err(Error::new("bad IN value")),
+                    _ => return Err(self.err_here("bad IN value")),
                 }
                 if self.kind() == TokenKind::Comma {
                     self.next();
@@ -748,7 +751,7 @@ impl Parser {
             TokenKind::Le => -2,
             TokenKind::Ge => 2,
             TokenKind::Ne => 3,
-            _ => return Err(Error::new("bad WHERE op")),
+            _ => return Err(self.err_here("bad WHERE op")),
         };
         self.next();
         match self.kind() {
@@ -761,7 +764,7 @@ impl Parser {
                     Ok(Expr::Cmp(var, key, op, val))
                 }
             }
-            _ => Err(Error::new("bad WHERE value")),
+            _ => Err(self.err_here("bad WHERE value")),
         }
     }
 
@@ -868,7 +871,7 @@ impl Parser {
                         lits.push(Val::Id(self.text()));
                         self.next();
                     }
-                    _ => return Err(Error::new("bad UNWIND value")),
+                    _ => return Err(self.err_here("bad UNWIND value")),
                 }
                 if self.kind() == TokenKind::Comma {
                     self.next();
@@ -902,7 +905,7 @@ impl Parser {
                 self.next();
                 Ok((var, key, val))
             }
-            _ => Err(Error::new("bad SET value")),
+            _ => Err(self.err_here("bad SET value")),
         }
     }
 
