@@ -30,6 +30,9 @@ RETURN length(p), nodes(p), collect(b)
 
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
+A one-hop MATCH whose right node names a value
+starts there. `{k:v}` uses the (Type, key) index
+when it exists, otherwise it scans the Type.
 
 The cap on `*` is 16. MERGE still refuses a star.
 shortestPath is hop-count BFS.

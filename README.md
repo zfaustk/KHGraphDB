@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**3.2.0** (2016). Rust 1.13. No crates.io dependencies.
+**3.3.0** (2017). Rust 1.18. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: the graph is an arena of HashMaps.
@@ -24,9 +24,10 @@ needs a framework, the model is wrong.
 
 ```
 cargo test
+cargo run --example social
 ```
 
-Needs rustc 1.13 (November 2016). No `edition` key.
+Needs rustc 1.18 (June 2017). No `edition` key.
 
 ## Use
 
@@ -44,12 +45,16 @@ let r = khgraphdb::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b) WHERE a.na
 ```
 MATCH (n:Person)
 MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
-MATCH (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)
+MATCH (a:Person {name:'Alice'})-[e:KNOWS*1..2]->(b)
 MATCH p = shortestPath((a)-[:KNOWS*]->(b))
 MATCH (a)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b
 OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)
-MERGE (p:Person {name:'Ada'})
+CREATE (a:Person {name:'Ada'})-[:KNOWS]->(b:Person {name:'Bob'})
+MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = '1815'
+WITH, UNWIND, ORDER BY, SKIP, LIMIT, DISTINCT, count, collect
+EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)
 ```
 
-See `docs/type.md`. Type is still not a string. MATCH
-binds it by KHID. Path is a value.
+See `docs/type.md` and `docs/language.md`. Type is still
+not a string. MATCH binds it by KHID. Path is a value.
+A graph can be named, cloned, or cut down to a subgraph.
