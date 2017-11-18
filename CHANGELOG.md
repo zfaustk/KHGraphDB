@@ -1,3 +1,19 @@
+## 3.3.0 - 2017-11-18
+
+- CREATE, SET, REMOVE, DELETE, DETACH DELETE
+- MERGE edges; ON CREATE / ON MATCH SET
+- WITH, UNWIND, ORDER BY, SKIP, LIMIT, DISTINCT
+- COUNT, collect, length / nodes / relationships
+- A second MATCH uses bound names
+- Graph::named, clone, subgraph, clear
+- Edge (Type, key) index; KHG3 snapshots
+- EXPLAIN returns bound Type KHIDs
+- MATCH starts from a keyed (Type, key) node
+- Parse errors name the token
+- examples/social.rs
+- rustc 1.18, pub(crate)
+- Type.attrs is gone
+
 ## 3.2.0 - 2016-12-24
 
 - The walk uses Type's KHID, not the name string.
