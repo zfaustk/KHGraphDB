@@ -3,6 +3,7 @@
 
 pub use error::{Error, Result};
 pub use graph::Graph;
+pub use catalog::Catalog;
 pub use vertex::Vertex;
 pub use edge::Edge;
 pub use ty::Type;
@@ -10,6 +11,7 @@ pub use query::{run as run_query, QueryResult, Val, Path};
 
 pub mod error;
 pub mod graph;
+pub mod catalog;
 pub mod vertex;
 pub mod edge;
 pub mod ty;
@@ -84,6 +86,25 @@ mod tests {
     fn named_graph() {
         let g = Graph::named("social");
         assert_eq!(g.khid(), "social");
+    }
+
+    #[test]
+    fn catalog_two_graphs() {
+        let mut cat = super::Catalog::new();
+        {
+            let social = cat.create("social").unwrap();
+            social.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+        }
+        {
+            let other = cat.create("other").unwrap();
+            other.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+        }
+        assert!(cat.create("social").is_err());
+        assert!(cat.graph("social").unwrap().vertex_by_name("Alice").is_some());
+        assert!(cat.graph("other").unwrap().vertex_by_name("Alice").is_none());
+        let mut names = cat.names();
+        names.sort();
+        assert_eq!(names, vec!["other".to_string(), "social".to_string()]);
     }
 
     #[test]
