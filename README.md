@@ -29,6 +29,17 @@ cargo run --example social
 
 Needs rustc 1.18 (June 2017). No `edition` key.
 
+## Shell
+
+```
+cargo run --bin khg
+cargo run --bin khg -- graph.khg
+```
+
+Dot commands: `.load` `.save` `.graphs` `.use` `.create` `.drop`.
+A line that is not a dot is MATCH (or CREATE, MERGE, …) on
+the current graph. Catalog holds the rest.
+
 ## Use
 
 ```

@@ -108,6 +108,16 @@ mod tests {
     }
 
     #[test]
+    fn catalog_put() {
+        let mut cat = super::Catalog::new();
+        let mut g = Graph::named("social");
+        g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+        let name = cat.put(g);
+        assert_eq!(name, "social");
+        assert!(cat.graph("social").unwrap().vertex_by_name("Alice").is_some());
+    }
+
+    #[test]
     fn add_and_lookup() {
         let mut g = Graph::new();
         let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
