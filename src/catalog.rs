@@ -42,4 +42,17 @@ impl Catalog {
     pub fn drop(&mut self, name: &str) -> bool {
         self.graphs.remove(name).is_some()
     }
+
+    /// Take a graph that already has a KHID. Replaces
+    /// a graph of the same name.
+    pub fn put(&mut self, g: Graph) -> String {
+        let name = g.khid().to_string();
+        let name = if name.is_empty() {
+            "g1".to_string()
+        } else {
+            name
+        };
+        self.graphs.insert(name.clone(), g);
+        name
+    }
 }

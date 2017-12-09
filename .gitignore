@@ -1,4 +1,6 @@
 bin/
+!src/bin/
+!src/bin/**
 obj/
 *.user
 *.suo
