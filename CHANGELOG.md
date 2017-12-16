@@ -1,3 +1,10 @@
+## 3.4.0 - 2017-12-16
+
+- Catalog: many graphs in one process. MATCH still
+  takes a Graph. Type objects are per arena.
+- khg: a stdin shell. `.load` / `.save` KHG3.
+  `.use` picks a catalog name.
+
 ## 3.3.0 - 2017-11-18
 
 - CREATE, SET, REMOVE, DELETE, DETACH DELETE

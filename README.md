@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**3.3.0** (2017). Rust 1.18. No crates.io dependencies.
+**3.4.0** (2017). Rust 1.18. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: the graph is an arena of HashMaps.
@@ -25,6 +25,7 @@ needs a framework, the model is wrong.
 ```
 cargo test
 cargo run --example social
+cargo run --bin khg
 ```
 
 Needs rustc 1.18 (June 2017). No `edition` key.
@@ -69,3 +70,4 @@ EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)
 See `docs/type.md` and `docs/language.md`. Type is still
 not a string. MATCH binds it by KHID. Path is a value.
 A graph can be named, cloned, or cut down to a subgraph.
+A Catalog holds several graphs; the query still takes one.
