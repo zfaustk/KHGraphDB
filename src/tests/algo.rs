@@ -1,0 +1,53 @@
+//! algo tests.
+
+use super::super::Graph;
+use super::common::attrs;
+
+#[test]
+fn bfs_and_dijkstra() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+    let c = g.add_vertex(attrs("C"), Some("City")).unwrap();
+    g.add_edge(&a, &b, Some("ROAD")).unwrap();
+    g.add_edge(&b, &c, Some("ROAD")).unwrap();
+    g.add_edge(&a, &c, Some("ROAD")).unwrap();
+    let near = super::super::algo::nearby(&g, &a, 2);
+    assert!(near.len() >= 1);
+    let p = super::super::algo::path(&g, &a, &c).unwrap();
+    assert_eq!(p[0], a);
+    assert_eq!(*p.last().unwrap(), c);
+    assert!(!super::super::algo::has_cycle(&g));
+    let s = super::super::algo::shortest(&g, &a, &c).unwrap();
+    assert_eq!(s.last().unwrap(), &c);
+    let comps = super::super::algo::components(&g);
+    assert_eq!(comps.len(), 1);
+}
+
+#[test]
+fn two_components() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("N")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
+    g.add_vertex(attrs("C"), Some("N")).unwrap();
+    g.add_edge(&a, &b, Some("E")).unwrap();
+    let comps = super::super::algo::components(&g);
+    assert_eq!(comps.len(), 2);
+}
+
+#[test]
+fn weighted_shortest() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+    let c = g.add_vertex(attrs("C"), Some("City")).unwrap();
+    let ab = g.add_edge(&a, &b, Some("ROAD")).unwrap();
+    let bc = g.add_edge(&b, &c, Some("ROAD")).unwrap();
+    let ac = g.add_edge(&a, &c, Some("ROAD")).unwrap();
+    g.set_edge_attr(&ab, "weight", "2");
+    g.set_edge_attr(&bc, "weight", "2");
+    g.set_edge_attr(&ac, "weight", "5");
+    let s = super::super::algo::shortest(&g, &a, &c).unwrap();
+    assert_eq!(s, vec![a.clone(), b.clone(), c.clone()]);
+}
+
