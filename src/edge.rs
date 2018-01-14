@@ -1,16 +1,30 @@
 use std::collections::HashMap;
 
+use super::prop::Prop;
+
 #[derive(Clone)]
 pub struct Edge {
     id: String,
     source: String,
     target: String,
     type_id: Option<String>,
-    attrs: HashMap<String, String>,
+    attrs: HashMap<String, Prop>,
 }
 
 impl Edge {
     pub fn new(id: String, source: String, target: String, attrs: HashMap<String, String>) -> Edge {
+        let mut p = HashMap::new();
+        for (k, v) in attrs.into_iter() {
+            p.insert(k, Prop::from_str(&v));
+        }
+        Edge::with_props(id, source, target, p)
+    }
+
+    pub fn with_props(id: String,
+                      source: String,
+                      target: String,
+                      attrs: HashMap<String, Prop>)
+                      -> Edge {
         Edge {
             id: id,
             source: source,
@@ -45,14 +59,26 @@ impl Edge {
     }
 
     pub fn get(&self, key: &str) -> Option<&str> {
-        self.attrs.get(key).map(|s| &s[..])
+        self.attrs.get(key).and_then(|p| p.as_str())
     }
 
-    pub fn attrs(&self) -> &HashMap<String, String> {
+    pub fn get_prop(&self, key: &str) -> Option<&Prop> {
+        self.attrs.get(key)
+    }
+
+    pub fn attrs(&self) -> &HashMap<String, Prop> {
         &self.attrs
     }
 
     pub fn set_attr(&mut self, key: &str, value: &str) {
-        self.attrs.insert(key.to_string(), value.to_string());
+        self.attrs.insert(key.to_string(), Prop::from_str(value));
+    }
+
+    pub fn set_prop(&mut self, key: &str, value: Prop) {
+        self.attrs.insert(key.to_string(), value);
+    }
+
+    pub fn remove_attr(&mut self, key: &str) -> Option<Prop> {
+        self.attrs.remove(key)
     }
 }

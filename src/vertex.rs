@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
+use super::prop::Prop;
+
 /// A node. KHID is identity. `types` is every type the vertex wears.
 /// The first type is the primary, same as C# `Type`.
 /// Paint for a walk does not live here.
+/// Attributes are Prop. C# stored object.
 #[derive(Clone)]
 pub struct Vertex {
     id: String,
-    attrs: HashMap<String, String>,
+    attrs: HashMap<String, Prop>,
     types: Vec<String>,
     outgoing: Vec<String>,
     incoming: Vec<String>,
@@ -14,6 +17,14 @@ pub struct Vertex {
 
 impl Vertex {
     pub fn new(id: String, attrs: HashMap<String, String>) -> Vertex {
+        let mut p = HashMap::new();
+        for (k, v) in attrs.into_iter() {
+            p.insert(k, Prop::from_str(&v));
+        }
+        Vertex::with_props(id, p)
+    }
+
+    pub fn with_props(id: String, attrs: HashMap<String, Prop>) -> Vertex {
         Vertex {
             id: id,
             attrs: attrs,
@@ -27,11 +38,16 @@ impl Vertex {
         &self.id
     }
 
+    /// String view. Only Str properties. Int 1 is not here.
     pub fn get(&self, key: &str) -> Option<&str> {
-        self.attrs.get(key).map(|s| &s[..])
+        self.attrs.get(key).and_then(|p| p.as_str())
     }
 
-    pub fn attrs(&self) -> &HashMap<String, String> {
+    pub fn get_prop(&self, key: &str) -> Option<&Prop> {
+        self.attrs.get(key)
+    }
+
+    pub fn attrs(&self) -> &HashMap<String, Prop> {
         &self.attrs
     }
 
@@ -75,10 +91,14 @@ impl Vertex {
     }
 
     pub fn set_attr(&mut self, key: &str, value: &str) {
-        self.attrs.insert(key.to_string(), value.to_string());
+        self.attrs.insert(key.to_string(), Prop::from_str(value));
     }
 
-    pub fn remove_attr(&mut self, key: &str) -> Option<String> {
+    pub fn set_prop(&mut self, key: &str, value: Prop) {
+        self.attrs.insert(key.to_string(), value);
+    }
+
+    pub fn remove_attr(&mut self, key: &str) -> Option<Prop> {
         self.attrs.remove(key)
     }
 

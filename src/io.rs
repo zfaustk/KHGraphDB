@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write, Result, Error, ErrorKind};
 
 use super::graph::Graph;
+use super::prop::Prop;
 
 const MAGIC: &'static [u8] = b"KHG2";
 const MAGIC3: &'static [u8] = b"KHG3";
@@ -46,11 +47,11 @@ fn read_str<R: Read>(r: &mut R) -> Result<String> {
     }
 }
 
-fn write_attrs<W: Write>(w: &mut W, attrs: &HashMap<String, String>) -> Result<()> {
+fn write_attrs<W: Write>(w: &mut W, attrs: &HashMap<String, Prop>) -> Result<()> {
     write_u32(w, attrs.len() as u32)?;
     for (k, v) in attrs.iter() {
         write_str(w, k)?;
-        write_str(w, v)?;
+        write_str(w, &v.as_display())?;
     }
     Ok(())
 }
