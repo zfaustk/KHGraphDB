@@ -171,3 +171,14 @@ fn unique_name() {
     assert_eq!(g.find("Person", "name", "Alice"), vec![a.clone()]);
 }
 
+#[test]
+fn vertex_stores_int() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    g.vertex_mut(&a).unwrap().set_prop("born", super::super::Prop::from_int(1815));
+    let v = g.vertex(&a).unwrap();
+    assert!(v.get("born").is_none());
+    assert_eq!(v.get_prop("born").and_then(|p| p.as_int()), Some(1815));
+    assert_eq!(v.get("name"), Some("Ada"));
+}
+

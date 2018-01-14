@@ -178,7 +178,7 @@ impl Graph {
             }
             let keys: Vec<(String, String)> = v.attrs()
                 .iter()
-                .map(|(k, val)| (k.clone(), val.clone()))
+                .map(|(k, val)| (k.clone(), val.as_display()))
                 .collect();
             for (k, val) in keys.iter() {
                 let iid = SchemaIndex::id(tn, k);
@@ -218,7 +218,7 @@ impl Graph {
             }
             let keys: Vec<(String, String)> = e.attrs()
                 .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .map(|(k, v)| (k.clone(), v.as_display()))
                 .collect();
             for (k, val) in keys.iter() {
                 let iid = SchemaIndex::id(tn, k);
@@ -367,7 +367,7 @@ impl Graph {
         let vids = self.vertices_of_type(type_name);
         for vid in vids.iter() {
             let val = match self.vertices.get(vid) {
-                Some(v) => v.get(key).unwrap_or("").to_string(),
+                Some(v) => v.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
                 None => String::new(),
             };
             if unique && idx.contains_other(&val, vid) {
@@ -391,7 +391,7 @@ impl Graph {
         let eids = self.edges_of_type(type_name);
         for eid in eids.iter() {
             let val = match self.edges.get(eid) {
-                Some(e) => e.get(key).unwrap_or("").to_string(),
+                Some(e) => e.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
                 None => String::new(),
             };
             idx.add(eid, &val);
@@ -515,7 +515,7 @@ impl Graph {
             }
         }
         match self.vertices.get_mut(vid) {
-            Some(v) => Ok(v.remove_attr(key)),
+            Some(v) => Ok(v.remove_attr(key).map(|p| p.as_display())),
             None => Err(Error::new("missing vertex")),
         }
     }
