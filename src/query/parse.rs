@@ -1,5 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
+use super::super::prop::Prop;
 use super::{Expr, NodePat, Pattern, QueryResult, RelPat, RetItem, Val};
 use super::walk::{distinct_rows, exec_create, exec_delete, exec_explain, exec_match, exec_merge, exec_remove, exec_set, exec_unwind, filter_where, limit_rows, order_by, project, skip_rows};
 
@@ -256,6 +257,37 @@ impl Parser {
     }
     fn err_here(&self, msg: &str) -> Error {
         Error::near(msg, &self.text())
+    }
+
+    fn parse_literal(&mut self) -> Result<Prop> {
+        match self.kind() {
+            TokenKind::String => {
+                let s = self.text();
+                self.next();
+                Ok(Prop::from_str(&s))
+            }
+            TokenKind::Number => {
+                let t = self.text();
+                self.next();
+                match t.parse::<i64>() {
+                    Ok(n) => Ok(Prop::from_int(n)),
+                    Err(_) => Err(Error::new("bad number")),
+                }
+            }
+            TokenKind::Ident => {
+                let t = self.text();
+                let low = t.to_lowercase();
+                self.next();
+                if low == "true" {
+                    Ok(Prop::from_bool(true))
+                } else if low == "false" {
+                    Ok(Prop::from_bool(false))
+                } else {
+                    Ok(Prop::from_str(&t))
+                }
+            }
+            _ => Err(self.err_here("bad literal")),
+        }
     }
     fn expect(&mut self, k: TokenKind) -> Result<()> {
         if self.kind() != k {
@@ -657,19 +689,14 @@ impl Parser {
         Ok(())
     }
 
-    fn parse_props(&mut self) -> Result<Vec<(String, String)>> {
+    fn parse_props(&mut self) -> Result<Vec<(String, Prop)>> {
         self.expect(TokenKind::LBrace)?;
         let mut d = Vec::new();
         while self.kind() != TokenKind::RBrace && self.kind() != TokenKind::Eof {
             let key = self.expect_ident()?;
             self.expect(TokenKind::Colon)?;
-            match self.kind() {
-                TokenKind::String | TokenKind::Number | TokenKind::Ident => {
-                    d.push((key, self.text()));
-                    self.next();
-                }
-                _ => return Err(self.err_here("bad property value")),
-            }
+            let val = self.parse_literal()?;
+            d.push((key, val));
             if self.kind() == TokenKind::Comma {
                 self.next();
             }
@@ -730,13 +757,7 @@ impl Parser {
             self.expect(TokenKind::LBrack)?;
             let mut vals = Vec::new();
             while self.kind() != TokenKind::RBrack && self.kind() != TokenKind::Eof {
-                match self.kind() {
-                    TokenKind::String | TokenKind::Number | TokenKind::Ident => {
-                        vals.push(self.text());
-                        self.next();
-                    }
-                    _ => return Err(self.err_here("bad IN value")),
-                }
+                vals.push(self.parse_literal()?);
                 if self.kind() == TokenKind::Comma {
                     self.next();
                 }
@@ -754,17 +775,11 @@ impl Parser {
             _ => return Err(self.err_here("bad WHERE op")),
         };
         self.next();
-        match self.kind() {
-            TokenKind::String | TokenKind::Number | TokenKind::Ident => {
-                let val = self.text();
-                self.next();
-                if op == 0 {
-                    Ok(Expr::Eq(var, key, val))
-                } else {
-                    Ok(Expr::Cmp(var, key, op, val))
-                }
-            }
-            _ => Err(self.err_here("bad WHERE value")),
+        let val = self.parse_literal()?;
+        if op == 0 {
+            Ok(Expr::Eq(var, key, val))
+        } else {
+            Ok(Expr::Cmp(var, key, op, val))
         }
     }
 
@@ -884,7 +899,7 @@ impl Parser {
         Ok((Some(col), Vec::new()))
     }
 
-    fn parse_set(&mut self) -> Result<Vec<(String, String, String)>> {
+    fn parse_set(&mut self) -> Result<Vec<(String, String, Prop)>> {
         let mut items = Vec::new();
         items.push(self.parse_set_item()?);
         while self.kind() == TokenKind::Comma {
@@ -894,19 +909,13 @@ impl Parser {
         Ok(items)
     }
 
-    fn parse_set_item(&mut self) -> Result<(String, String, String)> {
+    fn parse_set_item(&mut self) -> Result<(String, String, Prop)> {
         let var = self.expect_ident()?;
         self.expect(TokenKind::Dot)?;
         let key = self.expect_ident()?;
         self.expect(TokenKind::Eq)?;
-        match self.kind() {
-            TokenKind::String | TokenKind::Number | TokenKind::Ident => {
-                let val = self.text();
-                self.next();
-                Ok((var, key, val))
-            }
-            _ => Err(self.err_here("bad SET value")),
-        }
+        let val = self.parse_literal()?;
+        Ok((var, key, val))
     }
 
     fn parse_remove(&mut self) -> Result<Vec<(String, String)>> {
