@@ -1,6 +1,7 @@
 use std::ops::Index;
 
 use super::graph::Graph;
+use super::prop::Prop;
 
 mod parse;
 mod walk;
@@ -10,7 +11,7 @@ struct NodePat {
     var: Option<String>,
     type_name: Option<String>,
     type_id: Option<String>,
-    props: Vec<(String, String)>,
+    props: Vec<(String, Prop)>,
 }
 
 
@@ -32,8 +33,8 @@ struct Pattern {
     optional: bool,
     path_var: Option<String>,
     shortest: bool,
-    on_create: Vec<(String, String, String)>,
-    on_match: Vec<(String, String, String)>,
+    on_create: Vec<(String, String, Prop)>,
+    on_match: Vec<(String, String, Prop)>,
 }
 
 #[derive(Clone)]
@@ -45,9 +46,9 @@ struct RetItem {
 
 #[derive(Clone)]
 enum Expr {
-    Eq(String, String, String),
-    Cmp(String, String, i32, String),
-    In(String, String, Vec<String>),
+    Eq(String, String, Prop),
+    Cmp(String, String, i32, Prop),
+    In(String, String, Vec<Prop>),
     And(Box<Expr>, Box<Expr>),
     Or(Box<Expr>, Box<Expr>),
     Not(Box<Expr>),

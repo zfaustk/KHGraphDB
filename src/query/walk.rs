@@ -1,5 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
+use super::super::prop::Prop;
 use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, RetItem, Val};
 
 fn columns_of(pat: &Pattern) -> Vec<String> {
@@ -431,7 +432,7 @@ fn expand_rel(g: &Graph,
 fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
     if let Some(ref tn) = n.type_name {
         if !n.props.is_empty() {
-            let mut picked: Option<(String, String)> = None;
+            let mut picked: Option<(String, Prop)> = None;
             for &(ref k, ref val) in n.props.iter() {
                 if g.has_index(tn, k) {
                     picked = Some((k.clone(), val.clone()));
@@ -442,7 +443,7 @@ fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
                 Some(p) => p,
                 None => (n.props[0].0.clone(), n.props[0].1.clone()),
             };
-            let found = g.find(tn, &k, &val);
+            let found = g.find(tn, &k, &val.as_display());
             return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
         }
     }
@@ -582,8 +583,8 @@ fn node_ok(g: &Graph, vid: &str, n: &NodePat) -> bool {
         }
     }
     for &(ref k, ref val) in n.props.iter() {
-        match g.vertex(vid).and_then(|v| v.get(k).map(|s| s.to_string())) {
-            Some(ref got) if got == val => {}
+        match g.vertex(vid).and_then(|v| v.get_prop(k)) {
+            Some(got) if got == val => {}
             _ => return false,
         }
     }
@@ -639,7 +640,7 @@ fn eval_expr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, e: &Expr) ->
         }
         Expr::Cmp(ref var, ref key, op, ref val) => {
             match lookup_attr(g, cols, row, var, key) {
-                Some(ref got) => cmp_attr(got, val, op),
+                Some(ref got) => cmp_prop(got, val, op),
                 None => false,
             }
         }
@@ -664,7 +665,7 @@ fn eval_expr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, e: &Expr) ->
     }
 }
 
-fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str, key: &str) -> Option<String> {
+fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str, key: &str) -> Option<Prop> {
     let col = match cols.iter().position(|c| c == var) {
         Some(i) => i,
         None => return None,
@@ -673,40 +674,27 @@ fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str,
         Some(id) => id,
         None => return None,
     };
-    if let Some(s) = g.vertex(id).and_then(|v| v.get(key).map(|s| s.to_string())) {
-        return Some(s);
+    if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key).cloned()) {
+        return Some(p);
     }
-    g.edge(id).and_then(|e| e.get(key).map(|s| s.to_string()))
+    g.edge(id).and_then(|e| e.get_prop(key).cloned())
 }
 
-fn cmp_attr(got: &str, val: &str, op: i32) -> bool {
-    let gi = got.parse::<i64>();
-    let vi = val.parse::<i64>();
-    match (gi, vi) {
-        (Ok(a), Ok(b)) => {
-            match op {
-                -2 => a <= b,
-                -1 => a < b,
-                1 => a > b,
-                2 => a >= b,
-                3 => a != b,
-                _ => a == b,
-            }
-        }
-        _ => {
-            match op {
-                -2 => got <= val,
-                -1 => got < val,
-                1 => got > val,
-                2 => got >= val,
-                3 => got != val,
-                _ => got == val,
-            }
-        }
+fn cmp_prop(got: &Prop, val: &Prop, op: i32) -> bool {
+    if got.tag() != val.tag() {
+        return op == 3;
+    }
+    match op {
+        -2 => got <= val,
+        -1 => got < val,
+        1 => got > val,
+        2 => got >= val,
+        3 => got != val,
+        _ => got == val,
     }
 }
 
-pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, String)>) -> Result<QueryResult> {
+pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, String, Prop)>) -> Result<QueryResult> {
     for row in src.rows.iter() {
         for &(ref var, ref key, ref val) in items.iter() {
             let col = match src.columns.iter().position(|c| c == var) {
@@ -718,9 +706,9 @@ pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, Str
                 None => return Err(Error::new("SET needs a node")),
             };
             if g.vertex(&id).is_some() {
-                g.set_attr(&id, key, val)?;
+                g.set_prop(&id, key, val.clone())?;
             } else if g.edge(&id).is_some() {
-                if !g.set_edge_attr(&id, key, val) {
+                if !g.set_edge_prop(&id, key, val.clone()) {
                     return Err(Error::new("SET missing"));
                 }
             } else {
@@ -962,11 +950,7 @@ pub(crate) fn order_by(g: &Graph, mut src: QueryResult, keys: &Vec<(String, Opti
         for &(ref var, ref key, desc) in keys.iter() {
             let ca = order_cell(g, &cols, a, var, key.as_ref().map(|s| &s[..]));
             let cb = order_cell(g, &cols, b, var, key.as_ref().map(|s| &s[..]));
-            let ord = if let (Ok(ia), Ok(ib)) = (ca.parse::<i64>(), cb.parse::<i64>()) {
-                ia.cmp(&ib)
-            } else {
-                ca.cmp(&cb)
-            };
+            let ord = ca.cmp(&cb);
             if ord != std::cmp::Ordering::Equal {
                 if desc {
                     return ord.reverse();
@@ -1067,17 +1051,17 @@ fn order_cell(g: &Graph,
               cols: &Vec<String>,
               row: &Vec<Option<Val>>,
               var: &str,
-              key: Option<&str>) -> String {
+              key: Option<&str>) -> Prop {
     match key {
-        Some(k) => lookup_attr(g, cols, row, var, k).unwrap_or(String::new()),
+        Some(k) => lookup_attr(g, cols, row, var, k).unwrap_or(Prop::from_str("")),
         None => {
             let col = match cols.iter().position(|c| c == var) {
                 Some(i) => i,
-                None => return String::new(),
+                None => return Prop::from_str(""),
             };
             match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                Some(id) => id.to_string(),
-                None => String::new(),
+                Some(id) => Prop::from_str(id),
+                None => Prop::from_str(""),
             }
         }
     }
@@ -1187,7 +1171,7 @@ fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
     for &(ref k, ref v) in n.props.iter() {
         attrs.insert(k.clone(), v.clone());
     }
-    g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..]))
+    g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))
 }
 
 pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
@@ -1282,7 +1266,7 @@ fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
     for &(ref k, ref v) in n.props.iter() {
         attrs.insert(k.clone(), v.clone());
     }
-    let id = g.add_vertex(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
+    let id = g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.columns.push(n.var.clone().unwrap_or("n".to_string()));
     r.rows.push(vec![Some(Val::Id(id))]);

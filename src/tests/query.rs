@@ -523,8 +523,8 @@ fn where_compare() {
 #[test]
 fn where_edge_attr() {
     let mut g = social();
-    let eids = g.edges_of_type("KNOWS");
-    g.set_edge_attr(&eids[0], "weight", "3");
+    super::super::query::run(&mut g,
+        "MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) SET e.weight = 3");
     let r = super::super::query::run(&mut g,
         "MATCH (a:Person)-[e:KNOWS]->(b) WHERE e.weight > 1 RETURN e");
     assert_eq!(r.rows.len(), 1);
@@ -558,5 +558,40 @@ fn with_drops() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns, vec!["a".to_string()]);
+}
+
+#[test]
+fn int_is_not_str_in_where() {
+    let mut g = social();
+    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    let r = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age = 36");
+    assert_eq!(r.rows.len(), 1);
+    let r2 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age = '36'");
+    assert_eq!(r2.rows.len(), 0);
+    let r3 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age > '36'");
+    assert_eq!(r3.rows.len(), 0);
+}
+
+#[test]
+fn bool_prop() {
+    let mut g = social();
+    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.alive = true");
+    let r = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.alive = true");
+    assert_eq!(r.rows.len(), 1);
+    let r2 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.alive = false");
+    assert_eq!(r2.rows.len(), 0);
+    let alice = g.vertex_by_name("Alice").unwrap();
+    assert_eq!(alice.get_prop("alive").and_then(|p| p.as_bool()), Some(true));
+    assert!(alice.get("alive").is_none());
+}
+
+#[test]
+fn create_int_prop() {
+    let mut g = Graph::new();
+    let r = super::super::query::run(&mut g, "CREATE (a:Person {name:'Ada', born:1815})");
+    assert!(r.ok);
+    let ada = g.vertex_by_name("Ada").unwrap();
+    assert_eq!(ada.get("name"), Some("Ada"));
+    assert_eq!(ada.get_prop("born").and_then(|p| p.as_int()), Some(1815));
 }
 

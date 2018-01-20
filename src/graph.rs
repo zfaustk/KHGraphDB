@@ -5,6 +5,7 @@ use super::vertex::Vertex;
 use super::edge::Edge;
 use super::ty::Type;
 use super::index::SchemaIndex;
+use super::prop::Prop;
 
 /// Directed property graph. Lookups are HashMaps. KHID is identity.
 #[derive(Clone)]
@@ -150,18 +151,29 @@ impl Graph {
                       attrs: HashMap<String, String>,
                       type_name: Option<&str>)
                       -> Result<String> {
+        let mut p = HashMap::new();
+        for (k, v) in attrs.into_iter() {
+            p.insert(k, Prop::from_str(&v));
+        }
+        self.add_vertex_props(p, type_name)
+    }
+
+    pub fn add_vertex_props(&mut self,
+                            attrs: HashMap<String, Prop>,
+                            type_name: Option<&str>)
+                            -> Result<String> {
         if let Some(tn) = type_name {
             for (k, val) in attrs.iter() {
                 let iid = SchemaIndex::id(tn, k);
                 if let Some(idx) = self.indexes.get(&iid) {
-                    if idx.unique() && idx.contains_other(val, "") {
+                    if idx.unique() && idx.contains_other(&val.as_display(), "") {
                         return Err(Error::new("unique constraint"));
                     }
                 }
             }
         }
         let id = self.next_id();
-        let mut v = Vertex::new(id.clone(), attrs);
+        let mut v = Vertex::with_props(id.clone(), attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
                 self.vertices_by_name.insert(name.to_string(), id.clone());
@@ -438,14 +450,19 @@ impl Graph {
     }
 
     pub fn set_attr(&mut self, vid: &str, key: &str, value: &str) -> Result<()> {
+        self.set_prop(vid, key, Prop::from_str(value))
+    }
+
+    pub fn set_prop(&mut self, vid: &str, key: &str, value: Prop) -> Result<()> {
         let types: Vec<String> = match self.vertices.get(vid) {
             Some(v) => v.types().iter().map(|s| s.clone()).collect(),
             None => return Err(Error::new("missing vertex")),
         };
         let old = match self.vertices.get(vid) {
-            Some(v) => v.get(key).unwrap_or("").to_string(),
+            Some(v) => v.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
             None => String::new(),
         };
+        let disp = value.as_display();
         for tid in types.iter() {
             let tname = match self.types.get(tid) {
                 Some(t) => t.name().to_string(),
@@ -453,13 +470,13 @@ impl Graph {
             };
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get(&iid) {
-                if idx.unique() && idx.contains_other(value, vid) {
+                if idx.unique() && idx.contains_other(&disp, vid) {
                     return Err(Error::new("unique constraint"));
                 }
             }
         }
         if let Some(v) = self.vertices.get_mut(vid) {
-            v.set_attr(key, value);
+            v.set_prop(key, value);
         }
         if key == "name" {
             if !old.is_empty() {
@@ -469,8 +486,8 @@ impl Graph {
                     }
                 }
             }
-            if !self.vertices_by_name.contains_key(value) {
-                self.vertices_by_name.insert(value.to_string(), vid.to_string());
+            if !self.vertices_by_name.contains_key(&disp) {
+                self.vertices_by_name.insert(disp.clone(), vid.to_string());
             }
         }
         for tid in types.iter() {
@@ -481,7 +498,7 @@ impl Graph {
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get_mut(&iid) {
                 idx.remove(vid, &old);
-                idx.add(vid, value);
+                idx.add(vid, &disp);
             }
         }
         Ok(())
@@ -618,17 +635,22 @@ impl Graph {
 
 
     pub fn set_edge_attr(&mut self, eid: &str, key: &str, value: &str) -> bool {
+        self.set_edge_prop(eid, key, Prop::from_str(value))
+    }
+
+    pub fn set_edge_prop(&mut self, eid: &str, key: &str, value: Prop) -> bool {
         let tid = match self.edges.get(eid) {
             Some(e) => e.type_id().map(|s| s.to_string()),
             None => return false,
         };
         let old = match self.edges.get(eid) {
-            Some(e) => e.get(key).unwrap_or("").to_string(),
+            Some(e) => e.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
             None => String::new(),
         };
+        let disp = value.as_display();
         match self.edges.get_mut(eid) {
             Some(e) => {
-                e.set_attr(key, value);
+                e.set_prop(key, value);
             }
             None => return false,
         }
@@ -636,7 +658,7 @@ impl Graph {
             let iid = SchemaIndex::id(&tn, key);
             if let Some(idx) = self.edge_indexes.get_mut(&iid) {
                 idx.remove(eid, &old);
-                idx.add(eid, value);
+                idx.add(eid, &disp);
             }
         }
         true
