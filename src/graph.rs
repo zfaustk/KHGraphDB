@@ -166,7 +166,7 @@ impl Graph {
             for (k, val) in attrs.iter() {
                 let iid = SchemaIndex::id(tn, k);
                 if let Some(idx) = self.indexes.get(&iid) {
-                    if idx.unique() && idx.contains_other(&val.as_display(), "") {
+                    if idx.unique() && idx.contains_other(val, "") {
                         return Err(Error::new("unique constraint"));
                     }
                 }
@@ -188,9 +188,9 @@ impl Graph {
                 }
                 None => {}
             }
-            let keys: Vec<(String, String)> = v.attrs()
+            let keys: Vec<(String, Prop)> = v.attrs()
                 .iter()
-                .map(|(k, val)| (k.clone(), val.as_display()))
+                .map(|(k, val)| (k.clone(), val.clone()))
                 .collect();
             for (k, val) in keys.iter() {
                 let iid = SchemaIndex::id(tn, k);
@@ -228,9 +228,9 @@ impl Graph {
             if let Some(t) = self.types.get_mut(&tid) {
                 t.add_edge(&id);
             }
-            let keys: Vec<(String, String)> = e.attrs()
+            let keys: Vec<(String, Prop)> = e.attrs()
                 .iter()
-                .map(|(k, v)| (k.clone(), v.as_display()))
+                .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
             for (k, val) in keys.iter() {
                 let iid = SchemaIndex::id(tn, k);
@@ -378,9 +378,9 @@ impl Graph {
         let mut idx = SchemaIndex::new(type_name, key, unique);
         let vids = self.vertices_of_type(type_name);
         for vid in vids.iter() {
-            let val = match self.vertices.get(vid) {
-                Some(v) => v.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
-                None => String::new(),
+            let val = match self.vertices.get(vid).and_then(|v| v.get_prop(key)).cloned() {
+                Some(p) => p,
+                None => continue,
             };
             if unique && idx.contains_other(&val, vid) {
                 return false;
@@ -402,17 +402,19 @@ impl Graph {
         let mut idx = SchemaIndex::new(type_name, key, false);
         let eids = self.edges_of_type(type_name);
         for eid in eids.iter() {
-            let val = match self.edges.get(eid) {
-                Some(e) => e.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
-                None => String::new(),
-            };
-            idx.add(eid, &val);
+            if let Some(p) = self.edges.get(eid).and_then(|e| e.get_prop(key)).cloned() {
+                idx.add(eid, &p);
+            }
         }
         self.edge_indexes.insert(id, idx);
         true
     }
 
     pub fn find_edge(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
+        self.find_edge_prop(type_name, key, &Prop::from_str(value))
+    }
+
+    pub fn find_edge_prop(&self, type_name: &str, key: &str, value: &Prop) -> Vec<String> {
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.edge_indexes.get(&id) {
             return idx.get(value);
@@ -420,7 +422,7 @@ impl Graph {
         let mut hits = Vec::new();
         for eid in self.edges_of_type(type_name).iter() {
             if let Some(e) = self.edges.get(eid) {
-                if e.get(key) == Some(value) {
+                if e.get_prop(key) == Some(value) {
                     hits.push(eid.clone());
                 }
             }
@@ -429,6 +431,10 @@ impl Graph {
     }
 
     pub fn find(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
+        self.find_prop(type_name, key, &Prop::from_str(value))
+    }
+
+    pub fn find_prop(&self, type_name: &str, key: &str, value: &Prop) -> Vec<String> {
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.indexes.get(&id) {
             return idx.get(value);
@@ -436,7 +442,7 @@ impl Graph {
         let mut hits = Vec::new();
         for vid in self.vertices_of_type(type_name).iter() {
             if let Some(v) = self.vertices.get(vid) {
-                if v.get(key) == Some(value) {
+                if v.get_prop(key) == Some(value) {
                     hits.push(vid.clone());
                 }
             }
@@ -458,11 +464,8 @@ impl Graph {
             Some(v) => v.types().iter().map(|s| s.clone()).collect(),
             None => return Err(Error::new("missing vertex")),
         };
-        let old = match self.vertices.get(vid) {
-            Some(v) => v.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
-            None => String::new(),
-        };
-        let disp = value.as_display();
+        let old_prop = self.vertices.get(vid).and_then(|v| v.get_prop(key)).cloned();
+        let old_name = self.vertices.get(vid).and_then(|v| v.get("name")).unwrap_or("").to_string();
         for tid in types.iter() {
             let tname = match self.types.get(tid) {
                 Some(t) => t.name().to_string(),
@@ -470,24 +473,26 @@ impl Graph {
             };
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get(&iid) {
-                if idx.unique() && idx.contains_other(&disp, vid) {
+                if idx.unique() && idx.contains_other(&value, vid) {
                     return Err(Error::new("unique constraint"));
                 }
             }
         }
         if let Some(v) = self.vertices.get_mut(vid) {
-            v.set_prop(key, value);
+            v.set_prop(key, value.clone());
         }
         if key == "name" {
-            if !old.is_empty() {
-                if let Some(owned) = self.vertices_by_name.get(&old).cloned() {
+            if !old_name.is_empty() {
+                if let Some(owned) = self.vertices_by_name.get(&old_name).cloned() {
                     if owned == vid {
-                        self.vertices_by_name.remove(&old);
+                        self.vertices_by_name.remove(&old_name);
                     }
                 }
             }
-            if !self.vertices_by_name.contains_key(&disp) {
-                self.vertices_by_name.insert(disp.clone(), vid.to_string());
+            if let Prop::Str(ref s) = value {
+                if !self.vertices_by_name.contains_key(s) {
+                    self.vertices_by_name.insert(s.clone(), vid.to_string());
+                }
             }
         }
         for tid in types.iter() {
@@ -497,8 +502,10 @@ impl Graph {
             };
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get_mut(&iid) {
-                idx.remove(vid, &old);
-                idx.add(vid, &disp);
+                if let Some(ref o) = old_prop {
+                    idx.remove(vid, o);
+                }
+                idx.add(vid, &value);
             }
         }
         Ok(())
@@ -509,11 +516,11 @@ impl Graph {
             Some(v) => v.types().iter().map(|s| s.clone()).collect(),
             None => return Err(Error::new("missing vertex")),
         };
-        let old = match self.vertices.get(vid) {
-            Some(v) => v.get(key).map(|s| s.to_string()),
-            None => None,
+        let old_prop = self.vertices.get(vid).and_then(|v| v.get_prop(key)).cloned();
+        let old_s = match old_prop {
+            Some(Prop::Str(ref s)) => s.clone(),
+            _ => String::new(),
         };
-        let old_s = old.clone().unwrap_or(String::new());
         if key == "name" && !old_s.is_empty() {
             if let Some(owned) = self.vertices_by_name.get(&old_s).cloned() {
                 if owned == vid {
@@ -528,7 +535,9 @@ impl Graph {
             };
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get_mut(&iid) {
-                idx.remove(vid, &old_s);
+                if let Some(ref o) = old_prop {
+                    idx.remove(vid, o);
+                }
             }
         }
         match self.vertices.get_mut(vid) {
@@ -643,22 +652,20 @@ impl Graph {
             Some(e) => e.type_id().map(|s| s.to_string()),
             None => return false,
         };
-        let old = match self.edges.get(eid) {
-            Some(e) => e.get_prop(key).map(|p| p.as_display()).unwrap_or(String::new()),
-            None => String::new(),
-        };
-        let disp = value.as_display();
+        let old = self.edges.get(eid).and_then(|e| e.get_prop(key)).cloned();
         match self.edges.get_mut(eid) {
             Some(e) => {
-                e.set_prop(key, value);
+                e.set_prop(key, value.clone());
             }
             None => return false,
         }
         if let Some(tn) = tid.and_then(|t| self.type_name_of(&t).map(|s| s.to_string())) {
             let iid = SchemaIndex::id(&tn, key);
             if let Some(idx) = self.edge_indexes.get_mut(&iid) {
-                idx.remove(eid, &old);
-                idx.add(eid, &disp);
+                if let Some(ref o) = old {
+                    idx.remove(eid, o);
+                }
+                idx.add(eid, &value);
             }
         }
         true

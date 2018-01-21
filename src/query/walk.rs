@@ -443,7 +443,7 @@ fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
                 Some(p) => p,
                 None => (n.props[0].0.clone(), n.props[0].1.clone()),
             };
-            let found = g.find(tn, &k, &val.as_display());
+            let found = g.find_prop(tn, &k, &val);
             return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
         }
     }

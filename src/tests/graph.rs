@@ -182,3 +182,14 @@ fn vertex_stores_int() {
     assert_eq!(v.get("name"), Some("Ada"));
 }
 
+#[test]
+fn index_int_not_str() {
+    let mut g = Graph::new();
+    g.add_type("Person").unwrap();
+    g.create_index("Person", "born");
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    g.set_prop(&a, "born", super::super::Prop::from_int(1815)).unwrap();
+    assert_eq!(g.find_prop("Person", "born", &super::super::Prop::from_int(1815)).len(), 1);
+    assert_eq!(g.find("Person", "born", "1815").len(), 0);
+}
+
