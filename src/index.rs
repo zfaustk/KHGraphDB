@@ -1,12 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
-/// Posting list for (Type, key) -> value -> vertex ids.
+use super::prop::Prop;
+
+/// Posting list for (Type, key) -> Prop -> vertex ids.
 #[derive(Clone)]
 pub struct SchemaIndex {
     type_name: String,
     key: String,
     unique: bool,
-    posting: HashMap<String, HashSet<String>>,
+    posting: HashMap<Prop, HashSet<String>>,
 }
 
 impl SchemaIndex {
@@ -35,14 +37,16 @@ impl SchemaIndex {
         self.unique = true;
     }
 
-    pub fn add(&mut self, vid: &str, value: &str) {
-        if value.is_empty() {
-            return;
+    pub fn add(&mut self, vid: &str, value: &Prop) {
+        if let Prop::Str(ref s) = *value {
+            if s.is_empty() {
+                return;
+            }
         }
-        self.posting.entry(value.to_string()).or_insert(HashSet::new()).insert(vid.to_string());
+        self.posting.entry(value.clone()).or_insert(HashSet::new()).insert(vid.to_string());
     }
 
-    pub fn remove(&mut self, vid: &str, value: &str) {
+    pub fn remove(&mut self, vid: &str, value: &Prop) {
         let drop_key = match self.posting.get_mut(value) {
             Some(set) => {
                 set.remove(vid);
@@ -55,14 +59,14 @@ impl SchemaIndex {
         }
     }
 
-    pub fn get(&self, value: &str) -> Vec<String> {
+    pub fn get(&self, value: &Prop) -> Vec<String> {
         match self.posting.get(value) {
             Some(set) => set.iter().map(|s| s.clone()).collect(),
             None => Vec::new(),
         }
     }
 
-    pub fn contains_other(&self, value: &str, self_id: &str) -> bool {
+    pub fn contains_other(&self, value: &Prop, self_id: &str) -> bool {
         match self.posting.get(value) {
             Some(set) => set.iter().any(|id| id != self_id),
             None => false,
