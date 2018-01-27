@@ -564,11 +564,11 @@ impl Graph {
 
     pub fn restore_vertex(&mut self,
                           id: String,
-                          attrs: HashMap<String, String>,
+                          attrs: HashMap<String, Prop>,
                           type_names: Vec<String>)
                           -> Result<String> {
         self.note_id(&id);
-        let mut v = Vertex::new(id.clone(), attrs);
+        let mut v = Vertex::with_props(id.clone(), attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
                 self.vertices_by_name.insert(name.to_string(), id.clone());
@@ -592,13 +592,13 @@ impl Graph {
                         src: String,
                         dst: String,
                         type_name: Option<String>,
-                        attrs: HashMap<String, String>)
+                        attrs: HashMap<String, Prop>)
                         -> Result<String> {
         if !self.vertices.contains_key(&src) || !self.vertices.contains_key(&dst) {
             return Err(Error::new("missing vertex"));
         }
         self.note_id(&id);
-        let mut e = Edge::new(id.clone(), src.clone(), dst.clone(), attrs);
+        let mut e = Edge::with_props(id.clone(), src.clone(), dst.clone(), attrs);
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
                 let tid = self.add_type(tn)?;

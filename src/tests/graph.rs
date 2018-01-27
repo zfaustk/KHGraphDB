@@ -193,3 +193,19 @@ fn index_int_not_str() {
     assert_eq!(g.find("Person", "born", "1815").len(), 0);
 }
 
+#[test]
+fn snapshot_keeps_int() {
+    use std::io::Cursor;
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    g.set_prop(&a, "born", super::super::Prop::from_int(1815)).unwrap();
+    let mut buf = Vec::new();
+    super::super::io::write_graph(&g, &mut buf).unwrap();
+    assert_eq!(&buf[0..4], b"KHG4");
+    let mut cur = Cursor::new(buf);
+    let h = super::super::io::read_graph(&mut cur).unwrap();
+    let ada = h.vertex_by_name("Ada").unwrap();
+    assert_eq!(ada.get_prop("born").and_then(|p| p.as_int()), Some(1815));
+    assert!(ada.get("born").is_none());
+}
+
