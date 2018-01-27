@@ -6,6 +6,7 @@ use super::prop::Prop;
 
 const MAGIC: &'static [u8] = b"KHG2";
 const MAGIC3: &'static [u8] = b"KHG3";
+const MAGIC4: &'static [u8] = b"KHG4";
 
 fn write_u32<W: Write>(w: &mut W, n: u32) -> Result<()> {
     let b = [n as u8, (n >> 8) as u8, (n >> 16) as u8, (n >> 24) as u8];
@@ -47,30 +48,90 @@ fn read_str<R: Read>(r: &mut R) -> Result<String> {
     }
 }
 
+fn write_i64<W: Write>(w: &mut W, n: i64) -> Result<()> {
+    let u = n as u64;
+    let b = [u as u8, (u >> 8) as u8, (u >> 16) as u8, (u >> 24) as u8,
+             (u >> 32) as u8, (u >> 40) as u8, (u >> 48) as u8, (u >> 56) as u8];
+    w.write_all(&b)
+}
+
+fn read_i64<R: Read>(r: &mut R) -> Result<i64> {
+    let mut b = [0u8; 8];
+    read_exact(r, &mut b)?;
+    let mut u = 0u64;
+    let mut i = 0;
+    while i < 8 {
+        u |= (b[i] as u64) << (8 * i);
+        i += 1;
+    }
+    Ok(u as i64)
+}
+
+fn write_prop<W: Write>(w: &mut W, p: &Prop) -> Result<()> {
+    w.write_all(&[p.tag()])?;
+    match *p {
+        Prop::Bool(true) => w.write_all(&[1]),
+        Prop::Bool(false) => w.write_all(&[0]),
+        Prop::Int(n) => write_i64(w, n),
+        Prop::Float(n) => write_i64(w, n.to_bits() as i64),
+        Prop::Str(ref s) => write_str(w, s),
+    }
+}
+
+fn read_prop<R: Read>(r: &mut R) -> Result<Prop> {
+    let mut tag = [0u8; 1];
+    read_exact(r, &mut tag)?;
+    match tag[0] {
+        0 => {
+            let mut b = [0u8; 1];
+            read_exact(r, &mut b)?;
+            Ok(Prop::from_bool(b[0] != 0))
+        }
+        1 => Ok(Prop::from_int(read_i64(r)?)),
+        2 => {
+            let bits = read_i64(r)? as u64;
+            Ok(Prop::from_float(f64::from_bits(bits)))
+        }
+        3 => Ok(Prop::from_str(&read_str(r)?)),
+        _ => Err(Error::new(ErrorKind::InvalidData, "prop tag")),
+    }
+}
+
 fn write_attrs<W: Write>(w: &mut W, attrs: &HashMap<String, Prop>) -> Result<()> {
     write_u32(w, attrs.len() as u32)?;
     for (k, v) in attrs.iter() {
         write_str(w, k)?;
-        write_str(w, &v.as_display())?;
+        write_prop(w, v)?;
     }
     Ok(())
 }
 
-fn read_attrs<R: Read>(r: &mut R) -> Result<HashMap<String, String>> {
+fn read_attrs_tagged<R: Read>(r: &mut R) -> Result<HashMap<String, Prop>> {
     let n = read_u32(r)? as usize;
     let mut m = HashMap::new();
     for _ in 0..n {
         let k = read_str(r)?;
-        let v = read_str(r)?;
+        let v = read_prop(r)?;
         m.insert(k, v);
     }
     Ok(m)
 }
 
-/// KHG3 snapshot. Edge attributes travel with the hop.
-/// KHG2 still reads.
+fn read_attrs_str<R: Read>(r: &mut R) -> Result<HashMap<String, Prop>> {
+    let n = read_u32(r)? as usize;
+    let mut m = HashMap::new();
+    for _ in 0..n {
+        let k = read_str(r)?;
+        let v = read_str(r)?;
+        m.insert(k, Prop::from_str(&v));
+    }
+    Ok(m)
+}
+
+/// KHG4 snapshot. Attributes keep their tag.
+/// KHG3 and KHG2 still read; their values become Str.
 pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
-    w.write_all(MAGIC3)?;
+    w.write_all(MAGIC4)?;
     write_str(w, g.khid())?;
 
     let types = g.all_types();
@@ -114,10 +175,11 @@ pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
 pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
     let mut magic = [0u8; 4];
     read_exact(r, &mut magic)?;
-    if &magic != MAGIC && &magic != MAGIC3 {
+    if &magic != MAGIC && &magic != MAGIC3 && &magic != MAGIC4 {
         return Err(Error::new(ErrorKind::InvalidData, "not KHG2"));
     }
-    let v3 = &magic == MAGIC3;
+    let tagged = &magic == MAGIC4;
+    let v3 = &magic == MAGIC3 || tagged;
     let gid = read_str(r)?;
     let mut g = if gid.is_empty() {
         Graph::new()
@@ -143,7 +205,11 @@ pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
         for _ in 0..n_names {
             names.push(read_str(r)?);
         }
-        let attrs = read_attrs(r)?;
+        let attrs = if tagged {
+            read_attrs_tagged(r)?
+        } else {
+            read_attrs_str(r)?
+        };
         match g.restore_vertex(id, attrs, names) {
             Ok(_) => {}
             Err(e) => return Err(Error::new(ErrorKind::InvalidData, e.message())),
@@ -157,8 +223,10 @@ pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
         let dst = read_str(r)?;
         let tn = read_str(r)?;
         let tno = if tn.is_empty() { None } else { Some(tn) };
-        let attrs = if v3 {
-            read_attrs(r)?
+        let attrs = if tagged {
+            read_attrs_tagged(r)?
+        } else if v3 {
+            read_attrs_str(r)?
         } else {
             HashMap::new()
         };
