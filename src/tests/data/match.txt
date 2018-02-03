@@ -1,0 +1,61 @@
+## one hop
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
+.expect
+rows 1
+a | b
+Alice | Bob
+
+## inbound
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person)<-[:KNOWS]-(b)
+.expect
+rows 1
+a | b
+Bob | Alice
+
+## two hop
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)-[:KNOWS]->(c)
+.expect
+rows 1
+a | b | c
+Alice | Bob | Carol
+
+## keyed end
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})
+.expect
+rows 1
+a | b
+Alice | Bob
+
+## unknown type
+.graph
+N Person Alice
+.query
+MATCH (a:Ghost)
+.expect
+ERR unknown type Ghost

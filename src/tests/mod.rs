@@ -5,3 +5,4 @@ mod graph;
 mod algo;
 mod query;
 mod prop;
+mod cases;
