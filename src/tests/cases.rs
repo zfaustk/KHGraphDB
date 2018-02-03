@@ -1,0 +1,243 @@
+//! Query cases. A file is a graph, a query, and a table.
+//! Checkout this tree and `cargo test` covers the language.
+
+use super::super::Graph;
+use super::super::query;
+use super::super::query::Val;
+use super::super::Prop;
+
+struct Case {
+    name: String,
+    graph: String,
+    query: String,
+    expect: String,
+}
+
+fn parse_cases(src: &str) -> Vec<Case> {
+    let mut out = Vec::new();
+    let mut cur_name = String::new();
+    let mut graph = String::new();
+    let mut query = String::new();
+    let mut expect = String::new();
+    let mut sec = 0; // 0 name, 1 graph, 2 query, 3 expect
+    for raw in src.lines() {
+        let line = raw.trim_right();
+        if line.starts_with("## ") {
+            if !cur_name.is_empty() {
+                out.push(Case {
+                    name: cur_name.clone(),
+                    graph: graph.clone(),
+                    query: query.clone(),
+                    expect: expect.clone(),
+                });
+            }
+            cur_name = line[3..].trim().to_string();
+            graph.clear();
+            query.clear();
+            expect.clear();
+            sec = 0;
+            continue;
+        }
+        if line == ".graph" {
+            sec = 1;
+            continue;
+        }
+        if line == ".query" {
+            sec = 2;
+            continue;
+        }
+        if line == ".expect" {
+            sec = 3;
+            continue;
+        }
+        if line.is_empty() && sec != 2 {
+            continue;
+        }
+        match sec {
+            1 => {
+                graph.push_str(line);
+                graph.push('\n');
+            }
+            2 => {
+                query.push_str(line);
+                query.push('\n');
+            }
+            3 => {
+                expect.push_str(line);
+                expect.push('\n');
+            }
+            _ => {}
+        }
+    }
+    if !cur_name.is_empty() {
+        out.push(Case {
+            name: cur_name,
+            graph: graph,
+            query: query,
+            expect: expect,
+        });
+    }
+    out
+}
+
+fn parse_prop(raw: &str) -> Prop {
+    if raw == "true" {
+        return Prop::from_bool(true);
+    }
+    if raw == "false" {
+        return Prop::from_bool(false);
+    }
+    let mut digits = true;
+    let mut dot = false;
+    let mut i = 0;
+    let b = raw.as_bytes();
+    if !b.is_empty() && (b[0] == b'-' || b[0] == b'+') {
+        i = 1;
+    }
+    if i >= b.len() {
+        digits = false;
+    }
+    while i < b.len() {
+        if b[i] == b'.' && !dot {
+            dot = true;
+        } else if b[i] < b'0' || b[i] > b'9' {
+            digits = false;
+            break;
+        }
+        i += 1;
+    }
+    if digits && dot {
+        match raw.parse::<f64>() {
+            Ok(n) => return Prop::from_float(n),
+            Err(_) => {}
+        }
+    }
+    if digits && !dot {
+        match raw.parse::<i64>() {
+            Ok(n) => return Prop::from_int(n),
+            Err(_) => {}
+        }
+    }
+    Prop::from_str(raw)
+}
+
+fn load_graph(text: &str) -> Graph {
+    let mut g = Graph::new();
+    g.create_index("Person", "name");
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 3 && parts[0] == "N" {
+            // N Type name [k=v ...]
+            let ty = parts[1];
+            let name = parts[2];
+            let mut attrs = std::collections::HashMap::new();
+            attrs.insert("name".to_string(), name.to_string());
+            let id = g.add_vertex(attrs, Some(ty)).unwrap();
+            let mut i = 3;
+            while i < parts.len() {
+                let kv: Vec<&str> = parts[i].splitn(2, '=').collect();
+                if kv.len() == 2 {
+                    g.set_prop(&id, kv[0], parse_prop(kv[1])).unwrap();
+                }
+                i += 1;
+            }
+        } else if parts.len() >= 4 && parts[0] == "E" {
+            // E Type srcName dstName [k=v ...]
+            let ty = parts[1];
+            let a = g.vertex_by_name(parts[2]).unwrap().khid().to_string();
+            let b = g.vertex_by_name(parts[3]).unwrap().khid().to_string();
+            let eid = g.add_edge(&a, &b, Some(ty)).unwrap();
+            let mut i = 4;
+            while i < parts.len() {
+                let kv: Vec<&str> = parts[i].splitn(2, '=').collect();
+                if kv.len() == 2 {
+                    g.set_edge_prop(&eid, kv[0], parse_prop(kv[1]));
+                }
+                i += 1;
+            }
+        }
+    }
+    g
+}
+
+fn cell_text(g: &Graph, v: &Option<Val>) -> String {
+    match *v {
+        None => String::new(),
+        Some(Val::Id(ref id)) => {
+            match g.vertex(id).and_then(|x| x.get("name")).map(|s| s.to_string()) {
+                Some(n) => n,
+                None => id.clone(),
+            }
+        }
+        Some(Val::Path(ref p)) => format!("path:{}", p.hops()),
+        Some(Val::List(ref xs)) => format!("list:{}", xs.len()),
+    }
+}
+
+fn run_case(c: &Case) {
+    let mut g = load_graph(&c.graph);
+    let r = query::run(&mut g, c.query.trim());
+    let mut got = String::new();
+    if !r.ok {
+        got.push_str("ERR ");
+        got.push_str(&r.message);
+        got.push('\n');
+    } else {
+        got.push_str(&format!("rows {}\n", r.rows.len()));
+        if !r.columns.is_empty() {
+            got.push_str(&r.columns.join(" | "));
+            got.push('\n');
+            let mut lines = Vec::new();
+            for row in r.rows.iter() {
+                let mut cells = Vec::new();
+                let mut i = 0;
+                while i < r.columns.len() {
+                    cells.push(cell_text(&g, row.get(i).unwrap_or(&None)));
+                    i += 1;
+                }
+                lines.push(cells.join(" | "));
+            }
+            lines.sort();
+            for line in lines.iter() {
+                got.push_str(line);
+                got.push('\n');
+            }
+        }
+    }
+    let exp = c.expect.trim();
+    let got_t = got.trim();
+    if got_t != exp {
+        panic!("case {}:\nquery: {}\ngot:\n{}\nexpect:\n{}\n",
+               c.name,
+               c.query.trim(),
+               got_t,
+               exp);
+    }
+}
+
+fn run_src(src: &str) {
+    let cases = parse_cases(src);
+    assert!(!cases.is_empty());
+    for c in cases.iter() {
+        run_case(c);
+    }
+}
+
+#[test]
+fn cases_match() {
+    run_src(include_str!("data/match.txt"));
+}
+
+#[test]
+fn cases_write() {
+    run_src(include_str!("data/write.txt"));
+}
+
+#[test]
+fn cases_where() {
+    run_src(include_str!("data/where.txt"));
+}

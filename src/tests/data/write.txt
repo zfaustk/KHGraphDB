@@ -1,0 +1,40 @@
+## create ada
+.graph
+N Person Alice
+.query
+CREATE (a:Person {name:'Ada', born:1815})
+.expect
+rows 1
+a
+Ada
+
+## merge existing
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Alice'})
+.expect
+rows 1
+p
+Alice
+
+## set city
+.graph
+N Person Alice
+.query
+MATCH (a:Person {name:'Alice'}) SET a.city = 'London'
+.expect
+rows 1
+a
+Alice
+
+## detach
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'}) DETACH DELETE a
+.expect
+rows 0
+a

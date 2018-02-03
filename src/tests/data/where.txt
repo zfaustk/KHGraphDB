@@ -1,0 +1,46 @@
+## where name
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) WHERE a.name = 'Alice'
+.expect
+rows 1
+a
+Alice
+
+## where age int
+.graph
+N Person Alice age=36
+N Person Bob age=20
+N Person Carol age=44
+.query
+MATCH (a:Person) WHERE a.age > 30
+.expect
+rows 2
+a
+Alice
+Carol
+
+## where int not str
+.graph
+N Person Alice age=36
+.query
+MATCH (a:Person) WHERE a.age = '36'
+.expect
+rows 0
+a
+
+## where or
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) WHERE a.name = 'Alice' OR a.name = 'Carol'
+.expect
+rows 2
+a
+Alice
+Carol
