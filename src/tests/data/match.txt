@@ -59,3 +59,70 @@ N Person Alice
 MATCH (a:Ghost)
 .expect
 ERR unknown type Ghost
+
+## all persons
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person)
+.expect
+rows 3
+a
+Alice
+Bob
+Carol
+
+## rel bind names
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) RETURN a, b
+.expect
+rows 1
+a | b
+Alice | Bob
+
+## two into bob
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Carol Bob
+.query
+MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})
+.expect
+rows 2
+a | b
+Alice | Bob
+Carol | Bob
+
+## no edge
+.graph
+N Person Alice
+N Person Bob
+T KNOWS
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
+.expect
+rows 0
+a | b
+
+## type on both
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person)-[:KNOWS]->(b:Person)
+.expect
+rows 2
+a | b
+Alice | Bob
+Bob | Carol
