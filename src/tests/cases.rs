@@ -130,7 +130,9 @@ fn load_graph(text: &str) -> Graph {
             continue;
         }
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() >= 3 && parts[0] == "N" {
+        if parts.len() >= 2 && parts[0] == "T" {
+            g.add_type(parts[1]).unwrap();
+        } else if parts.len() >= 3 && parts[0] == "N" {
             // N Type name [k=v ...]
             let ty = parts[1];
             let name = parts[2];
