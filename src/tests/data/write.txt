@@ -38,3 +38,63 @@ MATCH (a:Person {name:'Alice'}) DETACH DELETE a
 .expect
 rows 0
 a
+
+## create edge
+.graph
+.query
+CREATE (a:Person {name:'Ada'})-[:KNOWS]->(b:Person {name:'Bob'})
+.expect
+rows 1
+a | b
+Ada | Bob
+
+## merge new
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Ada'})
+.expect
+rows 1
+p
+Ada
+
+## remove city
+.graph
+N Person Alice city=London
+.query
+MATCH (a:Person {name:'Alice'}) REMOVE a.city
+.expect
+rows 1
+a
+Alice
+
+## delete free
+.graph
+N Person Solo
+.query
+MATCH (n:Person {name:'Solo'}) DELETE n
+.expect
+rows 0
+n
+
+## delete refuses edges
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (n:Person {name:'Alice'}) DELETE n
+.expect
+ERR DELETE edges
+
+## set edge since
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) SET e.since = 2011 RETURN a, b
+.expect
+rows 1
+a | b
+Alice | Bob
