@@ -44,3 +44,100 @@ rows 2
 a
 Alice
 Carol
+
+## where in
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) WHERE a.name IN ['Alice', 'Carol']
+.expect
+rows 2
+a
+Alice
+Carol
+
+## where not
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) WHERE NOT a.name = 'Alice'
+.expect
+rows 2
+a
+Bob
+Carol
+
+## where le
+.graph
+N Person Alice age=36
+N Person Bob age=20
+N Person Carol age=44
+.query
+MATCH (a:Person) WHERE a.age <= 20
+.expect
+rows 1
+a
+Bob
+
+## where bool
+.graph
+N Person Alice alive=true
+N Person Bob alive=false
+.query
+MATCH (a:Person) WHERE a.alive = true
+.expect
+rows 1
+a
+Alice
+
+## where and
+.graph
+N Person Alice age=36
+N Person Bob age=20
+N Person Carol age=44
+.query
+MATCH (a:Person) WHERE a.age > 20 AND a.age < 40
+.expect
+rows 1
+a
+Alice
+
+## where missing
+.graph
+N Person Alice
+N Person Bob age=20
+.query
+MATCH (a:Person) WHERE a.age > 0
+.expect
+rows 1
+a
+Bob
+
+## where edge weight
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob weight=3
+E KNOWS Bob Carol weight=1
+.query
+MATCH (a:Person)-[e:KNOWS]->(b) WHERE e.weight > 1 RETURN a, b
+.expect
+rows 1
+a | b
+Alice | Bob
+
+## where ne
+.graph
+N Person Alice
+N Person Bob
+.query
+MATCH (a:Person) WHERE a.name != 'Alice'
+.expect
+rows 1
+a
+Bob
