@@ -1,0 +1,114 @@
+## star hops
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)
+.expect
+rows 2
+a | b
+Alice | Bob
+Alice | Carol
+
+## star exact
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS*2]->(b)
+.expect
+rows 1
+a | b
+Alice | Carol
+
+## star zero
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS*0..1]->(b:Person)
+.expect
+rows 2
+a | b
+Alice | Alice
+Alice | Bob
+
+## path bind
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH p = (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b) RETURN p
+.expect
+rows 2
+p
+path:1
+path:2
+
+## shortest hop
+.graph
+N City A
+N City B
+N City C
+E ROAD A B
+E ROAD B C
+E ROAD A C
+.query
+MATCH p = shortestPath((x:City {name:'A'})-[:ROAD*]->(y:City {name:'C'})) RETURN p
+.expect
+rows 1
+p
+path:1
+
+## shortest none
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH p = shortestPath((a:Person {name:'Carol'})-[:KNOWS*]->(b:Person {name:'Alice'}))
+.expect
+rows 0
+p | a | b
+
+## star list
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Alice'})-[e:KNOWS*1..2]->(b) RETURN a, e, b
+.expect
+rows 2
+a | e | b
+Alice | list:1 | Bob
+Alice | list:2 | Carol
+
+## inbound star
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Carol'})<-[:KNOWS*1..2]-(b)
+.expect
+rows 2
+a | b
+Carol | Alice
+Carol | Bob

@@ -243,3 +243,8 @@ fn cases_write() {
 fn cases_where() {
     run_src(include_str!("data/where.txt"));
 }
+
+#[test]
+fn cases_path() {
+    run_src(include_str!("data/path.txt"));
+}
