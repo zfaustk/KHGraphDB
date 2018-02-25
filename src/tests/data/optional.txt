@@ -1,0 +1,49 @@
+## optional nobody
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+OPTIONAL MATCH (a:Person {name:'Nobody'})-[:KNOWS]->(b)
+.expect
+rows 1
+a | b
+ |
+
+## optional friend
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+.query
+OPTIONAL MATCH (a:Person {name:'Carol'})-[:KNOWS]->(b)
+.expect
+rows 1
+a | b
+ |
+
+## optional hit
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+OPTIONAL MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)
+.expect
+rows 1
+a | b
+Alice | Bob
+
+## optional after match
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Carol'}) OPTIONAL MATCH (a)-[:KNOWS]->(b) RETURN a, b
+.expect
+rows 1
+a | b
+Carol |
