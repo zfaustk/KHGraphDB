@@ -248,3 +248,8 @@ fn cases_where() {
 fn cases_path() {
     run_src(include_str!("data/path.txt"));
 }
+
+#[test]
+fn cases_optional() {
+    run_src(include_str!("data/optional.txt"));
+}
