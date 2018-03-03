@@ -8,9 +8,11 @@ pub use vertex::Vertex;
 pub use edge::Edge;
 pub use ty::Type;
 pub use prop::Prop;
+pub use khid::Khid;
 pub use query::{run as run_query, QueryResult, Val, Path};
 
 pub mod error;
+pub mod khid;
 pub mod prop;
 pub mod graph;
 pub mod catalog;
