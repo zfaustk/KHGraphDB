@@ -6,6 +6,7 @@ use super::edge::Edge;
 use super::ty::Type;
 use super::index::SchemaIndex;
 use super::prop::Prop;
+use super::khid::Khid;
 
 /// Directed property graph. Lookups are HashMaps. KHID is identity.
 #[derive(Clone)]
@@ -173,7 +174,11 @@ impl Graph {
             }
         }
         let id = self.next_id();
-        let mut v = Vertex::with_props(id.clone(), attrs);
+        let kid = match Khid::parse(&id) {
+            Some(k) => k,
+            None => return Err(Error::new("bad khid")),
+        };
+        let mut v = Vertex::with_props(kid, attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
                 self.vertices_by_name.insert(name.to_string(), id.clone());
@@ -568,7 +573,11 @@ impl Graph {
                           type_names: Vec<String>)
                           -> Result<String> {
         self.note_id(&id);
-        let mut v = Vertex::with_props(id.clone(), attrs);
+        let kid = match Khid::parse(&id) {
+            Some(k) => k,
+            None => return Err(Error::new("bad khid")),
+        };
+        let mut v = Vertex::with_props(kid, attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
                 self.vertices_by_name.insert(name.to_string(), id.clone());

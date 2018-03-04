@@ -61,7 +61,7 @@ fn create_node() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(g.vertex_count(), 1);
     assert!(g.vertex_by_name("Ada").is_some());
-    assert!(g.has_type(g.vertex_by_name("Ada").unwrap().khid(), "Person"));
+    assert!(g.has_type(&g.vertex_by_name("Ada").unwrap().khid().to_string(), "Person"));
 }
 
 #[test]
@@ -141,8 +141,8 @@ fn match_keyed_end_path() {
     assert_eq!(r.rows.len(), 1);
     let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
     assert_eq!(p.hops(), 1);
-    let a = g.vertex_by_name("Alice").unwrap().khid();
-    let b = g.vertex_by_name("Bob").unwrap().khid();
+    let a = g.vertex_by_name("Alice").unwrap().khid().to_string();
+    let b = g.vertex_by_name("Bob").unwrap().khid().to_string();
     assert_eq!(p[0], a);
     assert_eq!(p[2], b);
 }
