@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use super::khid::Khid;
 use super::prop::Prop;
 
 /// A node. KHID is identity. `types` is every type the vertex wears.
@@ -8,7 +9,7 @@ use super::prop::Prop;
 /// Attributes are Prop. C# stored object.
 #[derive(Clone)]
 pub struct Vertex {
-    id: String,
+    id: Khid,
     attrs: HashMap<String, Prop>,
     types: Vec<String>,
     outgoing: Vec<String>,
@@ -21,10 +22,11 @@ impl Vertex {
         for (k, v) in attrs.into_iter() {
             p.insert(k, Prop::from_str(&v));
         }
-        Vertex::with_props(id, p)
+        let kid = Khid::parse(&id).unwrap_or(Khid::nil());
+        Vertex::with_props(kid, p)
     }
 
-    pub fn with_props(id: String, attrs: HashMap<String, Prop>) -> Vertex {
+    pub fn with_props(id: Khid, attrs: HashMap<String, Prop>) -> Vertex {
         Vertex {
             id: id,
             attrs: attrs,
@@ -34,8 +36,8 @@ impl Vertex {
         }
     }
 
-    pub fn khid(&self) -> &str {
-        &self.id
+    pub fn khid(&self) -> Khid {
+        self.id
     }
 
     /// String view. Only Str properties. Int 1 is not here.

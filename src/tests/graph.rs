@@ -209,3 +209,15 @@ fn snapshot_keeps_int() {
     assert!(ada.get("born").is_none());
 }
 
+#[test]
+fn vertex_khid_is_copy() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    let k = g.vertex(&a).unwrap().khid();
+    assert_eq!(format!("{}", k), a);
+    assert!(!k.is_nil());
+    let k2 = k;
+    assert_eq!(k, k2);
+    assert!(k.raw() > 0);
+}
+
