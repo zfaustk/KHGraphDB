@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
+use super::khid::Khid;
 use super::prop::Prop;
 
 #[derive(Clone)]
 pub struct Edge {
-    id: String,
+    id: Khid,
     source: String,
     target: String,
     type_id: Option<String>,
@@ -17,10 +18,11 @@ impl Edge {
         for (k, v) in attrs.into_iter() {
             p.insert(k, Prop::from_str(&v));
         }
-        Edge::with_props(id, source, target, p)
+        let kid = Khid::parse(&id).unwrap_or(Khid::nil());
+        Edge::with_props(kid, source, target, p)
     }
 
-    pub fn with_props(id: String,
+    pub fn with_props(id: Khid,
                       source: String,
                       target: String,
                       attrs: HashMap<String, Prop>)
@@ -34,8 +36,8 @@ impl Edge {
         }
     }
 
-    pub fn khid(&self) -> &str {
-        &self.id
+    pub fn khid(&self) -> Khid {
+        self.id
     }
 
     pub fn source(&self) -> &str {

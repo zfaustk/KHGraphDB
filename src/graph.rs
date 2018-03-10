@@ -607,7 +607,11 @@ impl Graph {
             return Err(Error::new("missing vertex"));
         }
         self.note_id(&id);
-        let mut e = Edge::with_props(id.clone(), src.clone(), dst.clone(), attrs);
+        let kid = match Khid::parse(&id) {
+            Some(k) => k,
+            None => return Err(Error::new("bad khid")),
+        };
+        let mut e = Edge::with_props(kid, src.clone(), dst.clone(), attrs);
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
                 let tid = self.add_type(tn)?;

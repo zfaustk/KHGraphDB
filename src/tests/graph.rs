@@ -221,3 +221,14 @@ fn vertex_khid_is_copy() {
     assert!(k.raw() > 0);
 }
 
+#[test]
+fn edge_khid_is_copy() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+    let e = g.add_edge(&a, &b, Some("ROAD")).unwrap();
+    let k = g.edge(&e).unwrap().khid();
+    assert_eq!(format!("{}", k), e);
+    assert!(!k.is_nil());
+}
+
