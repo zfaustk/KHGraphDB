@@ -232,3 +232,14 @@ fn edge_khid_is_copy() {
     assert!(!k.is_nil());
 }
 
+#[test]
+fn type_khid_is_copy() {
+    let mut g = Graph::new();
+    g.add_type("Person").unwrap();
+    let t = g.type_by_name("Person").unwrap();
+    let k = t.khid();
+    assert!(!k.is_nil());
+    assert_eq!(format!("{}", k).as_bytes()[0], b'k');
+    assert_eq!(t.name(), "Person");
+}
+

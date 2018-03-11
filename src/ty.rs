@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
+use super::khid::Khid;
+
 /// First-class type. Not a string label. Vertices and edges wear it.
 #[derive(Clone)]
 pub struct Type {
-    id: String,
+    id: Khid,
     name: String,
     vertices: HashSet<String>,
     edges: HashSet<String>,
@@ -11,6 +13,11 @@ pub struct Type {
 
 impl Type {
     pub fn new(id: String, name: String) -> Type {
+        let kid = Khid::parse(&id).unwrap_or(Khid::nil());
+        Type::with_khid(kid, name)
+    }
+
+    pub fn with_khid(id: Khid, name: String) -> Type {
         Type {
             id: id,
             name: name,
@@ -19,8 +26,8 @@ impl Type {
         }
     }
 
-    pub fn khid(&self) -> &str {
-        &self.id
+    pub fn khid(&self) -> Khid {
+        self.id
     }
 
     pub fn name(&self) -> &str {
