@@ -1,6 +1,7 @@
 use std::ops::Index;
 
 use super::graph::Graph;
+use super::khid::Khid;
 use super::prop::Prop;
 
 mod parse;
@@ -58,15 +59,27 @@ enum Expr {
 /// The vertices stay in the arena.
 #[derive(Clone, PartialEq)]
 pub struct Path {
-    ids: Vec<String>,
+    ids: Vec<Khid>,
 }
 
 impl Path {
-    pub fn new(ids: Vec<String>) -> Path {
+    pub fn new(ids: Vec<Khid>) -> Path {
         Path { ids: ids }
     }
 
-    pub fn ids(&self) -> &[String] {
+    /// The walk still speaks in print form. Parse each cell.
+    pub fn parse_all(ids: &[String]) -> Path {
+        let mut v = Vec::new();
+        for s in ids.iter() {
+            match Khid::parse(s) {
+                Some(k) => v.push(k),
+                None => {}
+            }
+        }
+        Path { ids: v }
+    }
+
+    pub fn ids(&self) -> &[Khid] {
         &self.ids
     }
 
@@ -82,21 +95,21 @@ impl Path {
         }
     }
 
-    pub fn nodes(&self) -> Vec<String> {
+    pub fn nodes(&self) -> Vec<Khid> {
         let mut v = Vec::new();
         let mut i = 0;
         while i < self.ids.len() {
-            v.push(self.ids[i].clone());
+            v.push(self.ids[i]);
             i += 2;
         }
         v
     }
 
-    pub fn edges(&self) -> Vec<String> {
+    pub fn edges(&self) -> Vec<Khid> {
         let mut v = Vec::new();
         let mut i = 1;
         while i < self.ids.len() {
-            v.push(self.ids[i].clone());
+            v.push(self.ids[i]);
             i += 2;
         }
         v
@@ -104,8 +117,8 @@ impl Path {
 }
 
 impl Index<usize> for Path {
-    type Output = String;
-    fn index(&self, i: usize) -> &String {
+    type Output = Khid;
+    fn index(&self, i: usize) -> &Khid {
         &self.ids[i]
     }
 }

@@ -26,7 +26,7 @@ fn emit_row(pat: &Pattern,
             r: &mut QueryResult) {
     let mut row = Vec::new();
     if pat.path_var.is_some() {
-        row.push(Some(Val::Path(Path::new(trail.to_vec()))));
+        row.push(Some(Val::Path(Path::parse_all(trail))));
     }
     for (i, b) in bind.iter().enumerate() {
         match *b {
@@ -244,7 +244,11 @@ fn exec_shortest(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<Stri
                     let bind = vec![Some(s.clone()), Some(t.clone())];
                     let mut rel_edges: Vec<Vec<String>> = vec![Vec::new(); pat.rels.len()];
                     if pat.rels.len() == 1 {
-                        rel_edges[0] = Path::new(path.clone()).edges();
+                        let mut es = Vec::new();
+                        for k in Path::parse_all(&path).edges().iter() {
+                            es.push(format!("{}", k));
+                        }
+                        rel_edges[0] = es;
                     }
                     emit_row(pat, &bind, &path, &rel_edges, &mut r);
                 }
@@ -794,14 +798,14 @@ fn path_fn(path: Option<&Path>, kind: i32) -> Option<Val> {
     if kind == 4 {
         let mut ids = Vec::new();
         for n in p.nodes().iter() {
-            ids.push(Val::Id(n.clone()));
+            ids.push(Val::Id(format!("{}", n)));
         }
         return Some(Val::List(ids));
     }
     if kind == 5 {
         let mut ids = Vec::new();
         for n in p.edges().iter() {
-            ids.push(Val::Id(n.clone()));
+            ids.push(Val::Id(format!("{}", n)));
         }
         return Some(Val::List(ids));
     }
