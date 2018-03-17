@@ -141,8 +141,8 @@ fn match_keyed_end_path() {
     assert_eq!(r.rows.len(), 1);
     let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
     assert_eq!(p.hops(), 1);
-    let a = g.vertex_by_name("Alice").unwrap().khid().to_string();
-    let b = g.vertex_by_name("Bob").unwrap().khid().to_string();
+    let a = g.vertex_by_name("Alice").unwrap().khid();
+    let b = g.vertex_by_name("Bob").unwrap().khid();
     assert_eq!(p[0], a);
     assert_eq!(p[2], b);
 }
@@ -239,11 +239,13 @@ fn match_shortest_hops() {
     let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
     assert_eq!(p.len(), 3);
     assert_eq!(p.hops(), 1);
-    assert_eq!(p[0], a);
-    assert_eq!(p[1], ac);
-    assert_eq!(p[2], c);
-    assert_eq!(p.nodes(), vec![a.clone(), c.clone()]);
-    assert_eq!(p.edges(), vec![ac.clone()]);
+    assert_eq!(p[0], super::super::Khid::parse(&a).unwrap());
+    assert_eq!(p[1], super::super::Khid::parse(&ac).unwrap());
+    assert_eq!(p[2], super::super::Khid::parse(&c).unwrap());
+    assert_eq!(p.nodes(),
+               vec![super::super::Khid::parse(&a).unwrap(),
+                    super::super::Khid::parse(&c).unwrap()]);
+    assert_eq!(p.edges(), vec![super::super::Khid::parse(&ac).unwrap()]);
 }
 
 #[test]
@@ -506,6 +508,22 @@ fn val_list() {
     assert_eq!(v.as_list().unwrap().len(), 2);
     assert!(v.as_id().is_none());
     assert!(v.as_path().is_none());
+}
+
+#[test]
+fn path_is_khid() {
+    let p = super::super::Path::parse_all(&[
+        "k1".to_string(),
+        "k2".to_string(),
+        "k3".to_string(),
+    ]);
+    assert_eq!(p.hops(), 1);
+    assert_eq!(p.len(), 3);
+    assert_eq!(p[0], super::super::Khid::from_raw(1));
+    assert_eq!(p[1], super::super::Khid::from_raw(2));
+    assert_eq!(p.nodes(),
+               vec![super::super::Khid::from_raw(1), super::super::Khid::from_raw(3)]);
+    assert_eq!(p.edges(), vec![super::super::Khid::from_raw(2)]);
 }
 
 #[test]
