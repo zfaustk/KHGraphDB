@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use super::khid::Khid;
 use super::prop::Prop;
 
 /// Posting list for (Type, key) -> Prop -> vertex ids.
@@ -8,7 +9,7 @@ pub struct SchemaIndex {
     type_name: String,
     key: String,
     unique: bool,
-    posting: HashMap<Prop, HashSet<String>>,
+    posting: HashMap<Prop, HashSet<Khid>>,
 }
 
 impl SchemaIndex {
@@ -38,18 +39,34 @@ impl SchemaIndex {
     }
 
     pub fn add(&mut self, vid: &str, value: &Prop) {
+        let k = match Khid::parse(vid) {
+            Some(k) => k,
+            None => return,
+        };
+        self.add_khid(k, value);
+    }
+
+    pub fn add_khid(&mut self, vid: Khid, value: &Prop) {
         if let Prop::Str(ref s) = *value {
             if s.is_empty() {
                 return;
             }
         }
-        self.posting.entry(value.clone()).or_insert(HashSet::new()).insert(vid.to_string());
+        self.posting.entry(value.clone()).or_insert(HashSet::new()).insert(vid);
     }
 
     pub fn remove(&mut self, vid: &str, value: &Prop) {
+        let k = match Khid::parse(vid) {
+            Some(k) => k,
+            None => return,
+        };
+        self.remove_khid(k, value);
+    }
+
+    pub fn remove_khid(&mut self, vid: Khid, value: &Prop) {
         let drop_key = match self.posting.get_mut(value) {
             Some(set) => {
-                set.remove(vid);
+                set.remove(&vid);
                 set.is_empty()
             }
             None => false,
@@ -60,15 +77,27 @@ impl SchemaIndex {
     }
 
     pub fn get(&self, value: &Prop) -> Vec<String> {
+        self.get_khid(value).iter().map(|k| format!("{}", k)).collect()
+    }
+
+    pub fn get_khid(&self, value: &Prop) -> Vec<Khid> {
         match self.posting.get(value) {
-            Some(set) => set.iter().map(|s| s.clone()).collect(),
+            Some(set) => set.iter().map(|k| *k).collect(),
             None => Vec::new(),
         }
     }
 
     pub fn contains_other(&self, value: &Prop, self_id: &str) -> bool {
+        let self_k = Khid::parse(self_id);
         match self.posting.get(value) {
-            Some(set) => set.iter().any(|id| id != self_id),
+            Some(set) => {
+                set.iter().any(|id| {
+                    match self_k {
+                        Some(k) => *id != k,
+                        None => true,
+                    }
+                })
+            }
             None => false,
         }
     }
