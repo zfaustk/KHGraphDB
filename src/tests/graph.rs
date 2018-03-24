@@ -243,3 +243,15 @@ fn type_khid_is_copy() {
     assert_eq!(t.name(), "Person");
 }
 
+#[test]
+fn graph_keys_are_khid() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    let k = super::super::Khid::parse(&a).unwrap();
+    assert_eq!(g.vertex(&a).unwrap().khid(), k);
+    g.remove_vertex(&a);
+    let b = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+    let k2 = super::super::Khid::parse(&b).unwrap();
+    assert!(k2.raw() > k.raw());
+}
+
