@@ -255,3 +255,13 @@ fn graph_keys_are_khid() {
     assert!(k2.raw() > k.raw());
 }
 
+#[test]
+fn slot_zero_is_not_a_vertex() {
+    let mut g = Graph::new();
+    assert!(g.vertex("k0").is_none());
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    let k = super::super::Khid::parse(&a).unwrap();
+    assert!(k.raw() >= 1);
+    assert!(g.vertex("k0").is_none());
+}
+
