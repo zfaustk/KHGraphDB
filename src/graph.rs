@@ -8,13 +8,13 @@ use super::index::SchemaIndex;
 use super::prop::Prop;
 use super::khid::Khid;
 
-/// Directed property graph. Lookups are HashMaps keyed by Khid.
-/// KHID is identity. The print form is Display only.
+/// Directed property graph. Vertices live in a slot Vec.
+/// The index is the KHID. KHID is identity.
 #[derive(Clone)]
 pub struct Graph {
     id: String,
     serial: u64,
-    vertices: HashMap<Khid, Vertex>,
+    vertices: Vec<Option<Vertex>>,
     edges: HashMap<Khid, Edge>,
     types: HashMap<Khid, Type>,
     types_by_name: HashMap<String, Khid>,
@@ -36,7 +36,11 @@ impl Graph {
         Graph {
             id: id.to_string(),
             serial: 0,
-            vertices: HashMap::new(),
+            vertices: {
+                let mut v = Vec::new();
+                v.push(None);
+                v
+            },
             edges: HashMap::new(),
             types: HashMap::new(),
             types_by_name: HashMap::new(),
@@ -53,6 +57,7 @@ impl Graph {
     pub fn clear(&mut self) {
         self.serial = 0;
         self.vertices.clear();
+        self.vertices.push(None);
         self.edges.clear();
         self.types.clear();
         self.types_by_name.clear();
@@ -80,7 +85,15 @@ impl Graph {
     }
 
     pub fn vertex_count(&self) -> usize {
-        self.vertices.len()
+        let mut n = 0;
+        let mut i = 1;
+        while i < self.vertices.len() {
+            if self.vertices[i].is_some() {
+                n += 1;
+            }
+            i += 1;
+        }
+        n
     }
 
     pub fn edge_count(&self) -> usize {
@@ -105,11 +118,31 @@ impl Graph {
     }
 
     fn at(&self, k: Khid) -> Option<&Vertex> {
-        self.vertices.get(&k)
+        self.vertices.get(k.raw() as usize).and_then(|s| s.as_ref())
     }
 
     fn at_mut(&mut self, k: Khid) -> Option<&mut Vertex> {
-        self.vertices.get_mut(&k)
+        self.vertices.get_mut(k.raw() as usize).and_then(|s| s.as_mut())
+    }
+
+    fn vput(&mut self, k: Khid, v: Vertex) {
+        let i = k.raw() as usize;
+        while self.vertices.len() <= i {
+            self.vertices.push(None);
+        }
+        self.vertices[i] = Some(v);
+    }
+
+    fn vtake(&mut self, k: Khid) -> bool {
+        let i = k.raw() as usize;
+        if i >= self.vertices.len() {
+            return false;
+        }
+        self.vertices[i].take().is_some()
+    }
+
+    fn vhas(&self, k: Khid) -> bool {
+        self.at(k).is_some()
     }
 
     fn parse(&self, khid: &str) -> Option<Khid> {
@@ -153,7 +186,7 @@ impl Graph {
 
     pub fn vertex_by_name(&self, name: &str) -> Option<&Vertex> {
         match self.vertices_by_name.get(name) {
-            Some(id) => self.vertices.get(id),
+            Some(id) => self.at(*id),
             None => None,
         }
     }
@@ -225,7 +258,7 @@ impl Graph {
                 }
             }
         }
-        self.vertices.insert(kid, v);
+        self.vput(kid, v);
         Ok(id)
     }
 
@@ -251,7 +284,7 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("missing vertex")),
         };
-        if !self.vertices.contains_key(&sk) || !self.vertices.contains_key(&dk) {
+        if !self.vhas(sk) || !self.vhas(dk) {
             return Err(Error::new("missing vertex"));
         }
         let kid = self.next_khid();
@@ -279,11 +312,11 @@ impl Graph {
             }
         }
         {
-            let srcv = self.vertices.get_mut(&sk).unwrap();
+            let srcv = self.at_mut(sk).unwrap();
             srcv.add_out(&id);
         }
         {
-            let dstv = self.vertices.get_mut(&dk).unwrap();
+            let dstv = self.at_mut(dk).unwrap();
             dstv.add_in(&id);
         }
         self.edges.insert(kid, e);
@@ -300,12 +333,12 @@ impl Graph {
             None => return false,
         };
         if let Some(sk) = Khid::parse(&src) {
-            if let Some(v) = self.vertices.get_mut(&sk) {
+            if let Some(v) = self.at_mut(sk) {
                 v.remove_out(eid);
             }
         }
         if let Some(dk) = Khid::parse(&dst) {
-            if let Some(v) = self.vertices.get_mut(&dk) {
+            if let Some(v) = self.at_mut(dk) {
                 v.remove_in(eid);
             }
         }
@@ -324,7 +357,7 @@ impl Graph {
             Some(k) => k,
             None => return false,
         };
-        let (outs, ins, tps, name) = match self.vertices.get(&vk) {
+        let (outs, ins, tps, name) = match self.at(vk) {
             Some(v) => {
                 let o: Vec<String> = v.outgoing().iter().map(|s| s.clone()).collect();
                 let i: Vec<String> = v.incoming().iter().map(|s| s.clone()).collect();
@@ -354,7 +387,7 @@ impl Graph {
                 }
             }
         }
-        self.vertices.remove(&vk).is_some()
+        self.vtake(vk)
     }
 
     pub fn add_type_to_vertex(&mut self, vid: &str, type_name: &str) -> Result<bool> {
@@ -364,7 +397,7 @@ impl Graph {
             None => return Err(Error::new("missing vertex")),
         };
         {
-            let v = match self.vertices.get_mut(&vk) {
+            let v = match self.at_mut(vk) {
                 Some(v) => v,
                 None => return Err(Error::new("missing vertex")),
             };
@@ -410,7 +443,15 @@ impl Graph {
     }
 
     pub fn vertex_ids(&self) -> Vec<String> {
-        self.vertices.keys().map(|k| disp(*k)).collect()
+        let mut out = Vec::new();
+        let mut i = 1;
+        while i < self.vertices.len() {
+            if self.vertices[i].is_some() {
+                out.push(disp(Khid::from_raw(i as u64)));
+            }
+            i += 1;
+        }
+        out
     }
 
     pub fn type_name_of(&self, tid: &str) -> Option<&str> {
@@ -525,12 +566,12 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("missing vertex")),
         };
-        let types: Vec<String> = match self.vertices.get(&vk) {
+        let types: Vec<String> = match self.at(vk) {
             Some(v) => v.types().iter().map(|s| s.clone()).collect(),
             None => return Err(Error::new("missing vertex")),
         };
-        let old_prop = self.vertices.get(&vk).and_then(|v| v.get_prop(key)).cloned();
-        let old_name = self.vertices.get(&vk).and_then(|v| v.get("name")).unwrap_or("").to_string();
+        let old_prop = self.at(vk).and_then(|v| v.get_prop(key)).cloned();
+        let old_name = self.at(vk).and_then(|v| v.get("name")).unwrap_or("").to_string();
         for tid in types.iter() {
             let tname = match self.ty(tid) {
                 Some(t) => t.name().to_string(),
@@ -543,7 +584,7 @@ impl Graph {
                 }
             }
         }
-        if let Some(v) = self.vertices.get_mut(&vk) {
+        if let Some(v) = self.at_mut(vk) {
             v.set_prop(key, value.clone());
         }
         if key == "name" {
@@ -581,11 +622,11 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("missing vertex")),
         };
-        let types: Vec<String> = match self.vertices.get(&vk) {
+        let types: Vec<String> = match self.at(vk) {
             Some(v) => v.types().iter().map(|s| s.clone()).collect(),
             None => return Err(Error::new("missing vertex")),
         };
-        let old_prop = self.vertices.get(&vk).and_then(|v| v.get_prop(key)).cloned();
+        let old_prop = self.at(vk).and_then(|v| v.get_prop(key)).cloned();
         let old_s = match old_prop {
             Some(Prop::Str(ref s)) => s.clone(),
             _ => String::new(),
@@ -609,7 +650,7 @@ impl Graph {
                 }
             }
         }
-        match self.vertices.get_mut(&vk) {
+        match self.at_mut(vk) {
             Some(v) => Ok(v.remove_attr(key).map(|p| p.as_display())),
             None => Err(Error::new("missing vertex")),
         }
@@ -658,7 +699,7 @@ impl Graph {
             }
             let _ = i;
         }
-        self.vertices.insert(kid, v);
+        self.vput(kid, v);
         Ok(id)
     }
 
@@ -677,7 +718,7 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("missing vertex")),
         };
-        if !self.vertices.contains_key(&sk) || !self.vertices.contains_key(&dk) {
+        if !self.vhas(sk) || !self.vhas(dk) {
             return Err(Error::new("missing vertex"));
         }
         self.note_id(&id);
@@ -698,11 +739,11 @@ impl Graph {
             }
         }
         {
-            let srcv = self.vertices.get_mut(&sk).unwrap();
+            let srcv = self.at_mut(sk).unwrap();
             srcv.add_out(&id);
         }
         {
-            let dstv = self.vertices.get_mut(&dk).unwrap();
+            let dstv = self.at_mut(dk).unwrap();
             dstv.add_in(&id);
         }
         self.edges.insert(kid, e);
