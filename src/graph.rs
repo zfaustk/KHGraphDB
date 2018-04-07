@@ -15,7 +15,7 @@ pub struct Graph {
     id: String,
     serial: u64,
     vertices: Vec<Option<Vertex>>,
-    edges: HashMap<Khid, Edge>,
+    edges: Vec<Option<Edge>>,
     types: HashMap<Khid, Type>,
     types_by_name: HashMap<String, Khid>,
     vertices_by_name: HashMap<String, Khid>,
@@ -41,7 +41,11 @@ impl Graph {
                 v.push(None);
                 v
             },
-            edges: HashMap::new(),
+            edges: {
+                let mut v = Vec::new();
+                v.push(None);
+                v
+            },
             types: HashMap::new(),
             types_by_name: HashMap::new(),
             vertices_by_name: HashMap::new(),
@@ -59,6 +63,7 @@ impl Graph {
         self.vertices.clear();
         self.vertices.push(None);
         self.edges.clear();
+        self.edges.push(None);
         self.types.clear();
         self.types_by_name.clear();
         self.vertices_by_name.clear();
@@ -97,7 +102,15 @@ impl Graph {
     }
 
     pub fn edge_count(&self) -> usize {
-        self.edges.len()
+        let mut n = 0;
+        let mut i = 1;
+        while i < self.edges.len() {
+            if self.edges[i].is_some() {
+                n += 1;
+            }
+            i += 1;
+        }
+        n
     }
 
     pub fn type_count(&self) -> usize {
@@ -145,6 +158,30 @@ impl Graph {
         self.at(k).is_some()
     }
 
+    fn eget(&self, k: Khid) -> Option<&Edge> {
+        self.edges.get(k.raw() as usize).and_then(|s| s.as_ref())
+    }
+
+    fn eget_mut(&mut self, k: Khid) -> Option<&mut Edge> {
+        self.edges.get_mut(k.raw() as usize).and_then(|s| s.as_mut())
+    }
+
+    fn eput(&mut self, k: Khid, e: Edge) {
+        let i = k.raw() as usize;
+        while self.edges.len() <= i {
+            self.edges.push(None);
+        }
+        self.edges[i] = Some(e);
+    }
+
+    fn etake(&mut self, k: Khid) -> bool {
+        let i = k.raw() as usize;
+        if i >= self.edges.len() {
+            return false;
+        }
+        self.edges[i].take().is_some()
+    }
+
     fn parse(&self, khid: &str) -> Option<Khid> {
         Khid::parse(khid)
     }
@@ -165,7 +202,7 @@ impl Graph {
 
     pub fn edge(&self, khid: &str) -> Option<&Edge> {
         match Khid::parse(khid) {
-            Some(k) => self.edges.get(&k),
+            Some(k) => self.eget(k),
             None => None,
         }
     }
@@ -319,7 +356,7 @@ impl Graph {
             let dstv = self.at_mut(dk).unwrap();
             dstv.add_in(&id);
         }
-        self.edges.insert(kid, e);
+        self.eput(kid, e);
         Ok(id)
     }
 
@@ -328,7 +365,7 @@ impl Graph {
             Some(k) => k,
             None => return false,
         };
-        let (src, dst, tid) = match self.edges.get(&ek) {
+        let (src, dst, tid) = match self.eget(ek) {
             Some(e) => (e.source().to_string(), e.target().to_string(), e.type_id().map(|s| s.to_string())),
             None => return false,
         };
@@ -349,7 +386,7 @@ impl Graph {
                 }
             }
         }
-        self.edges.remove(&ek).is_some()
+        self.etake(ek)
     }
 
     pub fn remove_vertex(&mut self, vid: &str) -> bool {
@@ -661,15 +698,18 @@ impl Graph {
     }
 
     pub fn all_edges(&self) -> Vec<(String, String, String, Option<String>)> {
-        self.edges
-            .values()
-            .map(|e| {
-                (disp(e.khid()),
-                 e.source().to_string(),
-                 e.target().to_string(),
-                 e.type_id().map(|s| s.to_string()))
-            })
-            .collect()
+        let mut out = Vec::new();
+        let mut i = 1;
+        while i < self.edges.len() {
+            if let Some(ref e) = self.edges[i] {
+                out.push((disp(e.khid()),
+                          e.source().to_string(),
+                          e.target().to_string(),
+                          e.type_id().map(|s| s.to_string())));
+            }
+            i += 1;
+        }
+        out
     }
 
     pub fn restore_vertex(&mut self,
@@ -746,7 +786,7 @@ impl Graph {
             let dstv = self.at_mut(dk).unwrap();
             dstv.add_in(&id);
         }
-        self.edges.insert(kid, e);
+        self.eput(kid, e);
         Ok(id)
     }
 
@@ -781,12 +821,12 @@ impl Graph {
             Some(k) => k,
             None => return false,
         };
-        let tid = match self.edges.get(&ek) {
+        let tid = match self.eget(ek) {
             Some(e) => e.type_id().map(|s| s.to_string()),
             None => return false,
         };
-        let old = self.edges.get(&ek).and_then(|e| e.get_prop(key)).cloned();
-        match self.edges.get_mut(&ek) {
+        let old = self.eget(ek).and_then(|e| e.get_prop(key)).cloned();
+        match self.eget_mut(ek) {
             Some(e) => {
                 e.set_prop(key, value.clone());
             }
