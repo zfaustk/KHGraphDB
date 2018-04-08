@@ -16,7 +16,7 @@ pub struct Graph {
     serial: u64,
     vertices: Vec<Option<Vertex>>,
     edges: Vec<Option<Edge>>,
-    types: HashMap<Khid, Type>,
+    types: Vec<Option<Type>>,
     types_by_name: HashMap<String, Khid>,
     vertices_by_name: HashMap<String, Khid>,
     indexes: HashMap<String, SchemaIndex>,
@@ -46,7 +46,11 @@ impl Graph {
                 v.push(None);
                 v
             },
-            types: HashMap::new(),
+            types: {
+                let mut v = Vec::new();
+                v.push(None);
+                v
+            },
             types_by_name: HashMap::new(),
             vertices_by_name: HashMap::new(),
             indexes: HashMap::new(),
@@ -65,6 +69,7 @@ impl Graph {
         self.edges.clear();
         self.edges.push(None);
         self.types.clear();
+        self.types.push(None);
         self.types_by_name.clear();
         self.vertices_by_name.clear();
         self.indexes.clear();
@@ -114,7 +119,15 @@ impl Graph {
     }
 
     pub fn type_count(&self) -> usize {
-        self.types.len()
+        let mut n = 0;
+        let mut i = 1;
+        while i < self.types.len() {
+            if self.types[i].is_some() {
+                n += 1;
+            }
+            i += 1;
+        }
+        n
     }
 
     fn next_khid(&mut self) -> Khid {
@@ -182,6 +195,22 @@ impl Graph {
         self.edges[i].take().is_some()
     }
 
+    fn tget(&self, k: Khid) -> Option<&Type> {
+        self.types.get(k.raw() as usize).and_then(|s| s.as_ref())
+    }
+
+    fn tget_mut(&mut self, k: Khid) -> Option<&mut Type> {
+        self.types.get_mut(k.raw() as usize).and_then(|s| s.as_mut())
+    }
+
+    fn tput(&mut self, k: Khid, t: Type) {
+        let i = k.raw() as usize;
+        while self.types.len() <= i {
+            self.types.push(None);
+        }
+        self.types[i] = Some(t);
+    }
+
     fn parse(&self, khid: &str) -> Option<Khid> {
         Khid::parse(khid)
     }
@@ -209,14 +238,14 @@ impl Graph {
 
     pub fn ty(&self, khid: &str) -> Option<&Type> {
         match Khid::parse(khid) {
-            Some(k) => self.types.get(&k),
+            Some(k) => self.tget(k),
             None => None,
         }
     }
 
     pub fn type_by_name(&self, name: &str) -> Option<&Type> {
         match self.types_by_name.get(name) {
-            Some(id) => self.types.get(id),
+            Some(id) => self.tget(*id),
             None => None,
         }
     }
@@ -238,7 +267,7 @@ impl Graph {
         let id = self.next_khid();
         let t = Type::with_khid(id, name.to_string());
         self.types_by_name.insert(name.to_string(), id);
-        self.types.insert(id, t);
+        self.tput(id, t);
         Ok(disp(id))
     }
 
@@ -278,7 +307,7 @@ impl Graph {
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
             v.attach_type(&tid);
-            match Khid::parse(&tid).and_then(|k| self.types.get_mut(&k)) {
+            match Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
                 Some(t) => {
                     t.add_vertex(&id);
                 }
@@ -334,7 +363,7 @@ impl Graph {
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
             e.set_type(&tid);
-            if let Some(t) = Khid::parse(&tid).and_then(|k| self.types.get_mut(&k)) {
+            if let Some(t) = Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
                 t.add_edge(&id);
             }
             let keys: Vec<(String, Prop)> = e.attrs()
@@ -381,7 +410,7 @@ impl Graph {
         }
         if let Some(t) = tid {
             if let Some(tk) = Khid::parse(&t) {
-                if let Some(ty) = self.types.get_mut(&tk) {
+                if let Some(ty) = self.tget_mut(tk) {
                     ty.remove_edge(eid);
                 }
             }
@@ -412,7 +441,7 @@ impl Graph {
         }
         for t in tps.iter() {
             if let Some(tk) = Khid::parse(t) {
-                if let Some(ty) = self.types.get_mut(&tk) {
+                if let Some(ty) = self.tget_mut(tk) {
                     ty.remove_vertex(vid);
                 }
             }
@@ -443,7 +472,7 @@ impl Graph {
             }
         }
         if let Some(tk) = Khid::parse(&tid) {
-            if let Some(t) = self.types.get_mut(&tk) {
+            if let Some(t) = self.tget_mut(tk) {
                 t.add_vertex(vid);
             }
         }
@@ -694,7 +723,15 @@ impl Graph {
     }
 
     pub fn all_types(&self) -> Vec<(String, String)> {
-        self.types.values().map(|t| (disp(t.khid()), t.name().to_string())).collect()
+        let mut out = Vec::new();
+        let mut i = 1;
+        while i < self.types.len() {
+            if let Some(ref t) = self.types[i] {
+                out.push((disp(t.khid()), t.name().to_string()));
+            }
+            i += 1;
+        }
+        out
     }
 
     pub fn all_edges(&self) -> Vec<(String, String, String, Option<String>)> {
@@ -733,7 +770,7 @@ impl Graph {
             let tid = self.add_type(tn)?;
             v.attach_type(&tid);
             if let Some(tk) = Khid::parse(&tid) {
-                if let Some(t) = self.types.get_mut(&tk) {
+                if let Some(t) = self.tget_mut(tk) {
                     t.add_vertex(&id);
                 }
             }
@@ -772,7 +809,7 @@ impl Graph {
                 let tid = self.add_type(tn)?;
                 e.set_type(&tid);
                 if let Some(tk) = Khid::parse(&tid) {
-                    if let Some(t) = self.types.get_mut(&tk) {
+                    if let Some(t) = self.tget_mut(tk) {
                         t.add_edge(&id);
                     }
                 }
