@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use super::graph::Graph;
+use super::khid::Khid;
 
 /// Scratch lives next to the walk, keyed by KHID.
 /// Attributes stay clean. That is AlgorithmObjs, without
@@ -21,7 +22,7 @@ pub fn nearby(g: &Graph, start: &str, depth: i32) -> Vec<String> {
             continue;
         }
         let eids: Vec<String> = match g.vertex(&u) {
-            Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+            Some(v) => Khid::display_all(v.outgoing()),
             None => Vec::new(),
         };
         for eid in eids.iter() {
@@ -48,7 +49,7 @@ pub fn path(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
     let mut found = false;
     while let Some(u) = q.pop_front() {
         let eids: Vec<String> = match g.vertex(&u) {
-            Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+            Some(v) => Khid::display_all(v.outgoing()),
             None => Vec::new(),
         };
         for eid in eids.iter() {
@@ -140,14 +141,10 @@ fn neighbors(g: &Graph, u: &str, type_id: Option<&str>, dir: i32) -> Vec<(String
     };
     let mut eids = Vec::new();
     if dir >= 0 {
-        for e in v.outgoing().iter() {
-            eids.push(e.clone());
-        }
+        eids.extend(Khid::display_all(v.outgoing()));
     }
     if dir <= 0 {
-        for e in v.incoming().iter() {
-            eids.push(e.clone());
-        }
+        eids.extend(Khid::display_all(v.incoming()));
     }
     let mut out = Vec::new();
     for eid in eids.iter() {
@@ -236,7 +233,7 @@ pub fn has_cycle(g: &Graph) -> bool {
 fn dfs_cycle(g: &Graph, u: &str, color: &mut HashMap<String, i32>) -> bool {
     color.insert(u.to_string(), 1);
     let eids: Vec<String> = match g.vertex(u) {
-        Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+        Some(v) => Khid::display_all(v.outgoing()),
         None => Vec::new(),
     };
     for eid in eids.iter() {
@@ -298,7 +295,7 @@ pub fn shortest(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
             }
         }
         let eids: Vec<String> = match g.vertex(&u) {
-            Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+            Some(v) => Khid::display_all(v.outgoing()),
             None => Vec::new(),
         };
         for eid in eids.iter() {
@@ -340,8 +337,8 @@ pub fn components(g: &Graph) -> Vec<Vec<String>> {
     for id in ids.iter() {
         let eids: Vec<String> = match g.vertex(id) {
             Some(v) => {
-                let mut e = v.outgoing().iter().map(|s| s.clone()).collect::<Vec<_>>();
-                e.extend(v.incoming().iter().map(|s| s.clone()));
+                let mut e = Khid::display_all(v.outgoing());
+                e.extend(Khid::display_all(v.incoming()));
                 e
             }
             None => Vec::new(),
