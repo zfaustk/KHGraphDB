@@ -1,5 +1,6 @@
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
+use super::super::khid::Khid;
 use super::super::prop::Prop;
 use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, RetItem, Val};
 
@@ -602,12 +603,12 @@ fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
     };
     let mut ids = Vec::new();
     let src: Vec<String> = if rel.dir > 0 {
-        v.outgoing().iter().map(|s| s.clone()).collect()
+        Khid::display_all(v.outgoing())
     } else if rel.dir < 0 {
-        v.incoming().iter().map(|s| s.clone()).collect()
+        Khid::display_all(v.incoming())
     } else {
-        let mut both = v.outgoing().iter().map(|s| s.clone()).collect::<Vec<_>>();
-        both.extend(v.incoming().iter().map(|s| s.clone()));
+        let mut both = Khid::display_all(v.outgoing());
+        both.extend(Khid::display_all(v.incoming()));
         both
     };
     for eid in src.iter() {
@@ -1210,7 +1211,7 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     };
     let rel = &pat.rels[0];
     let eids: Vec<String> = match g.vertex(&a) {
-        Some(v) => v.outgoing().iter().map(|s| s.clone()).collect(),
+        Some(v) => Khid::display_all(v.outgoing()),
         None => Vec::new(),
     };
     let mut cols = Vec::new();

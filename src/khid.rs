@@ -42,6 +42,16 @@ impl Khid {
             Err(_) => None,
         }
     }
+
+    pub fn display_all(ks: &[Khid]) -> Vec<String> {
+        let mut v = Vec::new();
+        let mut i = 0;
+        while i < ks.len() {
+            v.push(format!("{}", ks[i]));
+            i += 1;
+        }
+        v
+    }
 }
 
 impl Default for Khid {

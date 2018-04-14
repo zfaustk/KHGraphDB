@@ -12,8 +12,8 @@ pub struct Vertex {
     id: Khid,
     attrs: HashMap<String, Prop>,
     types: Vec<String>,
-    outgoing: Vec<String>,
-    incoming: Vec<String>,
+    outgoing: Vec<Khid>,
+    incoming: Vec<Khid>,
 }
 
 impl Vertex {
@@ -84,11 +84,11 @@ impl Vertex {
         self.incoming.len()
     }
 
-    pub fn outgoing(&self) -> &[String] {
+    pub fn outgoing(&self) -> &[Khid] {
         &self.outgoing
     }
 
-    pub fn incoming(&self) -> &[String] {
+    pub fn incoming(&self) -> &[Khid] {
         &self.incoming
     }
 
@@ -118,27 +118,27 @@ impl Vertex {
         before != self.types.len()
     }
 
-    pub fn add_out(&mut self, eid: &str) -> bool {
-        if self.outgoing.iter().any(|e| e == eid) {
+    pub fn add_out(&mut self, eid: Khid) -> bool {
+        if self.outgoing.iter().any(|e| *e == eid) {
             return false;
         }
-        self.outgoing.push(eid.to_string());
+        self.outgoing.push(eid);
         true
     }
 
-    pub fn add_in(&mut self, eid: &str) -> bool {
-        if self.incoming.iter().any(|e| e == eid) {
+    pub fn add_in(&mut self, eid: Khid) -> bool {
+        if self.incoming.iter().any(|e| *e == eid) {
             return false;
         }
-        self.incoming.push(eid.to_string());
+        self.incoming.push(eid);
         true
     }
 
-    pub fn remove_out(&mut self, eid: &str) {
-        self.outgoing.retain(|e| e != eid);
+    pub fn remove_out(&mut self, eid: Khid) {
+        self.outgoing.retain(|e| *e != eid);
     }
 
-    pub fn remove_in(&mut self, eid: &str) {
-        self.incoming.retain(|e| e != eid);
+    pub fn remove_in(&mut self, eid: Khid) {
+        self.incoming.retain(|e| *e != eid);
     }
 }

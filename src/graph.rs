@@ -379,11 +379,11 @@ impl Graph {
         }
         {
             let srcv = self.at_mut(sk).unwrap();
-            srcv.add_out(&id);
+            srcv.add_out(kid);
         }
         {
             let dstv = self.at_mut(dk).unwrap();
-            dstv.add_in(&id);
+            dstv.add_in(kid);
         }
         self.eput(kid, e);
         Ok(id)
@@ -400,12 +400,12 @@ impl Graph {
         };
         if let Some(sk) = Khid::parse(&src) {
             if let Some(v) = self.at_mut(sk) {
-                v.remove_out(eid);
+                if let Some(k) = Khid::parse(eid) { v.remove_out(k); }
             }
         }
         if let Some(dk) = Khid::parse(&dst) {
             if let Some(v) = self.at_mut(dk) {
-                v.remove_in(eid);
+                if let Some(k) = Khid::parse(eid) { v.remove_in(k); }
             }
         }
         if let Some(t) = tid {
@@ -425,8 +425,8 @@ impl Graph {
         };
         let (outs, ins, tps, name) = match self.at(vk) {
             Some(v) => {
-                let o: Vec<String> = v.outgoing().iter().map(|s| s.clone()).collect();
-                let i: Vec<String> = v.incoming().iter().map(|s| s.clone()).collect();
+                let o: Vec<String> = Khid::display_all(v.outgoing());
+                let i: Vec<String> = Khid::display_all(v.incoming());
                 let t: Vec<String> = v.types().iter().map(|s| s.clone()).collect();
                 let n = v.get("name").map(|s| s.to_string());
                 (o, i, t, n)
@@ -817,11 +817,11 @@ impl Graph {
         }
         {
             let srcv = self.at_mut(sk).unwrap();
-            srcv.add_out(&id);
+            srcv.add_out(kid);
         }
         {
             let dstv = self.at_mut(dk).unwrap();
-            dstv.add_in(&id);
+            dstv.add_in(kid);
         }
         self.eput(kid, e);
         Ok(id)
