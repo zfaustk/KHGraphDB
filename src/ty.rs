@@ -7,8 +7,8 @@ use super::khid::Khid;
 pub struct Type {
     id: Khid,
     name: String,
-    vertices: HashSet<String>,
-    edges: HashSet<String>,
+    vertices: HashSet<Khid>,
+    edges: HashSet<Khid>,
 }
 
 impl Type {
@@ -42,27 +42,27 @@ impl Type {
         self.edges.len()
     }
 
-    pub fn vertices(&self) -> &HashSet<String> {
+    pub fn vertices(&self) -> &HashSet<Khid> {
         &self.vertices
     }
 
-    pub fn edges(&self) -> &HashSet<String> {
+    pub fn edges(&self) -> &HashSet<Khid> {
         &self.edges
     }
 
-    pub fn add_vertex(&mut self, vid: &str) -> bool {
-        self.vertices.insert(vid.to_string())
+    pub fn add_vertex(&mut self, vid: Khid) -> bool {
+        self.vertices.insert(vid)
     }
 
-    pub fn remove_vertex(&mut self, vid: &str) -> bool {
-        self.vertices.remove(vid)
+    pub fn remove_vertex(&mut self, vid: Khid) -> bool {
+        self.vertices.remove(&vid)
     }
 
-    pub fn add_edge(&mut self, eid: &str) -> bool {
-        self.edges.insert(eid.to_string())
+    pub fn add_edge(&mut self, eid: Khid) -> bool {
+        self.edges.insert(eid)
     }
 
-    pub fn remove_edge(&mut self, eid: &str) -> bool {
-        self.edges.remove(eid)
+    pub fn remove_edge(&mut self, eid: Khid) -> bool {
+        self.edges.remove(&eid)
     }
 }
