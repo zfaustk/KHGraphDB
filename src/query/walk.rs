@@ -455,7 +455,7 @@ fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
     let src: Vec<String> = match n.type_id {
         Some(ref tid) => {
             match g.ty(tid) {
-                Some(t) => t.vertices().iter().map(|s| s.clone()).collect(),
+                Some(t) => Khid::display_all(&t.vertices().iter().cloned().collect::<Vec<_>>()),
                 None => Vec::new(),
             }
         }
@@ -542,7 +542,7 @@ fn start_seeds(g: &Graph, pat: &Pattern) -> Vec<String> {
 
 fn starts_from_type(g: &Graph, tid: &str, dir: i32, n0: &NodePat) -> Vec<String> {
     let eids: Vec<String> = match g.ty(tid) {
-        Some(t) => t.edges().iter().map(|s| s.clone()).collect(),
+        Some(t) => Khid::display_all(&t.edges().iter().cloned().collect::<Vec<_>>()),
         None => return Vec::new(),
     };
     let mut out = Vec::new();

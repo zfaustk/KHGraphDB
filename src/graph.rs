@@ -309,7 +309,7 @@ impl Graph {
             v.attach_type(&tid);
             match Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
                 Some(t) => {
-                    t.add_vertex(&id);
+                    t.add_vertex(kid);
                 }
                 None => {}
             }
@@ -364,7 +364,7 @@ impl Graph {
             let tid = self.add_type(tn)?;
             e.set_type(&tid);
             if let Some(t) = Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
-                t.add_edge(&id);
+                t.add_edge(kid);
             }
             let keys: Vec<(String, Prop)> = e.attrs()
                 .iter()
@@ -411,7 +411,7 @@ impl Graph {
         if let Some(t) = tid {
             if let Some(tk) = Khid::parse(&t) {
                 if let Some(ty) = self.tget_mut(tk) {
-                    ty.remove_edge(eid);
+                    ty.remove_edge(ek);
                 }
             }
         }
@@ -442,7 +442,7 @@ impl Graph {
         for t in tps.iter() {
             if let Some(tk) = Khid::parse(t) {
                 if let Some(ty) = self.tget_mut(tk) {
-                    ty.remove_vertex(vid);
+                    ty.remove_vertex(vk);
                 }
             }
         }
@@ -473,7 +473,7 @@ impl Graph {
         }
         if let Some(tk) = Khid::parse(&tid) {
             if let Some(t) = self.tget_mut(tk) {
-                t.add_vertex(vid);
+                t.add_vertex(vk);
             }
         }
         Ok(true)
@@ -496,14 +496,14 @@ impl Graph {
 
     pub fn vertices_of_type(&self, type_name: &str) -> Vec<String> {
         match self.type_by_name(type_name) {
-            Some(t) => t.vertices().iter().map(|s| s.clone()).collect(),
+            Some(t) => Khid::display_all(&t.vertices().iter().cloned().collect::<Vec<_>>()),
             None => Vec::new(),
         }
     }
 
     pub fn edges_of_type(&self, type_name: &str) -> Vec<String> {
         match self.type_by_name(type_name) {
-            Some(t) => t.edges().iter().map(|s| s.clone()).collect(),
+            Some(t) => Khid::display_all(&t.edges().iter().cloned().collect::<Vec<_>>()),
             None => Vec::new(),
         }
     }
@@ -771,7 +771,7 @@ impl Graph {
             v.attach_type(&tid);
             if let Some(tk) = Khid::parse(&tid) {
                 if let Some(t) = self.tget_mut(tk) {
-                    t.add_vertex(&id);
+                    t.add_vertex(kid);
                 }
             }
             let _ = i;
@@ -810,7 +810,7 @@ impl Graph {
                 e.set_type(&tid);
                 if let Some(tk) = Khid::parse(&tid) {
                     if let Some(t) = self.tget_mut(tk) {
-                        t.add_edge(&id);
+                        t.add_edge(kid);
                     }
                 }
             }
