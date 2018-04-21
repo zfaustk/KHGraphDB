@@ -265,3 +265,31 @@ fn slot_zero_is_not_a_vertex() {
     assert!(g.vertex("k0").is_none());
 }
 
+#[test]
+fn arena_holes_after_delete() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    let b = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+    g.add_edge(&a, &b, Some("KNOWS")).unwrap();
+    let before_types = g.type_count();
+    assert!(g.remove_vertex(&a));
+    assert_eq!(g.vertex_count(), 1);
+    assert!(g.vertex(&a).is_none());
+    assert!(g.vertex(&b).is_some());
+    let c = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
+    let ka = super::super::Khid::parse(&a).unwrap().raw();
+    let kc = super::super::Khid::parse(&c).unwrap().raw();
+    assert!(kc > ka);
+    assert_eq!(g.type_count(), before_types);
+}
+
+#[test]
+fn arena_clone_keeps_slots() {
+    let g = social();
+    let h = g.clone();
+    assert_eq!(h.vertex_count(), g.vertex_count());
+    assert_eq!(h.edge_count(), g.edge_count());
+    let alice = g.vertex_by_name("Alice").unwrap().khid();
+    assert_eq!(h.vertex(&format!("{}", alice)).unwrap().get("name"), Some("Alice"));
+}
+
