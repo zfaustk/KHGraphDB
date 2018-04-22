@@ -11,6 +11,7 @@ struct Case {
     graph: String,
     query: String,
     expect: String,
+    sort: bool,
 }
 
 fn parse_cases(src: &str) -> Vec<Case> {
@@ -19,6 +20,7 @@ fn parse_cases(src: &str) -> Vec<Case> {
     let mut graph = String::new();
     let mut query = String::new();
     let mut expect = String::new();
+    let mut sort = true;
     let mut sec = 0; // 0 name, 1 graph, 2 query, 3 expect
     for raw in src.lines() {
         let line = raw.trim_right();
@@ -29,13 +31,19 @@ fn parse_cases(src: &str) -> Vec<Case> {
                     graph: graph.clone(),
                     query: query.clone(),
                     expect: expect.clone(),
+                    sort: sort,
                 });
             }
             cur_name = line[3..].trim().to_string();
             graph.clear();
             query.clear();
             expect.clear();
+            sort = true;
             sec = 0;
+            continue;
+        }
+        if line == ".stable" {
+            sort = false;
             continue;
         }
         if line == ".graph" {
@@ -75,6 +83,7 @@ fn parse_cases(src: &str) -> Vec<Case> {
             graph: graph,
             query: query,
             expect: expect,
+            sort: sort,
         });
     }
     out
@@ -203,7 +212,9 @@ fn run_case(c: &Case) {
                 }
                 lines.push(cells.join(" | "));
             }
-            lines.sort();
+            if c.sort {
+                lines.sort();
+            }
             for line in lines.iter() {
                 got.push_str(line);
                 got.push('\n');
@@ -252,4 +263,9 @@ fn cases_path() {
 #[test]
 fn cases_optional() {
     run_src(include_str!("data/optional.txt"));
+}
+
+#[test]
+fn cases_return() {
+    run_src(include_str!("data/return.txt"));
 }
