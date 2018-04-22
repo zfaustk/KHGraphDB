@@ -1,0 +1,79 @@
+## return alias
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) RETURN b AS friend
+.expect
+rows 1
+friend
+Bob
+
+## count star
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) RETURN count(a)
+.expect
+rows 1
+count
+3
+
+## collect neighbors
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Alice Carol
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) RETURN a, collect(b) AS ns
+.expect
+rows 1
+a | ns
+Alice | list:2
+
+## order desc
+.stable
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) RETURN a ORDER BY a.name DESC
+.expect
+rows 3
+a
+Carol
+Bob
+Alice
+
+## skip limit
+.stable
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+.query
+MATCH (a:Person) RETURN a ORDER BY a.name SKIP 1 LIMIT 1
+.expect
+rows 1
+a
+Bob
+
+## distinct
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Alice Carol
+.query
+MATCH (a:Person)-[:KNOWS]->(b) RETURN DISTINCT a
+.expect
+rows 1
+a
+Alice
