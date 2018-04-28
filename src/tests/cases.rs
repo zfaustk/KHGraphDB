@@ -269,3 +269,8 @@ fn cases_optional() {
 fn cases_return() {
     run_src(include_str!("data/return.txt"));
 }
+
+#[test]
+fn cases_with() {
+    run_src(include_str!("data/with.txt"));
+}
