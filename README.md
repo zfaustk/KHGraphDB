@@ -2,10 +2,11 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**3.4.0** (2017). Rust 1.18. No crates.io dependencies.
+**3.5.0** (2018). Rust 1.18. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
-and the only pointer: the graph is an arena of HashMaps.
+and the only pointer: a u64, printed `k` then hex. Vertices, edges
+and types live in a slot Vec. Slot 0 is nil.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 

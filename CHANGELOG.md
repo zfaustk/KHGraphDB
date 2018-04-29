@@ -1,3 +1,12 @@
+## 3.5.0 - 2018-04-29
+
+- Prop: Bool / Int / Float / Str. 1 is not "1".
+- KHG4 snapshots keep the tag. KHG3 still reads.
+- Khid is a u64. Display is still k then hex.
+- The arena is a slot Vec. Index is the KHID.
+- Adjacency and Type members store Khid.
+- Query cases live under src/tests/data/.
+
 ## 3.4.0 - 2017-12-16
 
 - Catalog: many graphs in one process. MATCH still
