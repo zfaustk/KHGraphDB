@@ -153,13 +153,13 @@ fn fmt_cell(v: &Option<Val>) -> String {
             let mut i = 0;
             while i < ids.len() {
                 if i == 0 {
-                    s.push_str(&ids[i]);
+                    s.push_str(&format!("{}", ids[i]));
                 } else if i % 2 == 1 {
                     s.push_str("-[");
-                    s.push_str(&ids[i]);
+                    s.push_str(&format!("{}", ids[i]));
                     s.push_str("]-");
                 } else {
-                    s.push_str(&ids[i]);
+                    s.push_str(&format!("{}", ids[i]));
                 }
                 i += 1;
             }
