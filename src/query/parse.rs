@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::super::prop::Prop;
@@ -29,6 +31,7 @@ enum TokenKind {
     Arrow,
     LArrow,
     Star,
+    Param,
 }
 
 struct Token {
@@ -147,6 +150,9 @@ impl Lexer {
         if c == '"' || c == '\'' {
             return self.read_string(c);
         }
+        if c == '$' {
+            return self.read_param();
+        }
         if c.is_digit(10) {
             return self.read_number();
         }
@@ -198,6 +204,29 @@ impl Lexer {
         }
         Err(Error::near("unterminated string", "'"))
     }
+
+    fn read_param(&mut self) -> Result<Token> {
+        self.i += 1;
+        if self.i >= self.s.len() {
+            return Err(Error::near("bad param", "$"));
+        }
+        let c = self.s[self.i];
+        if !(c.is_alphabetic() || c == '_') {
+            return Err(Error::near("bad param", "$"));
+        }
+        let start = self.i;
+        self.i += 1;
+        while self.i < self.s.len() {
+            let c = self.s[self.i];
+            if c.is_alphanumeric() || c == '_' {
+                self.i += 1;
+            } else {
+                break;
+            }
+        }
+        let t: String = self.s[start..self.i].iter().cloned().collect();
+        Ok(tok(TokenKind::Param, &t))
+    }
 }
 
 fn tok(kind: TokenKind, text: &str) -> Token {
@@ -218,6 +247,13 @@ fn parse_usize(s: &str) -> Result<usize> {
 const STAR_CAP: usize = 16;
 
 pub(crate) fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
+    run_inner_params(g, text, &HashMap::new())
+}
+
+pub(crate) fn run_inner_params(g: &mut Graph,
+                               text: &str,
+                               params: &HashMap<String, Prop>)
+                               -> Result<QueryResult> {
     let mut lx = Lexer::new(text);
     let mut toks = Vec::new();
     loop {
@@ -231,6 +267,7 @@ pub(crate) fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
     let mut p = Parser {
         toks: toks,
         i: 0,
+        params: params.clone(),
     };
     p.exec(g)
 }
@@ -238,6 +275,7 @@ pub(crate) fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
 struct Parser {
     toks: Vec<Token>,
     i: usize,
+    params: HashMap<String, Prop>,
 }
 
 impl Parser {
@@ -284,6 +322,14 @@ impl Parser {
                     Ok(Prop::from_bool(false))
                 } else {
                     Ok(Prop::from_str(&t))
+                }
+            }
+            TokenKind::Param => {
+                let name = self.text();
+                self.next();
+                match self.params.get(&name) {
+                    Some(p) => Ok(p.clone()),
+                    None => Err(Error::new(&format!("unknown param ${}", name))),
                 }
             }
             _ => Err(self.err_here("bad literal")),

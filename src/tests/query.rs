@@ -613,3 +613,37 @@ fn create_int_prop() {
     assert_eq!(ada.get_prop("born").and_then(|p| p.as_int()), Some(1815));
 }
 
+#[test]
+fn param_str() {
+    let mut g = social();
+    let mut p = std::collections::HashMap::new();
+    p.insert("n".to_string(), super::super::Prop::from_str("Alice"));
+    let r = super::super::query::run_with(&mut g, "MATCH (a:Person {name:$n})", p);
+    assert!(r.ok);
+    assert_eq!(r.rows.len(), 1);
+    let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
+    assert_eq!(g.vertex(id).unwrap().get("name"), Some("Alice"));
+}
+
+#[test]
+fn param_int_keeps_tag() {
+    let mut g = social();
+    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    let mut p = std::collections::HashMap::new();
+    p.insert("x".to_string(), super::super::Prop::from_int(36));
+    let r = super::super::query::run_with(&mut g, "MATCH (a:Person) WHERE a.age = $x", p);
+    assert_eq!(r.rows.len(), 1);
+    let mut p2 = std::collections::HashMap::new();
+    p2.insert("x".to_string(), super::super::Prop::from_str("36"));
+    let r2 = super::super::query::run_with(&mut g, "MATCH (a:Person) WHERE a.age = $x", p2);
+    assert_eq!(r2.rows.len(), 0);
+}
+
+#[test]
+fn param_unknown() {
+    let mut g = Graph::new();
+    let r = super::super::query::run(&mut g, "MATCH (a:Person {name:$n})");
+    assert!(!r.ok);
+    assert!(r.message.contains("unknown param $n"));
+}
+

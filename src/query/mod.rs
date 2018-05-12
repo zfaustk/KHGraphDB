@@ -194,3 +194,11 @@ pub fn run(g: &mut Graph, text: &str) -> QueryResult {
         Err(e) => QueryResult::fail(e.message()),
     }
 }
+
+/// MATCH with $name bound to a Prop. The tag is kept.
+pub fn run_with(g: &mut Graph, text: &str, params: std::collections::HashMap<String, Prop>) -> QueryResult {
+    match parse::run_inner_params(g, text, &params) {
+        Ok(r) => r,
+        Err(e) => QueryResult::fail(e.message()),
+    }
+}
