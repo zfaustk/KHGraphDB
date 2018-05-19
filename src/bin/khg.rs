@@ -6,7 +6,8 @@ extern crate khgraphdb;
 use std::env;
 use std::fs::File;
 use std::io::{self, Write, BufRead};
-use khgraphdb::{Catalog, Graph, query, io as khio};
+use std::collections::HashMap;
+use khgraphdb::{Catalog, Graph, query, io as khio, Prop};
 use khgraphdb::query::{QueryResult, Val};
 
 extern "C" {
@@ -20,6 +21,7 @@ fn interactive() -> bool {
 struct Shell {
     cat: Catalog,
     cur: String,
+    params: HashMap<String, Prop>,
 }
 
 impl Shell {
@@ -32,6 +34,7 @@ impl Shell {
         Shell {
             cat: cat,
             cur: "g1".to_string(),
+            params: HashMap::new(),
         }
     }
 
@@ -119,10 +122,30 @@ impl Shell {
             }
             return true;
         }
+        if line.starts_with(":param ") {
+            let rest = line[7..].trim();
+            match parse_param_line(rest) {
+                Ok((k, v)) => {
+                    println!("{} = {}", k, v);
+                    self.params.insert(k, v);
+                }
+                Err(e) => println!("{}", e),
+            }
+            return true;
+        }
+        if line == ":params" {
+            let mut keys: Vec<String> = self.params.keys().map(|s| s.clone()).collect();
+            keys.sort();
+            for k in keys.iter() {
+                println!("${} = {}", k, self.params[k]);
+            }
+            return true;
+        }
         if line.starts_with('.') {
             println!("unknown command");
             return true;
         }
+        let params = self.params.clone();
         let g = match self.graph_mut() {
             Ok(g) => g,
             Err(e) => {
@@ -130,7 +153,7 @@ impl Shell {
                 return true;
             }
         };
-        let r = query::run(g, line);
+        let r = query::run_with(g, line, params);
         print_result(&r);
         true
     }
@@ -139,8 +162,50 @@ impl Shell {
 fn print_help() {
     println!(".load FILE   .save FILE");
     println!(".graphs      .use NAME      .create NAME   .drop NAME");
+    println!(":param NAME VALUE    :params");
     println!(".help        .quit");
     println!("MATCH still takes the current graph.");
+}
+
+fn parse_param_line(rest: &str) -> Result<(String, Prop), String> {
+    let rest = rest.trim();
+    if rest.is_empty() {
+        return Err("usage: :param NAME VALUE".to_string());
+    }
+    let mut i = 0;
+    let b = rest.as_bytes();
+    while i < b.len() && !(b[i] as char).is_whitespace() {
+        i += 1;
+    }
+    if i == 0 {
+        return Err("usage: :param NAME VALUE".to_string());
+    }
+    let name = rest[..i].to_string();
+    let val = rest[i..].trim();
+    if val.is_empty() {
+        return Err("usage: :param NAME VALUE".to_string());
+    }
+    Ok((name, parse_prop_text(val)))
+}
+
+fn parse_prop_text(raw: &str) -> Prop {
+    if raw.len() >= 2 {
+        let b = raw.as_bytes();
+        if (b[0] == b'\'' || b[0] == b'"') && b[b.len() - 1] == b[0] {
+            return Prop::from_str(&raw[1..raw.len() - 1]);
+        }
+    }
+    if raw == "true" {
+        return Prop::from_bool(true);
+    }
+    if raw == "false" {
+        return Prop::from_bool(false);
+    }
+    match raw.parse::<i64>() {
+        Ok(n) => return Prop::from_int(n),
+        Err(_) => {}
+    }
+    Prop::from_str(raw)
 }
 
 fn fmt_cell(v: &Option<Val>) -> String {
