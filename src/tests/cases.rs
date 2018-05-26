@@ -12,6 +12,7 @@ struct Case {
     query: String,
     expect: String,
     sort: bool,
+    params: Vec<(String, String)>,
 }
 
 fn parse_cases(src: &str) -> Vec<Case> {
@@ -21,6 +22,7 @@ fn parse_cases(src: &str) -> Vec<Case> {
     let mut query = String::new();
     let mut expect = String::new();
     let mut sort = true;
+    let mut params: Vec<(String, String)> = Vec::new();
     let mut sec = 0; // 0 name, 1 graph, 2 query, 3 expect
     for raw in src.lines() {
         let line = raw.trim_right();
@@ -32,6 +34,7 @@ fn parse_cases(src: &str) -> Vec<Case> {
                     query: query.clone(),
                     expect: expect.clone(),
                     sort: sort,
+                    params: params.clone(),
                 });
             }
             cur_name = line[3..].trim().to_string();
@@ -39,11 +42,20 @@ fn parse_cases(src: &str) -> Vec<Case> {
             query.clear();
             expect.clear();
             sort = true;
+            params.clear();
             sec = 0;
             continue;
         }
         if line == ".stable" {
             sort = false;
+            continue;
+        }
+        if line.starts_with(".param ") {
+            let rest = line[7..].trim();
+            let kv: Vec<&str> = rest.splitn(2, '=').collect();
+            if kv.len() == 2 {
+                params.push((kv[0].trim().to_string(), kv[1].trim().to_string()));
+            }
             continue;
         }
         if line == ".graph" {
@@ -84,12 +96,19 @@ fn parse_cases(src: &str) -> Vec<Case> {
             query: query,
             expect: expect,
             sort: sort,
+            params: params,
         });
     }
     out
 }
 
 fn parse_prop(raw: &str) -> Prop {
+    if raw.len() >= 2 {
+        let b = raw.as_bytes();
+        if (b[0] == b'\'' || b[0] == b'"') && b[b.len() - 1] == b[0] {
+            return Prop::from_str(&raw[1..raw.len() - 1]);
+        }
+    }
     if raw == "true" {
         return Prop::from_bool(true);
     }
@@ -191,7 +210,15 @@ fn cell_text(g: &Graph, v: &Option<Val>) -> String {
 
 fn run_case(c: &Case) {
     let mut g = load_graph(&c.graph);
-    let r = query::run(&mut g, c.query.trim());
+    let mut map = std::collections::HashMap::new();
+    for &(ref k, ref v) in c.params.iter() {
+        map.insert(k.clone(), parse_prop(v));
+    }
+    let r = if map.is_empty() {
+        query::run(&mut g, c.query.trim())
+    } else {
+        query::run_with(&mut g, c.query.trim(), map)
+    };
     let mut got = String::new();
     if !r.ok {
         got.push_str("ERR ");
@@ -273,4 +300,9 @@ fn cases_return() {
 #[test]
 fn cases_with() {
     run_src(include_str!("data/with.txt"));
+}
+
+#[test]
+fn cases_param() {
+    run_src(include_str!("data/param.txt"));
 }

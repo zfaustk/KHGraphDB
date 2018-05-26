@@ -1,0 +1,41 @@
+## param name
+.param n=Alice
+.graph
+N Person Alice
+N Person Bob
+.query
+MATCH (a:Person {name:$n})
+.expect
+rows 1
+a
+Alice
+
+## param int
+.param x=36
+.graph
+N Person Alice age=36
+N Person Bob age=20
+.query
+MATCH (a:Person) WHERE a.age = $x
+.expect
+rows 1
+a
+Alice
+
+## param int not str
+.param x='36'
+.graph
+N Person Alice age=36
+.query
+MATCH (a:Person) WHERE a.age = $x
+.expect
+rows 0
+a
+
+## param missing
+.graph
+N Person Alice
+.query
+MATCH (a:Person {name:$n})
+.expect
+ERR unknown param $n
