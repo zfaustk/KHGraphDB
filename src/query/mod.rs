@@ -6,6 +6,7 @@ use super::prop::Prop;
 
 mod parse;
 mod walk;
+mod op;
 
 #[derive(Clone)]
 struct NodePat {
