@@ -1,0 +1,76 @@
+//! Pipeline tests. MATCH compiles to Seed / Expand.
+//! A checkout of 3.6 cargo tests this file.
+
+use super::super::query;
+use super::common::social;
+
+#[test]
+fn explain_names_the_operators() {
+    let mut g = social();
+    let r = query::run(&mut g, "EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)");
+    assert!(r.ok);
+    let mut kinds = Vec::new();
+    for row in r.rows.iter() {
+        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
+            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        }
+    }
+    assert_eq!(kinds, vec!["Seed".to_string(), "Expand".to_string()]);
+    let mut saw_plan = false;
+    for row in r.rows.iter() {
+        if row[0].as_ref().and_then(|v| v.as_id()) == Some("plan") {
+            saw_plan = true;
+            let d = row[2].as_ref().and_then(|v| v.as_id()).unwrap();
+            assert!(d.contains("Expand"));
+        }
+    }
+    assert!(saw_plan);
+}
+
+#[test]
+fn explain_optional() {
+    let mut g = social();
+    let r = query::run(&mut g, "EXPLAIN OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)");
+    assert!(r.ok);
+    let mut kinds = Vec::new();
+    for row in r.rows.iter() {
+        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
+            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        }
+    }
+    assert_eq!(kinds,
+               vec!["Seed".to_string(), "Expand".to_string(), "Optional".to_string()]);
+}
+
+#[test]
+fn explain_shortest() {
+    let mut g = social();
+    let r = query::run(&mut g,
+                       "EXPLAIN MATCH p = shortestPath((a:Person)-[:KNOWS*]->(b:Person))");
+    assert!(r.ok);
+    let mut saw = false;
+    for row in r.rows.iter() {
+        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
+            if row[1].as_ref().and_then(|v| v.as_id()) == Some("Shortest") {
+                saw = true;
+            }
+        }
+    }
+    assert!(saw);
+}
+
+#[test]
+fn seed_only_match() {
+    let mut g = social();
+    let r = query::run(&mut g, "MATCH (a:Person)");
+    assert!(r.ok);
+    assert_eq!(r.rows.len(), 3);
+}
+
+#[test]
+fn expand_one_hop() {
+    let mut g = social();
+    let r = query::run(&mut g, "MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)");
+    assert!(r.ok);
+    assert_eq!(r.rows.len(), 1);
+}
