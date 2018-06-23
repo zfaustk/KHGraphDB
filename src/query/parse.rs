@@ -367,18 +367,21 @@ impl Parser {
         let mut last: Option<QueryResult> = None;
         if self.ident_is("EXPLAIN") {
             self.next();
+            let mut optional = false;
             if self.ident_is("OPTIONAL") {
                 self.next();
                 if !self.ident_is("MATCH") {
                     return Err(self.err_here("expected MATCH"));
                 }
                 self.next();
+                optional = true;
             } else if self.ident_is("MATCH") {
                 self.next();
             } else {
                 return Err(self.err_here("EXPLAIN expected MATCH"));
             }
-            let pat = self.parse_match()?;
+            let mut pat = self.parse_match()?;
+            pat.optional = optional;
             return exec_explain(g, &pat);
         }
         while self.kind() != TokenKind::Eof {

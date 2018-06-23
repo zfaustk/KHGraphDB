@@ -1,62 +1,14 @@
+//! Writes and the row operators. MATCH itself compiles
+//! in op.rs. CREATE, SET, DELETE, MERGE, WHERE, RETURN
+//! still live here: they take a table of rows.
+
 use super::super::error::{Error, Result};
 use super::super::graph::Graph;
 use super::super::khid::Khid;
 use super::super::prop::Prop;
-use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, RetItem, Val};
-
-fn columns_of(pat: &Pattern) -> Vec<String> {
-    let mut cols = Vec::new();
-    if let Some(ref p) = pat.path_var {
-        cols.push(p.clone());
-    }
-    for (i, n) in pat.nodes.iter().enumerate() {
-        cols.push(n.var.clone().unwrap_or(format!("n{}", i)));
-        if i < pat.rels.len() {
-            if let Some(ref v) = pat.rels[i].var {
-                cols.push(v.clone());
-            }
-        }
-    }
-    cols
-}
-
-fn emit_row(pat: &Pattern,
-            bind: &[Option<String>],
-            trail: &[String],
-            rel_edges: &[Vec<String>],
-            r: &mut QueryResult) {
-    let mut row = Vec::new();
-    if pat.path_var.is_some() {
-        row.push(Some(Val::Path(Path::parse_all(trail))));
-    }
-    for (i, b) in bind.iter().enumerate() {
-        match *b {
-            Some(ref id) => row.push(Some(Val::Id(id.clone()))),
-            None => row.push(None),
-        }
-        if i < pat.rels.len() {
-                if pat.rels[i].var.is_some() {
-                    let edges = if i < rel_edges.len() {
-                        rel_edges[i].clone()
-                    } else {
-                        Vec::new()
-                    };
-                    if pat.rels[i].star {
-                        let mut ids = Vec::new();
-                        for e in edges.iter() {
-                            ids.push(Val::Id(e.clone()));
-                        }
-                        row.push(Some(Val::List(ids)));
-                    } else if edges.len() == 1 {
-                        row.push(Some(Val::Id(edges[0].clone())));
-                    } else {
-                        row.push(None);
-                    }
-                }
-        }
-    }
-    r.rows.push(row);
-}
+use super::{Expr, NodePat, Path, Pattern, QueryResult, RetItem, Val};
+use super::scan;
+use super::op;
 
 pub(crate) fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
     exec_pattern_on(g, pat, &std::collections::HashMap::new())
@@ -64,7 +16,7 @@ pub(crate) fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
 
 pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
     let mut pat = pat.clone();
-    if let Some(msg) = resolve_types(g, &mut pat, true) {
+    if let Some(msg) = scan::resolve_types(g, &mut pat, true) {
         return Ok(QueryResult::fail(&msg));
     }
     let mut r = QueryResult::ok_msg("EXPLAIN");
@@ -89,6 +41,19 @@ pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
             Some(Val::Id(slot)),
             Some(Val::Id(name)),
             Some(Val::Id(khid)),
+        ]);
+    }
+    let op = super::op::compile(&pat);
+    r.rows.push(vec![
+        Some(Val::Id("plan".to_string())),
+        Some(Val::Id(op.kind().to_string())),
+        Some(Val::Id(op.describe())),
+    ]);
+    for k in op.kinds().iter() {
+        r.rows.push(vec![
+            Some(Val::Id("op".to_string())),
+            Some(Val::Id((*k).to_string())),
+            Some(Val::Id(String::new())),
         ]);
     }
     Ok(r)
@@ -154,473 +119,7 @@ fn contains_str(cols: &Vec<String>, s: &str) -> bool {
 }
 
 fn exec_pattern_on(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
-    let mut pat = pat.clone();
-    if let Some(msg) = resolve_types(g, &mut pat, true) {
-        return QueryResult::fail(&msg);
-    }
-    let mut r = if pat.shortest {
-        exec_shortest(g, &pat, seed)
-    } else if pat.rels.is_empty() {
-        exec_nodes(g, &pat, seed)
-    } else {
-        exec_chain(g, &pat, seed)
-    };
-    if pat.optional && r.rows.is_empty() {
-        let mut row = Vec::new();
-        if r.columns.is_empty() {
-            r.columns.push("n".to_string());
-        }
-        for _ in 0..r.columns.len() {
-            row.push(None);
-        }
-        r.rows.push(row);
-        r.message = "optional empty".to_string();
-    }
-    r
-}
-
-fn resolve_types(g: &Graph, pat: &mut Pattern, required: bool) -> Option<String> {
-    for n in pat.nodes.iter_mut() {
-        if let Some(ref tn) = n.type_name {
-            match g.type_by_name(tn) {
-                Some(t) => n.type_id = Some(t.khid().to_string()),
-                None => {
-                    if required {
-                        return Some(format!("unknown type {}", tn));
-                    }
-                }
-            }
-        }
-    }
-    for r in pat.rels.iter_mut() {
-        if let Some(ref tn) = r.type_name {
-            match g.type_by_name(tn) {
-                Some(t) => r.type_id = Some(t.khid().to_string()),
-                None => {
-                    if required {
-                        return Some(format!("unknown type {}", tn));
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-fn seed_ok(seed: &std::collections::HashMap<String, String>, n: &NodePat, id: &str) -> bool {
-    match n.var {
-        Some(ref v) => {
-            match seed.get(v) {
-                Some(s) => s == id,
-                None => true,
-            }
-        }
-        None => true,
-    }
-}
-
-fn exec_shortest(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
-    if pat.rels.len() != 1 {
-        return QueryResult::fail("shortestPath");
-    }
-    let starts = start_seeds(g, pat);
-    let ends = seeds(g, &pat.nodes[1]);
-    let rel = &pat.rels[0];
-    let tid = match rel.type_id {
-        Some(ref s) => Some(&s[..]),
-        None => None,
-    };
-    let mut r = QueryResult::ok_msg("MATCH");
-    r.columns = columns_of(pat);
-    for s in starts.iter() {
-        if !seed_ok(seed, &pat.nodes[0], s) {
-            continue;
-        }
-        for t in ends.iter() {
-            if !seed_ok(seed, &pat.nodes[1], t) {
-                continue;
-            }
-            match super::super::algo::path_on(g, s, t, tid, rel.dir, rel.min, rel.max) {
-                Some(path) => {
-                    let bind = vec![Some(s.clone()), Some(t.clone())];
-                    let mut rel_edges: Vec<Vec<String>> = vec![Vec::new(); pat.rels.len()];
-                    if pat.rels.len() == 1 {
-                        let mut es = Vec::new();
-                        for k in Path::parse_all(&path).edges().iter() {
-                            es.push(format!("{}", k));
-                        }
-                        rel_edges[0] = es;
-                    }
-                    emit_row(pat, &bind, &path, &rel_edges, &mut r);
-                }
-                None => {}
-            }
-        }
-    }
-    r.message = format!("{} row", r.rows.len());
-    r
-}
-
-fn exec_nodes(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
-    let n = &pat.nodes[0];
-    let found = seeds(g, n);
-    let mut r = QueryResult::ok_msg("MATCH");
-    r.columns = columns_of(pat);
-    for id in found.iter() {
-        if !seed_ok(seed, n, id) {
-            continue;
-        }
-        let bind = vec![Some(id.clone())];
-        let trail = vec![id.clone()];
-        let rel_edges: Vec<Vec<String>> = Vec::new();
-        emit_row(pat, &bind, &trail, &rel_edges, &mut r);
-    }
-    r.message = format!("{} row", r.rows.len());
-    r
-}
-
-fn exec_chain(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
-    let orig_cols = columns_of(pat);
-    let flipped = should_flip(pat, seed);
-    let walk_pat = if flipped {
-        flip_one_hop(pat)
-    } else {
-        pat.clone()
-    };
-    let seeds0 = start_seeds(g, &walk_pat);
-    let mut r = QueryResult::ok_msg("MATCH");
-    r.columns = columns_of(&walk_pat);
-    for s in seeds0.iter() {
-        if !seed_ok(seed, &walk_pat.nodes[0], s) {
-            continue;
-        }
-        let mut bind = vec![None; walk_pat.nodes.len()];
-        bind[0] = Some(s.clone());
-        let mut seen_v = vec![s.clone()];
-        let mut seen_e: Vec<String> = Vec::new();
-        let mut trail = vec![s.clone()];
-        let mut rel_edges: Vec<Vec<String>> = Vec::new();
-        let mut k = 0;
-        while k < walk_pat.rels.len() {
-            rel_edges.push(Vec::new());
-            k += 1;
-        }
-        walk_named(g,
-                   &walk_pat,
-                   0,
-                   &mut bind,
-                   &mut seen_v,
-                   &mut seen_e,
-                   &mut trail,
-                   &mut rel_edges,
-                   seed,
-                   &mut r);
-    }
-    if flipped {
-        r = unflip_result(r, &orig_cols);
-    }
-    r.message = format!("{} row", r.rows.len());
-    r
-}
-
-fn walk_named(g: &Graph,
-              pat: &Pattern,
-              node_i: usize,
-              bind: &mut Vec<Option<String>>,
-              seen_v: &mut Vec<String>,
-              seen_e: &mut Vec<String>,
-              trail: &mut Vec<String>,
-              rel_edges: &mut Vec<Vec<String>>,
-              seed: &std::collections::HashMap<String, String>,
-              r: &mut QueryResult) {
-    if node_i == pat.rels.len() {
-        emit_row(pat, bind, trail, rel_edges, r);
-        return;
-    }
-    let from = match bind[node_i] {
-        Some(ref id) => id.clone(),
-        None => return,
-    };
-    expand_rel(g,
-               pat,
-               node_i,
-               &from,
-               0,
-               bind,
-               seen_v,
-               seen_e,
-               trail,
-               rel_edges,
-               seed,
-               r);
-}
-
-fn contains_id(ids: &Vec<String>, id: &str) -> bool {
-    for x in ids.iter() {
-        if x == id {
-            return true;
-        }
-    }
-    false
-}
-
-fn expand_rel(g: &Graph,
-              pat: &Pattern,
-              rel_i: usize,
-              u: &str,
-              hops: usize,
-              bind: &mut Vec<Option<String>>,
-              seen_v: &mut Vec<String>,
-              seen_e: &mut Vec<String>,
-              trail: &mut Vec<String>,
-              rel_edges: &mut Vec<Vec<String>>,
-              seed: &std::collections::HashMap<String, String>,
-              r: &mut QueryResult) {
-    let rel = &pat.rels[rel_i];
-    let next = &pat.nodes[rel_i + 1];
-    if hops >= rel.min && hops <= rel.max && node_ok(g, u, next) && seed_ok(seed, next, u) {
-        bind[rel_i + 1] = Some(u.to_string());
-        walk_named(g, pat, rel_i + 1, bind, seen_v, seen_e, trail, rel_edges, seed, r);
-        bind[rel_i + 1] = None;
-    }
-    if hops >= rel.max {
-        return;
-    }
-    let eids = edges_of(g, u, rel);
-    for eid in eids.iter() {
-        if contains_id(seen_e, eid) {
-            continue;
-        }
-        let e = match g.edge(eid) {
-            Some(e) => e,
-            None => continue,
-        };
-        let v = if rel.dir < 0 {
-            e.source().to_string()
-        } else if rel.dir == 0 {
-            if e.source() == u {
-                e.target().to_string()
-            } else {
-                e.source().to_string()
-            }
-        } else {
-            e.target().to_string()
-        };
-        if contains_id(seen_v, &v) {
-            continue;
-        }
-        seen_e.push(eid.clone());
-        seen_v.push(v.clone());
-        trail.push(eid.clone());
-        trail.push(v.clone());
-        rel_edges[rel_i].push(eid.clone());
-        expand_rel(g,
-                   pat,
-                   rel_i,
-                   &v,
-                   hops + 1,
-                   bind,
-                   seen_v,
-                   seen_e,
-                   trail,
-                   rel_edges,
-                   seed,
-                   r);
-        rel_edges[rel_i].pop();
-        trail.pop();
-        trail.pop();
-        seen_v.pop();
-        seen_e.pop();
-    }
-}
-
-fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
-    if let Some(ref tn) = n.type_name {
-        if !n.props.is_empty() {
-            let mut picked: Option<(String, Prop)> = None;
-            for &(ref k, ref val) in n.props.iter() {
-                if g.has_index(tn, k) {
-                    picked = Some((k.clone(), val.clone()));
-                    break;
-                }
-            }
-            let (k, val) = match picked {
-                Some(p) => p,
-                None => (n.props[0].0.clone(), n.props[0].1.clone()),
-            };
-            let found = g.find_prop(tn, &k, &val);
-            return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
-        }
-    }
-    let src: Vec<String> = match n.type_id {
-        Some(ref tid) => {
-            match g.ty(tid) {
-                Some(t) => Khid::display_all(&t.vertices().iter().cloned().collect::<Vec<_>>()),
-                None => Vec::new(),
-            }
-        }
-        None => g.vertex_ids(),
-    };
-    src.into_iter().filter(|id| node_ok(g, id, n)).collect()
-}
-
-fn keyed(n: &NodePat) -> bool {
-    n.type_name.is_some() && !n.props.is_empty()
-}
-
-fn should_flip(pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> bool {
-    if pat.shortest {
-        return false;
-    }
-    if pat.rels.len() != 1 || pat.nodes.len() != 2 {
-        return false;
-    }
-    if keyed(&pat.nodes[0]) {
-        return false;
-    }
-    if !keyed(&pat.nodes[1]) {
-        return false;
-    }
-    if let Some(ref v) = pat.nodes[0].var {
-        if seed.contains_key(v) {
-            return false;
-        }
-    }
-    true
-}
-
-fn flip_one_hop(pat: &Pattern) -> Pattern {
-    let mut p = pat.clone();
-    let n0 = p.nodes[0].clone();
-    p.nodes[0] = p.nodes[1].clone();
-    p.nodes[1] = n0;
-    p.rels[0].dir = -p.rels[0].dir;
-    p
-}
-
-fn unflip_result(mut r: QueryResult, orig_cols: &[String]) -> QueryResult {
-    let src_cols = r.columns.clone();
-    let mut new_rows = Vec::new();
-    for row in r.rows.iter() {
-        let mut nr = Vec::new();
-        for c in orig_cols.iter() {
-            match src_cols.iter().position(|x| x == c) {
-                Some(j) => {
-                    let cell = row.get(j).cloned().unwrap_or(None);
-                    let cell = match cell {
-                        Some(Val::Path(p)) => {
-                            let mut ids = p.ids().to_vec();
-                            ids.reverse();
-                            Some(Val::Path(Path::new(ids)))
-                        }
-                        other => other,
-                    };
-                    nr.push(cell);
-                }
-                None => nr.push(None),
-            }
-        }
-        new_rows.push(nr);
-    }
-    r.columns = orig_cols.to_vec();
-    r.rows = new_rows;
-    r
-}
-
-fn start_seeds(g: &Graph, pat: &Pattern) -> Vec<String> {
-    let n0 = &pat.nodes[0];
-    if n0.type_id.is_some() || !n0.props.is_empty() {
-        return seeds(g, n0);
-    }
-    if !pat.rels.is_empty() {
-        if let Some(ref tid) = pat.rels[0].type_id {
-            return starts_from_type(g, tid, pat.rels[0].dir, n0);
-        }
-    }
-    seeds(g, n0)
-}
-
-fn starts_from_type(g: &Graph, tid: &str, dir: i32, n0: &NodePat) -> Vec<String> {
-    let eids: Vec<String> = match g.ty(tid) {
-        Some(t) => Khid::display_all(&t.edges().iter().cloned().collect::<Vec<_>>()),
-        None => return Vec::new(),
-    };
-    let mut out = Vec::new();
-    for eid in eids.iter() {
-        let e = match g.edge(eid) {
-            Some(e) => e,
-            None => continue,
-        };
-        if dir >= 0 {
-            let s = e.source();
-            if node_ok(g, s, n0) && !contains_id(&out, s) {
-                out.push(s.to_string());
-            }
-        }
-        if dir <= 0 {
-            let s = e.target();
-            if node_ok(g, s, n0) && !contains_id(&out, s) {
-                out.push(s.to_string());
-            }
-        }
-    }
-    out
-}
-
-fn wears(g: &Graph, vid: &str, tid: &str) -> bool {
-    match g.vertex(vid) {
-        Some(v) => {
-            for t in v.types().iter() {
-                if t == tid {
-                    return true;
-                }
-            }
-            false
-        }
-        None => false,
-    }
-}
-
-fn node_ok(g: &Graph, vid: &str, n: &NodePat) -> bool {
-    if let Some(ref tid) = n.type_id {
-        if !wears(g, vid, tid) {
-            return false;
-        }
-    }
-    for &(ref k, ref val) in n.props.iter() {
-        match g.vertex(vid).and_then(|v| v.get_prop(k)) {
-            Some(got) if got == val => {}
-            _ => return false,
-        }
-    }
-    true
-}
-
-fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
-    let v = match g.vertex(vid) {
-        Some(v) => v,
-        None => return Vec::new(),
-    };
-    let mut ids = Vec::new();
-    let src: Vec<String> = if rel.dir > 0 {
-        Khid::display_all(v.outgoing())
-    } else if rel.dir < 0 {
-        Khid::display_all(v.incoming())
-    } else {
-        let mut both = Khid::display_all(v.outgoing());
-        both.extend(Khid::display_all(v.incoming()));
-        both
-    };
-    for eid in src.iter() {
-        if let Some(ref tid) = rel.type_id {
-            match g.edge(eid).and_then(|e| e.type_id().map(|s| s.to_string())) {
-                Some(ref et) if et == tid => {}
-                _ => continue,
-            }
-        }
-        ids.push(eid.clone());
-    }
-    ids
+    op::run(g, pat, seed)
 }
 
 pub(crate) fn filter_where(g: &Graph, src: QueryResult, pred: &Expr) -> QueryResult {
@@ -1181,7 +680,7 @@ fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
 
 pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     let mut pat = pat.clone();
-    resolve_types(g, &mut pat, false);
+    scan::resolve_types(g, &mut pat, false);
     for rel in pat.rels.iter() {
         if rel.min != 1 || rel.max != 1 {
             return Err(Error::new("MERGE length"));
@@ -1258,7 +757,7 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
 }
 
 fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
-    let found = seeds(g, n);
+    let found = scan::seeds(g, n);
     if !found.is_empty() {
         let mut r = QueryResult::ok_msg("exists");
         r.columns.push(n.var.clone().unwrap_or("n".to_string()));
