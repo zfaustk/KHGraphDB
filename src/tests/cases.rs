@@ -248,8 +248,8 @@ fn run_case(c: &Case) {
             }
         }
     }
-    let exp = c.expect.trim();
-    let got_t = got.trim();
+    let exp = trim_lines(c.expect.trim());
+    let got_t = trim_lines(got.trim());
     if got_t != exp {
         panic!("case {}:\nquery: {}\ngot:\n{}\nexpect:\n{}\n",
                c.name,
@@ -257,6 +257,19 @@ fn run_case(c: &Case) {
                got_t,
                exp);
     }
+}
+
+fn trim_lines(s: &str) -> String {
+    let mut out = String::new();
+    let mut first = true;
+    for line in s.lines() {
+        if !first {
+            out.push('\n');
+        }
+        first = false;
+        out.push_str(line.trim_right());
+    }
+    out
 }
 
 fn run_src(src: &str) {
@@ -305,4 +318,9 @@ fn cases_with() {
 #[test]
 fn cases_param() {
     run_src(include_str!("data/param.txt"));
+}
+
+#[test]
+fn cases_error() {
+    run_src(include_str!("data/error.txt"));
 }
