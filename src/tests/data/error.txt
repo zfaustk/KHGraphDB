@@ -1,0 +1,75 @@
+## unknown type
+.graph
+N Person Alice
+.query
+MATCH (a:Ghost)
+.expect
+ERR unknown type Ghost
+
+## unknown rel
+.graph
+N Person Alice
+.query
+MATCH (a)-[:Nope]->(b)
+.expect
+ERR unknown type Nope
+
+## delete edges
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'}) DELETE a
+.expect
+ERR DELETE edges
+
+## return without match
+.graph
+N Person Alice
+.query
+RETURN a
+.expect
+ERR RETURN without MATCH at end
+
+## set without match
+.graph
+N Person Alice
+.query
+SET a.city = 'London'
+.expect
+ERR SET without MATCH at end
+
+## where without match
+.graph
+N Person Alice
+.query
+WHERE a.name = 'Alice'
+.expect
+ERR WHERE without MATCH at end
+
+## bad char
+.graph
+N Person Alice
+.query
+@nope
+.expect
+ERR bad char near @
+
+## missing param
+.graph
+N Person Alice
+.query
+MATCH (a:Person {name:$n})
+.expect
+ERR unknown param $n
+
+## merge star
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MERGE (a:Person {name:'Alice'})-[:KNOWS*]->(b)
+.expect
+ERR MERGE length
