@@ -324,3 +324,8 @@ fn cases_param() {
 fn cases_error() {
     run_src(include_str!("data/error.txt"));
 }
+
+#[test]
+fn cases_merge() {
+    run_src(include_str!("data/merge.txt"));
+}

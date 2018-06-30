@@ -1,0 +1,51 @@
+## merge create
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Ada'})
+.expect
+rows 1
+p
+Ada
+
+## merge exists
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Alice'})
+.expect
+rows 1
+p
+Alice
+
+## merge on create
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = 1815
+.expect
+rows 1
+p
+Ada
+
+## merge edge
+.graph
+N Person Alice
+.query
+MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Dan'})
+.expect
+rows 1
+a | b
+Alice | Dan
+
+## merge edge exists
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Bob'})
+.expect
+rows 1
+a | b
+Alice | Bob
