@@ -1,0 +1,17 @@
+## explain hop
+.stable
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)
+.expect
+rows 6
+slot | name | khid
+a | Person | k2
+b |  |
+e0 | KNOWS | k5
+plan | Expand | Expand a -[KNOWS]-> b
+op | Seed |
+op | Expand |
