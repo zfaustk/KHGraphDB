@@ -126,3 +126,34 @@ rows 2
 a | b
 Alice | Bob
 Bob | Carol
+
+## both directions
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Bob'})-[:KNOWS]-(b)
+.expect
+rows 2
+a | b
+Bob | Alice
+Bob | Carol
+
+## three hop
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+N Person Dan
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+E KNOWS Carol Dan
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)-[:KNOWS]->(c)-[:KNOWS]->(d)
+.expect
+rows 1
+a | b | c | d
+Alice | Bob | Carol | Dan
