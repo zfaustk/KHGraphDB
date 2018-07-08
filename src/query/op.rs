@@ -133,6 +133,7 @@ pub fn run(g: &Graph,
     if let Some(msg) = scan::resolve_types(g, &mut pat, true) {
         return QueryResult::fail(&msg);
     }
+    scan::name_slots(&mut pat);
     let orig_cols = scan::columns_of(&pat);
     let flipped = scan::should_flip(&pat, seed);
     let walk_pat = if flipped {
