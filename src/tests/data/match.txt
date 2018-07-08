@@ -157,3 +157,42 @@ MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b)-[:KNOWS]->(c)-[:KNOWS]->(d)
 rows 1
 a | b | c | d
 Alice | Bob | Carol | Dan
+
+## anonymous start
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH ()-[:KNOWS]->(b:Person {name:'Bob'})
+.expect
+rows 1
+n0 | b
+Alice | Bob
+
+## anonymous rel
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'})-[]->(b)
+.expect
+rows 1
+a | b
+Alice | Bob
+
+## star unbounded
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Bob Carol
+.query
+MATCH (a:Person {name:'Alice'})-[:KNOWS*]->(b)
+.expect
+rows 2
+a | b
+Alice | Bob
+Alice | Carol
