@@ -19,6 +19,7 @@ pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
     if let Some(msg) = scan::resolve_types(g, &mut pat, true) {
         return Ok(QueryResult::fail(&msg));
     }
+    scan::name_slots(&mut pat);
     let mut r = QueryResult::ok_msg("EXPLAIN");
     r.columns.push("slot".to_string());
     r.columns.push("name".to_string());

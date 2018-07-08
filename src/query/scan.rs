@@ -7,6 +7,17 @@ use super::super::khid::Khid;
 use super::super::prop::Prop;
 use super::{NodePat, Path, Pattern, QueryResult, RelPat, Val};
 
+/// Fill missing node names so a flip cannot rename n0 to n1.
+pub fn name_slots(pat: &mut Pattern) {
+    let mut i = 0;
+    while i < pat.nodes.len() {
+        if pat.nodes[i].var.is_none() {
+            pat.nodes[i].var = Some(format!("n{}", i));
+        }
+        i += 1;
+    }
+}
+
 pub fn columns_of(pat: &Pattern) -> Vec<String> {
     let mut cols = Vec::new();
     if let Some(ref p) = pat.path_var {
