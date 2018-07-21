@@ -290,15 +290,15 @@ fn expand_rel(g: &Graph,
             None => continue,
         };
         let v = if rel.dir < 0 {
-            e.source().to_string()
+            format!("{}", e.source())
         } else if rel.dir == 0 {
-            if e.source() == u {
-                e.target().to_string()
+            if format!("{}", e.source()) == u {
+                format!("{}", e.target())
             } else {
-                e.source().to_string()
+                format!("{}", e.source())
             }
         } else {
-            e.target().to_string()
+            format!("{}", e.target())
         };
         if scan::contains_id(&row.seen_v, &v) {
             continue;

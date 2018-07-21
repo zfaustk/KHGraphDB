@@ -6,8 +6,8 @@ use super::prop::Prop;
 #[derive(Clone)]
 pub struct Edge {
     id: Khid,
-    source: String,
-    target: String,
+    source: Khid,
+    target: Khid,
     type_id: Option<String>,
     attrs: HashMap<String, Prop>,
 }
@@ -19,12 +19,14 @@ impl Edge {
             p.insert(k, Prop::from_str(&v));
         }
         let kid = Khid::parse(&id).unwrap_or(Khid::nil());
-        Edge::with_props(kid, source, target, p)
+        let src = Khid::parse(&source).unwrap_or(Khid::nil());
+        let dst = Khid::parse(&target).unwrap_or(Khid::nil());
+        Edge::with_props(kid, src, dst, p)
     }
 
     pub fn with_props(id: Khid,
-                      source: String,
-                      target: String,
+                      source: Khid,
+                      target: Khid,
                       attrs: HashMap<String, Prop>)
                       -> Edge {
         Edge {
@@ -40,12 +42,12 @@ impl Edge {
         self.id
     }
 
-    pub fn source(&self) -> &str {
-        &self.source
+    pub fn source(&self) -> Khid {
+        self.source
     }
 
-    pub fn target(&self) -> &str {
-        &self.target
+    pub fn target(&self) -> Khid {
+        self.target
     }
 
     pub fn type_id(&self) -> Option<&str> {

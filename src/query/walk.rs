@@ -722,7 +722,7 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     cols.push(pat.nodes[1].var.clone().unwrap_or("b".to_string()));
     for eid in eids.iter() {
         if let Some(e) = g.edge(eid) {
-            if e.target() == b {
+            if format!("{}", e.target()) == b {
                 let ok_t = match rel.type_id {
                     Some(ref tid) => e.type_id() == Some(&tid[..]),
                     None => true,
