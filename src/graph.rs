@@ -359,7 +359,7 @@ impl Graph {
         for (k, v) in attrs.into_iter() {
             props.insert(k, Prop::from_str(&v));
         }
-        let mut e = Edge::with_props(kid, src.to_string(), dst.to_string(), props);
+        let mut e = Edge::with_props(kid, sk, dk, props);
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
             e.set_type(&tid);
@@ -395,18 +395,14 @@ impl Graph {
             None => return false,
         };
         let (src, dst, tid) = match self.eget(ek) {
-            Some(e) => (e.source().to_string(), e.target().to_string(), e.type_id().map(|s| s.to_string())),
+            Some(e) => (e.source(), e.target(), e.type_id().map(|s| s.to_string())),
             None => return false,
         };
-        if let Some(sk) = Khid::parse(&src) {
-            if let Some(v) = self.at_mut(sk) {
-                if let Some(k) = Khid::parse(eid) { v.remove_out(k); }
-            }
+        if let Some(v) = self.at_mut(src) {
+            v.remove_out(ek);
         }
-        if let Some(dk) = Khid::parse(&dst) {
-            if let Some(v) = self.at_mut(dk) {
-                if let Some(k) = Khid::parse(eid) { v.remove_in(k); }
-            }
+        if let Some(v) = self.at_mut(dst) {
+            v.remove_in(ek);
         }
         if let Some(t) = tid {
             if let Some(tk) = Khid::parse(&t) {
@@ -740,8 +736,8 @@ impl Graph {
         while i < self.edges.len() {
             if let Some(ref e) = self.edges[i] {
                 out.push((disp(e.khid()),
-                          e.source().to_string(),
-                          e.target().to_string(),
+                          disp(e.source()),
+                          disp(e.target()),
                           e.type_id().map(|s| s.to_string())));
             }
             i += 1;
@@ -803,7 +799,7 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("bad khid")),
         };
-        let mut e = Edge::with_props(kid, src.clone(), dst.clone(), attrs);
+        let mut e = Edge::with_props(kid, sk, dk, attrs);
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
                 let tid = self.add_type(tn)?;

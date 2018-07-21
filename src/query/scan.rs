@@ -240,15 +240,15 @@ fn starts_from_type(g: &Graph, tid: &str, dir: i32, n0: &NodePat) -> Vec<String>
             None => continue,
         };
         if dir >= 0 {
-            let s = e.source();
-            if node_ok(g, s, n0) && !contains_id(&out, s) {
-                out.push(s.to_string());
+            let s = format!("{}", e.source());
+            if node_ok(g, &s, n0) && !contains_id(&out, &s) {
+                out.push(s);
             }
         }
         if dir <= 0 {
-            let s = e.target();
-            if node_ok(g, s, n0) && !contains_id(&out, s) {
-                out.push(s.to_string());
+            let s = format!("{}", e.target());
+            if node_ok(g, &s, n0) && !contains_id(&out, &s) {
+                out.push(s);
             }
         }
     }

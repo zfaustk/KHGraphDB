@@ -32,6 +32,19 @@ fn add_edge_with_attrs() {
 }
 
 #[test]
+fn edge_endpoints_are_khid() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+    let e = g.add_edge(&a, &b, Some("ROAD")).unwrap();
+    let src = g.edge(&e).unwrap().source();
+    let dst = g.edge(&e).unwrap().target();
+    assert_eq!(src, super::super::Khid::parse(&a).unwrap());
+    assert_eq!(dst, super::super::Khid::parse(&b).unwrap());
+    assert_eq!(format!("{}", src), a);
+}
+
+#[test]
 fn catalog_put() {
     let mut cat = super::super::Catalog::new();
     let mut g = Graph::named("social");

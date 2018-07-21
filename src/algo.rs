@@ -27,7 +27,7 @@ pub fn nearby(g: &Graph, start: &str, depth: i32) -> Vec<String> {
         };
         for eid in eids.iter() {
             if let Some(e) = g.edge(eid) {
-                let w = e.target().to_string();
+                let w = format!("{}", e.target());
                 if seen.insert(w.clone()) {
                     q.push_back((w, d + 1));
                 }
@@ -54,7 +54,7 @@ pub fn path(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
         };
         for eid in eids.iter() {
             if let Some(e) = g.edge(eid) {
-                let w = e.target().to_string();
+                let w = format!("{}", e.target());
                 if seen.insert(w.clone()) {
                     pred.insert(w.clone(), u.clone());
                     if w == goal {
@@ -157,10 +157,10 @@ fn neighbors(g: &Graph, u: &str, type_id: Option<&str>, dir: i32) -> Vec<(String
                 continue;
             }
         }
-        let w = if e.source() == u {
-            e.target().to_string()
+        let w = if format!("{}", e.source()) == u {
+            format!("{}", e.target())
         } else {
-            e.source().to_string()
+            format!("{}", e.source())
         };
         out.push((eid.clone(), w));
     }
@@ -238,7 +238,7 @@ fn dfs_cycle(g: &Graph, u: &str, color: &mut HashMap<String, i32>) -> bool {
     };
     for eid in eids.iter() {
         if let Some(e) = g.edge(eid) {
-            let w = e.target().to_string();
+            let w = format!("{}", e.target());
             match color.get(&w).cloned() {
                 Some(1) => return true,
                 Some(0) => {
@@ -304,7 +304,7 @@ pub fn shortest(g: &Graph, start: &str, goal: &str) -> Option<Vec<String>> {
                     Some(s) => s.parse::<i64>().unwrap_or(1),
                     None => 1,
                 };
-                let nxt = e.target().to_string();
+                let nxt = format!("{}", e.target());
                 let nd = d + wgt;
                 let better = match dist.get(&nxt) {
                     Some(&old) => nd < old,
@@ -345,8 +345,8 @@ pub fn components(g: &Graph) -> Vec<Vec<String>> {
         };
         for eid in eids.iter() {
             if let Some(e) = g.edge(eid) {
-                let a = uf_find(&mut parent, e.source());
-                let b = uf_find(&mut parent, e.target());
+                let a = uf_find(&mut parent, &format!("{}", e.source()));
+                let b = uf_find(&mut parent, &format!("{}", e.target()));
                 if a != b {
                     parent.insert(a, b);
                 }

@@ -201,7 +201,7 @@ fn match_rel_bind() {
     assert_eq!(r.columns, vec!["a".to_string(), "e".to_string(), "b".to_string()]);
     let e = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
     let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
-    assert_eq!(g.edge(e).unwrap().source(), alice);
+    assert_eq!(g.edge(e).unwrap().source(), super::super::Khid::parse(&alice).unwrap());
 }
 
 #[test]
