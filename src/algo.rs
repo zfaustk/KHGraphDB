@@ -153,7 +153,7 @@ fn neighbors(g: &Graph, u: &str, type_id: Option<&str>, dir: i32) -> Vec<(String
             None => continue,
         };
         if let Some(tid) = type_id {
-            if e.type_id() != Some(tid) {
+            if e.type_id() != Khid::parse(tid) {
                 continue;
             }
         }

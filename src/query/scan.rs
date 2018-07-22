@@ -301,8 +301,8 @@ pub fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
     };
     for eid in src.iter() {
         if let Some(ref tid) = rel.type_id {
-            match g.edge(eid).and_then(|e| e.type_id().map(|s| s.to_string())) {
-                Some(ref et) if et == tid => {}
+            match g.edge(eid).and_then(|e| e.type_id()) {
+                Some(et) if Some(et) == Khid::parse(tid) => {}
                 _ => continue,
             }
         }

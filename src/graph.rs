@@ -362,7 +362,9 @@ impl Graph {
         let mut e = Edge::with_props(kid, sk, dk, props);
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
-            e.set_type(&tid);
+            if let Some(k) = Khid::parse(&tid) {
+                e.set_type(k);
+            }
             if let Some(t) = Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
                 t.add_edge(kid);
             }
@@ -395,7 +397,7 @@ impl Graph {
             None => return false,
         };
         let (src, dst, tid) = match self.eget(ek) {
-            Some(e) => (e.source(), e.target(), e.type_id().map(|s| s.to_string())),
+            Some(e) => (e.source(), e.target(), e.type_id()),
             None => return false,
         };
         if let Some(v) = self.at_mut(src) {
@@ -404,11 +406,9 @@ impl Graph {
         if let Some(v) = self.at_mut(dst) {
             v.remove_in(ek);
         }
-        if let Some(t) = tid {
-            if let Some(tk) = Khid::parse(&t) {
-                if let Some(ty) = self.tget_mut(tk) {
-                    ty.remove_edge(ek);
-                }
+        if let Some(tk) = tid {
+            if let Some(ty) = self.tget_mut(tk) {
+                ty.remove_edge(ek);
             }
         }
         self.etake(ek)
@@ -738,7 +738,7 @@ impl Graph {
                 out.push((disp(e.khid()),
                           disp(e.source()),
                           disp(e.target()),
-                          e.type_id().map(|s| s.to_string())));
+                          e.type_id().map(|k| disp(k))));
             }
             i += 1;
         }
@@ -803,8 +803,8 @@ impl Graph {
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
                 let tid = self.add_type(tn)?;
-                e.set_type(&tid);
                 if let Some(tk) = Khid::parse(&tid) {
+                    e.set_type(tk);
                     if let Some(t) = self.tget_mut(tk) {
                         t.add_edge(kid);
                     }
@@ -840,7 +840,7 @@ impl Graph {
 
     pub fn edge_type_name(&self, eid: &str) -> Option<String> {
         match self.edge(eid) {
-            Some(e) => e.type_id().and_then(|tid| self.ty(tid).map(|t| t.name().to_string())),
+            Some(e) => e.type_id().and_then(|tid| self.ty(&disp(tid)).map(|t| t.name().to_string())),
             None => None,
         }
     }
@@ -855,7 +855,7 @@ impl Graph {
             None => return false,
         };
         let tid = match self.eget(ek) {
-            Some(e) => e.type_id().map(|s| s.to_string()),
+            Some(e) => e.type_id(),
             None => return false,
         };
         let old = self.eget(ek).and_then(|e| e.get_prop(key)).cloned();
@@ -865,7 +865,7 @@ impl Graph {
             }
             None => return false,
         }
-        if let Some(tn) = tid.and_then(|t| self.type_name_of(&t).map(|s| s.to_string())) {
+        if let Some(tn) = tid.and_then(|t| self.type_name_of(&disp(t)).map(|s| s.to_string())) {
             let iid = SchemaIndex::id(&tn, key);
             if let Some(idx) = self.edge_indexes.get_mut(&iid) {
                 if let Some(ref o) = old {

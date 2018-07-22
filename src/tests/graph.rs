@@ -45,6 +45,16 @@ fn edge_endpoints_are_khid() {
 }
 
 #[test]
+fn edge_type_is_khid() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
+    let e = g.add_edge(&a, &b, Some("ROAD")).unwrap();
+    let tid = g.edge(&e).unwrap().type_id().unwrap();
+    assert_eq!(g.ty(&format!("{}", tid)).unwrap().name(), "ROAD");
+}
+
+#[test]
 fn catalog_put() {
     let mut cat = super::super::Catalog::new();
     let mut g = Graph::named("social");
