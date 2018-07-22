@@ -724,7 +724,7 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
         if let Some(e) = g.edge(eid) {
             if format!("{}", e.target()) == b {
                 let ok_t = match rel.type_id {
-                    Some(ref tid) => e.type_id() == Some(&tid[..]),
+                    Some(ref tid) => e.type_id() == Khid::parse(tid),
                     None => true,
                 };
                 if ok_t {

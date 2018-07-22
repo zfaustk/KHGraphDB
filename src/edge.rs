@@ -8,7 +8,7 @@ pub struct Edge {
     id: Khid,
     source: Khid,
     target: Khid,
-    type_id: Option<String>,
+    type_id: Option<Khid>,
     attrs: HashMap<String, Prop>,
 }
 
@@ -50,12 +50,12 @@ impl Edge {
         self.target
     }
 
-    pub fn type_id(&self) -> Option<&str> {
-        self.type_id.as_ref().map(|s| &s[..])
+    pub fn type_id(&self) -> Option<Khid> {
+        self.type_id
     }
 
-    pub fn set_type(&mut self, type_id: &str) {
-        self.type_id = Some(type_id.to_string());
+    pub fn set_type(&mut self, type_id: Khid) {
+        self.type_id = Some(type_id);
     }
 
     pub fn clear_type(&mut self) {
