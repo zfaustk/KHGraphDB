@@ -258,12 +258,10 @@ fn starts_from_type(g: &Graph, tid: &str, dir: i32, n0: &NodePat) -> Vec<String>
 fn wears(g: &Graph, vid: &str, tid: &str) -> bool {
     match g.vertex(vid) {
         Some(v) => {
-            for t in v.types().iter() {
-                if t == tid {
-                    return true;
-                }
+            match Khid::parse(tid) {
+                Some(k) => v.types().iter().any(|t| *t == k),
+                None => false,
             }
-            false
         }
         None => false,
     }

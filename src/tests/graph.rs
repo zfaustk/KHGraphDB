@@ -55,6 +55,15 @@ fn edge_type_is_khid() {
 }
 
 #[test]
+fn vertex_types_are_khid() {
+    let mut g = Graph::new();
+    let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    let types = g.vertex(&ada).unwrap().types();
+    assert_eq!(types.len(), 1);
+    assert_eq!(g.ty(&format!("{}", types[0])).unwrap().name(), "Person");
+}
+
+#[test]
 fn catalog_put() {
     let mut cat = super::super::Catalog::new();
     let mut g = Graph::named("social");

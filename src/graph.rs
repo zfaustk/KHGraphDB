@@ -306,12 +306,11 @@ impl Graph {
         }
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
-            v.attach_type(&tid);
-            match Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
-                Some(t) => {
+            if let Some(k) = Khid::parse(&tid) {
+                v.attach_type(k);
+                if let Some(t) = self.tget_mut(k) {
                     t.add_vertex(kid);
                 }
-                None => {}
             }
             let keys: Vec<(String, Prop)> = v.attrs()
                 .iter()
@@ -423,7 +422,7 @@ impl Graph {
             Some(v) => {
                 let o: Vec<String> = Khid::display_all(v.outgoing());
                 let i: Vec<String> = Khid::display_all(v.incoming());
-                let t: Vec<String> = v.types().iter().map(|s| s.clone()).collect();
+                let t: Vec<Khid> = v.types().iter().cloned().collect();
                 let n = v.get("name").map(|s| s.to_string());
                 (o, i, t, n)
             }
@@ -436,10 +435,8 @@ impl Graph {
             self.remove_edge(e);
         }
         for t in tps.iter() {
-            if let Some(tk) = Khid::parse(t) {
-                if let Some(ty) = self.tget_mut(tk) {
-                    ty.remove_vertex(vk);
-                }
+            if let Some(ty) = self.tget_mut(*t) {
+                ty.remove_vertex(vk);
             }
         }
         if let Some(n) = name {
@@ -463,7 +460,11 @@ impl Graph {
                 Some(v) => v,
                 None => return Err(Error::new("missing vertex")),
             };
-            if !v.attach_type(&tid) {
+            if let Some(k) = Khid::parse(&tid) {
+                if !v.attach_type(k) {
+                    return Ok(false);
+                }
+            } else {
                 return Ok(false);
             }
         }
@@ -481,7 +482,7 @@ impl Graph {
             None => return false,
         };
         for tid in v.types().iter() {
-            if let Some(t) = self.ty(tid) {
+            if let Some(t) = self.tget(*tid) {
                 if t.name() == type_name {
                     return true;
                 }
@@ -628,14 +629,14 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("missing vertex")),
         };
-        let types: Vec<String> = match self.at(vk) {
-            Some(v) => v.types().iter().map(|s| s.clone()).collect(),
+        let types: Vec<Khid> = match self.at(vk) {
+            Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
         };
         let old_prop = self.at(vk).and_then(|v| v.get_prop(key)).cloned();
         let old_name = self.at(vk).and_then(|v| v.get("name")).unwrap_or("").to_string();
         for tid in types.iter() {
-            let tname = match self.ty(tid) {
+            let tname = match self.tget(*tid) {
                 Some(t) => t.name().to_string(),
                 None => continue,
             };
@@ -664,7 +665,7 @@ impl Graph {
             }
         }
         for tid in types.iter() {
-            let tname = match self.ty(tid) {
+            let tname = match self.tget(*tid) {
                 Some(t) => t.name().to_string(),
                 None => continue,
             };
@@ -684,8 +685,8 @@ impl Graph {
             Some(k) => k,
             None => return Err(Error::new("missing vertex")),
         };
-        let types: Vec<String> = match self.at(vk) {
-            Some(v) => v.types().iter().map(|s| s.clone()).collect(),
+        let types: Vec<Khid> = match self.at(vk) {
+            Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
         };
         let old_prop = self.at(vk).and_then(|v| v.get_prop(key)).cloned();
@@ -701,7 +702,7 @@ impl Graph {
             }
         }
         for tid in types.iter() {
-            let tname = match self.ty(tid) {
+            let tname = match self.tget(*tid) {
                 Some(t) => t.name().to_string(),
                 None => continue,
             };
@@ -764,8 +765,8 @@ impl Graph {
         let names = type_names;
         for (i, tn) in names.iter().enumerate() {
             let tid = self.add_type(tn)?;
-            v.attach_type(&tid);
             if let Some(tk) = Khid::parse(&tid) {
+                v.attach_type(tk);
                 if let Some(t) = self.tget_mut(tk) {
                     t.add_vertex(kid);
                 }
@@ -828,7 +829,7 @@ impl Graph {
             Some(v) => {
                 let mut names = Vec::new();
                 for tid in v.types().iter() {
-                    if let Some(t) = self.ty(tid) {
+                    if let Some(t) = self.tget(*tid) {
                         names.push(t.name().to_string());
                     }
                 }

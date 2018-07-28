@@ -11,7 +11,7 @@ use super::prop::Prop;
 pub struct Vertex {
     id: Khid,
     attrs: HashMap<String, Prop>,
-    types: Vec<String>,
+    types: Vec<Khid>,
     outgoing: Vec<Khid>,
     incoming: Vec<Khid>,
 }
@@ -53,21 +53,21 @@ impl Vertex {
         &self.attrs
     }
 
-    pub fn types(&self) -> &[String] {
+    pub fn types(&self) -> &[Khid] {
         &self.types
     }
 
-    pub fn primary_type(&self) -> Option<&str> {
+    pub fn primary_type(&self) -> Option<Khid> {
         if self.types.is_empty() {
             None
         } else {
-            Some(&self.types[0])
+            Some(self.types[0])
         }
     }
 
     pub fn has_type_name(&self, types: &HashMap<String, String>, name: &str) -> bool {
         for tid in self.types.iter() {
-            if let Some(n) = types.get(tid) {
+            if let Some(n) = types.get(&format!("{}", tid)) {
                 if n == name {
                     return true;
                 }
@@ -104,17 +104,17 @@ impl Vertex {
         self.attrs.remove(key)
     }
 
-    pub fn attach_type(&mut self, type_id: &str) -> bool {
-        if self.types.iter().any(|t| t == type_id) {
+    pub fn attach_type(&mut self, type_id: Khid) -> bool {
+        if self.types.iter().any(|t| *t == type_id) {
             return false;
         }
-        self.types.push(type_id.to_string());
+        self.types.push(type_id);
         true
     }
 
-    pub fn detach_type(&mut self, type_id: &str) -> bool {
+    pub fn detach_type(&mut self, type_id: Khid) -> bool {
         let before = self.types.len();
-        self.types.retain(|t| t != type_id);
+        self.types.retain(|t| *t != type_id);
         before != self.types.len()
     }
 
