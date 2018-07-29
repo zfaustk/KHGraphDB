@@ -64,6 +64,17 @@ fn vertex_types_are_khid() {
 }
 
 #[test]
+fn lookup_by_khid() {
+    let mut g = Graph::new();
+    let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    let k = super::super::Khid::parse(&ada).unwrap();
+    assert!(g.vertex_k(k).is_some());
+    assert_eq!(g.vertex_k(k).unwrap().get("name"), Some("Ada"));
+    let tid = g.vertex_k(k).unwrap().types()[0];
+    assert_eq!(g.ty_k(tid).unwrap().name(), "Person");
+}
+
+#[test]
 fn catalog_put() {
     let mut cat = super::super::Catalog::new();
     let mut g = Graph::named("social");

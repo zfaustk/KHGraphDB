@@ -222,6 +222,11 @@ impl Graph {
         }
     }
 
+    /// Same lookup. The caller already has a Khid.
+    pub fn vertex_k(&self, k: Khid) -> Option<&Vertex> {
+        self.at(k)
+    }
+
     pub fn vertex_mut(&mut self, khid: &str) -> Option<&mut Vertex> {
         match Khid::parse(khid) {
             Some(k) => self.at_mut(k),
@@ -236,11 +241,19 @@ impl Graph {
         }
     }
 
+    pub fn edge_k(&self, k: Khid) -> Option<&Edge> {
+        self.eget(k)
+    }
+
     pub fn ty(&self, khid: &str) -> Option<&Type> {
         match Khid::parse(khid) {
             Some(k) => self.tget(k),
             None => None,
         }
+    }
+
+    pub fn ty_k(&self, k: Khid) -> Option<&Type> {
+        self.tget(k)
     }
 
     pub fn type_by_name(&self, name: &str) -> Option<&Type> {
