@@ -382,6 +382,10 @@ impl Parser {
             }
             let mut pat = self.parse_match()?;
             pat.optional = optional;
+            if self.ident_is("WHERE") {
+                self.next();
+                pat.pred = Some(self.parse_where()?);
+            }
             return exec_explain(g, &pat);
         }
         while self.kind() != TokenKind::Eof {
@@ -393,10 +397,18 @@ impl Parser {
                 self.next();
                 let mut pat = self.parse_match()?;
                 pat.optional = true;
+                if last.is_none() && self.ident_is("WHERE") {
+                    self.next();
+                    pat.pred = Some(self.parse_where()?);
+                }
                 last = Some(exec_match(g, &pat, last));
             } else if self.ident_is("MATCH") {
                 self.next();
-                let pat = self.parse_match()?;
+                let mut pat = self.parse_match()?;
+                if last.is_none() && self.ident_is("WHERE") {
+                    self.next();
+                    pat.pred = Some(self.parse_where()?);
+                }
                 last = Some(exec_match(g, &pat, last));
             } else if self.ident_is("WHERE") {
                 self.next();
@@ -536,6 +548,7 @@ impl Parser {
             shortest: false,
             on_create: Vec::new(),
             on_match: Vec::new(),
+            pred: None,
         };
         pat.nodes.push(self.parse_node()?);
         loop {

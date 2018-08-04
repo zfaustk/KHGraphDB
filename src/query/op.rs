@@ -4,8 +4,9 @@
 //! stack of depth at most 16.
 
 use super::super::graph::Graph;
+use super::super::prop::Prop;
 use super::scan;
-use super::{Pattern, QueryResult};
+use super::{Expr, Pattern, QueryResult};
 
 /// One operator. Volcano-style: the engine matches on
 /// Op and pulls rows. No trait objects.
@@ -20,7 +21,7 @@ pub enum Op {
         rel_i: usize,
         inner: Box<Op>,
     },
-    Filter,
+    Filter { pred: Expr, inner: Box<Op> },
     Project,
     Limit { n: usize },
     Optional { inner: Box<Op> },
@@ -32,7 +33,7 @@ impl Op {
         match *self {
             Op::Seed { .. } => "Seed",
             Op::Expand { .. } => "Expand",
-            Op::Filter => "Filter",
+            Op::Filter { .. } => "Filter",
             Op::Project => "Project",
             Op::Limit { .. } => "Limit",
             Op::Optional { .. } => "Optional",
@@ -61,7 +62,7 @@ impl Op {
                 };
                 format!("Expand {} -[{}]{} {}", from, rel, arrow, to)
             }
-            Op::Filter => "Filter".to_string(),
+            Op::Filter { .. } => "Filter".to_string(),
             Op::Project => "Project".to_string(),
             Op::Limit { n } => format!("Limit {}", n),
             Op::Optional { ref inner } => format!("Optional ({})", inner.kind()),
@@ -71,7 +72,9 @@ impl Op {
 
     fn push_kinds(&self, v: &mut Vec<&'static str>) {
         match *self {
-            Op::Expand { ref inner, .. } | Op::Optional { ref inner } => {
+            Op::Expand { ref inner, .. } |
+            Op::Optional { ref inner } |
+            Op::Filter { ref inner, .. } => {
                 inner.push_kinds(v);
             }
             _ => {}
@@ -111,6 +114,12 @@ pub fn compile(pat: &Pattern) -> Op {
     }
     if pat.optional {
         op = Op::Optional { inner: Box::new(op) };
+    }
+    if let Some(ref pred) = pat.pred {
+        op = Op::Filter {
+            pred: pred.clone(),
+            inner: Box::new(op),
+        };
     }
     op
 }
@@ -199,7 +208,17 @@ fn exec_op(g: &Graph,
             }
         }
         Op::Shortest => exec_shortest_rows(g, pat, seed),
-        Op::Filter | Op::Project | Op::Limit { .. } => Vec::new(),
+        Op::Filter { ref pred, ref inner } => {
+            let rows = exec_op(g, pat, inner, seed);
+            let mut out = Vec::new();
+            for row in rows.iter() {
+                if row_pred(g, pat, row, pred) {
+                    out.push(row.clone());
+                }
+            }
+            out
+        }
+        Op::Project | Op::Limit { .. } => Vec::new(),
     }
 }
 
@@ -362,9 +381,109 @@ fn exec_shortest_rows(g: &Graph,
     rows
 }
 
+fn row_pred(g: &Graph, pat: &Pattern, row: &Row, pred: &Expr) -> bool {
+    match *pred {
+        Expr::Eq(ref var, ref key, ref val) => {
+            match lookup_row(g, pat, row, var, key) {
+                Some(ref got) if got == val => true,
+                _ => false,
+            }
+        }
+        Expr::Cmp(ref var, ref key, op, ref val) => {
+            match lookup_row(g, pat, row, var, key) {
+                Some(ref got) => cmp_prop(got, val, op),
+                None => false,
+            }
+        }
+        Expr::In(ref var, ref key, ref vals) => {
+            match lookup_row(g, pat, row, var, key) {
+                Some(ref got) => {
+                    let mut hit = false;
+                    for v in vals.iter() {
+                        if v == got {
+                            hit = true;
+                            break;
+                        }
+                    }
+                    hit
+                }
+                None => false,
+            }
+        }
+        Expr::And(ref a, ref b) => row_pred(g, pat, row, a) && row_pred(g, pat, row, b),
+        Expr::Or(ref a, ref b) => row_pred(g, pat, row, a) || row_pred(g, pat, row, b),
+        Expr::Not(ref a) => !row_pred(g, pat, row, a),
+    }
+}
+
+fn lookup_row(g: &Graph, pat: &Pattern, row: &Row, var: &str, key: &str) -> Option<Prop> {
+    let mut i = 0;
+    while i < pat.nodes.len() {
+        let hit = match pat.nodes[i].var {
+            Some(ref v) if v == var => true,
+            _ => false,
+        };
+        if hit {
+            if let Some(ref id) = row.bind[i] {
+                if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key)).cloned() {
+                    return Some(p);
+                }
+                return g.edge(id).and_then(|e| e.get_prop(key)).cloned();
+            }
+            return None;
+        }
+        i += 1;
+    }
+    let mut r = 0;
+    while r < pat.rels.len() {
+        let hit = match pat.rels[r].var {
+            Some(ref v) if v == var => true,
+            _ => false,
+        };
+        if hit {
+            if r < row.rel_edges.len() && row.rel_edges[r].len() == 1 {
+                let id = &row.rel_edges[r][0];
+                if let Some(p) = g.edge(id).and_then(|e| e.get_prop(key)).cloned() {
+                    return Some(p);
+                }
+                return g.vertex(id).and_then(|v| v.get_prop(key)).cloned();
+            }
+            return None;
+        }
+        r += 1;
+    }
+    None
+}
+
+fn cmp_prop(got: &Prop, val: &Prop, op: i32) -> bool {
+    if got.tag() != val.tag() {
+        return op == 3;
+    }
+    match op {
+        -2 => got <= val,
+        -1 => got < val,
+        1 => got > val,
+        2 => got >= val,
+        3 => got != val,
+        _ => got == val,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Op;
+    use super::Expr;
+    use super::super::super::prop::Prop;
+
+    fn dummy_filter() -> Op {
+        Op::Filter {
+            pred: Expr::Eq("a".to_string(), "name".to_string(), Prop::from_str("x")),
+            inner: Box::new(Op::Seed {
+                var: "a".to_string(),
+                node: 0,
+            }),
+        }
+    }
 
     #[test]
     fn kinds() {
@@ -387,7 +506,7 @@ mod tests {
             inner: inner,
         };
         assert_eq!(e.kind(), "Expand");
-        assert_eq!(Op::Filter.kind(), "Filter");
+        assert_eq!(dummy_filter().kind(), "Filter");
         assert_eq!(Op::Project.kind(), "Project");
         assert_eq!(Op::Limit { n: 1 }.kind(), "Limit");
         assert_eq!(Op::Shortest.kind(), "Shortest");

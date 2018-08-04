@@ -38,6 +38,7 @@ struct Pattern {
     shortest: bool,
     on_create: Vec<(String, String, Prop)>,
     on_match: Vec<(String, String, Prop)>,
+    pred: Option<Expr>,
 }
 
 #[derive(Clone)]

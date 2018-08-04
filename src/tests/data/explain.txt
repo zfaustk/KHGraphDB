@@ -15,3 +15,17 @@ e0 | KNOWS | k5
 plan | Expand | Expand a -[KNOWS]-> b
 op | Seed |
 op | Expand |
+
+## explain filter
+.stable
+.graph
+N Person Alice
+.query
+EXPLAIN MATCH (a:Person) WHERE a.name = 'Alice'
+.expect
+rows 4
+slot | name | khid
+a | Person | k2
+plan | Filter | Filter
+op | Seed |
+op | Filter |

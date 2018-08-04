@@ -74,3 +74,26 @@ fn expand_one_hop() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
 }
+
+#[test]
+fn explain_filter() {
+    let mut g = social();
+    let r = query::run(&mut g, "EXPLAIN MATCH (a:Person) WHERE a.name = 'Alice'");
+    assert!(r.ok);
+    let mut kinds = Vec::new();
+    for row in r.rows.iter() {
+        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
+            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        }
+    }
+    assert_eq!(kinds,
+               vec!["Seed".to_string(), "Filter".to_string()]);
+}
+
+#[test]
+fn filter_runs_inside_match() {
+    let mut g = social();
+    let r = query::run(&mut g, "MATCH (a:Person) WHERE a.name = 'Alice'");
+    assert!(r.ok);
+    assert_eq!(r.rows.len(), 1);
+}
