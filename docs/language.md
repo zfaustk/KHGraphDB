@@ -37,4 +37,9 @@ when it exists, otherwise it scans the Type.
 The cap on `*` is 16. MERGE still refuses a star.
 shortestPath is hop-count BFS.
 
+MATCH compiles to operators. EXPLAIN MATCH prints Seed,
+Expand, Filter, Optional, Shortest. WHERE on a first MATCH
+is Filter. A second MATCH still joins, then WHERE filters
+the table.
+
 No crates.io. rustc 1.18.

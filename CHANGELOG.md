@@ -1,3 +1,11 @@
+## 3.6.0 - 2018-08-05
+
+- MATCH compiles to Seed / Expand / Filter / Optional / Shortest.
+- EXPLAIN prints the operator tree.
+- Edge source, target, and type are Khid. Vertex types too.
+- WHERE on a lone MATCH is Filter, not a second pass.
+- Graph::vertex_k / edge_k / ty_k skip the print form.
+
 ## 3.5.0 - 2018-04-29
 
 - Prop: Bool / Int / Float / Str. 1 is not "1".

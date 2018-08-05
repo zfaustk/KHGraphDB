@@ -1,6 +1,6 @@
 [package]
 name = "khgraphdb"
-version = "3.5.0"
+version = "3.6.0"
 authors = ["zfaustk"]
 license = "MIT"
 description = "A graph database. Vertex, Edge, Type."
