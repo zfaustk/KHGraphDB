@@ -123,6 +123,15 @@ fn clone_graph() {
 }
 
 #[test]
+fn snapshot_is_a_clone() {
+    let g = social();
+    let mut h = g.snapshot();
+    h.add_vertex(attrs("Eve"), Some("Person")).unwrap();
+    assert_eq!(g.vertex_count(), 3);
+    assert_eq!(h.vertex_count(), 4);
+}
+
+#[test]
 fn edge_index() {
     let mut g = social();
     let eids = g.edges_of_type("KNOWS");

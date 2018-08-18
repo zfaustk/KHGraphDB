@@ -62,6 +62,12 @@ impl Graph {
         &self.id
     }
 
+    /// A copy of the arena. Writes on the copy do not
+    /// touch the original. Transactions start here.
+    pub fn snapshot(&self) -> Graph {
+        self.clone()
+    }
+
     pub fn clear(&mut self) {
         self.serial = 0;
         self.vertices.clear();
