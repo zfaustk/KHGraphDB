@@ -10,6 +10,7 @@ pub use ty::Type;
 pub use prop::Prop;
 pub use khid::Khid;
 pub use query::{run as run_query, QueryResult, Val, Path};
+pub use tx::Tx;
 
 pub mod error;
 pub mod khid;
@@ -23,6 +24,7 @@ pub mod index;
 pub mod io;
 pub mod algo;
 pub mod query;
+pub mod tx;
 
 #[cfg(test)]
 mod tests;
