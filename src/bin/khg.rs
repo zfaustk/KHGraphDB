@@ -22,6 +22,7 @@ struct Shell {
     cat: Catalog,
     cur: String,
     params: HashMap<String, Prop>,
+    snap: Option<Graph>,
 }
 
 impl Shell {
@@ -35,6 +36,7 @@ impl Shell {
             cat: cat,
             cur: "g1".to_string(),
             params: HashMap::new(),
+            snap: None,
         }
     }
 
@@ -81,6 +83,10 @@ impl Shell {
             return true;
         }
         if line.starts_with(".use ") {
+            if self.snap.is_some() {
+                println!("in a transaction");
+                return true;
+            }
             let name = line[5..].trim();
             if self.cat.graph(name).is_none() {
                 println!("no graph {}", name);
@@ -141,6 +147,44 @@ impl Shell {
             }
             return true;
         }
+        if line == ":begin" {
+            if self.snap.is_some() {
+                println!("already in a transaction");
+                return true;
+            }
+            match self.cat.graph_mut(&self.cur) {
+                Some(g) => {
+                    self.snap = Some(g.snapshot());
+                    println!("begin");
+                }
+                None => println!("no graph {}", self.cur),
+            }
+            return true;
+        }
+        if line == ":commit" {
+            if self.snap.is_none() {
+                println!("no transaction");
+            } else {
+                self.snap = None;
+                println!("commit");
+            }
+            return true;
+        }
+        if line == ":rollback" {
+            match self.snap.take() {
+                Some(s) => {
+                    match self.cat.graph_mut(&self.cur) {
+                        Some(g) => {
+                            *g = s;
+                            println!("rollback");
+                        }
+                        None => println!("no graph {}", self.cur),
+                    }
+                }
+                None => println!("no transaction"),
+            }
+            return true;
+        }
         if line.starts_with('.') {
             println!("unknown command");
             return true;
@@ -163,6 +207,7 @@ fn print_help() {
     println!(".load FILE   .save FILE");
     println!(".graphs      .use NAME      .create NAME   .drop NAME");
     println!(":param NAME VALUE    :params");
+    println!(":begin :commit :rollback");
     println!(".help        .quit");
     println!("MATCH still takes the current graph.");
 }
@@ -383,6 +428,32 @@ mod tests {
         assert_eq!(sh.cur, "other");
         assert!(sh.one(".use social"));
         assert_eq!(sh.cur, "social");
+        let g = sh.graph_mut().unwrap();
+        assert!(g.vertex_by_name("Ada").is_some());
+    }
+
+    #[test]
+    fn begin_rollback() {
+        let mut sh = Shell::new();
+        assert!(sh.one("CREATE (a:Person {name:'Ada'})"));
+        assert!(sh.one(":begin"));
+        assert!(sh.one("CREATE (b:Person {name:'Bob'})"));
+        {
+            let g = sh.graph_mut().unwrap();
+            assert_eq!(g.vertex_count(), 2);
+        }
+        assert!(sh.one(":rollback"));
+        let g = sh.graph_mut().unwrap();
+        assert_eq!(g.vertex_count(), 1);
+        assert!(g.vertex_by_name("Bob").is_none());
+    }
+
+    #[test]
+    fn begin_commit() {
+        let mut sh = Shell::new();
+        assert!(sh.one(":begin"));
+        assert!(sh.one("CREATE (a:Person {name:'Ada'})"));
+        assert!(sh.one(":commit"));
         let g = sh.graph_mut().unwrap();
         assert!(g.vertex_by_name("Ada").is_some());
     }
