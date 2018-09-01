@@ -43,9 +43,10 @@ struct Pattern {
 
 #[derive(Clone)]
 struct RetItem {
-    kind: i32, // 0 col, 1 count, 2 collect, 3 length, 4 nodes, 5 rels
+    kind: i32, // 0 col, 1 count, 2 collect, 3 length, 4 nodes, 5 rels, 6 prop
     name: String,
     alias: String,
+    key: Option<String>,
 }
 
 #[derive(Clone)]
@@ -134,27 +135,35 @@ pub enum Val {
     Id(String),
     Path(Path),
     List(Vec<Val>),
+    Prop(Prop),
 }
 
 impl Val {
     pub fn as_id(&self) -> Option<&str> {
         match *self {
             Val::Id(ref s) => Some(&s[..]),
-            Val::Path(_) | Val::List(_) => None,
+            Val::Path(_) | Val::List(_) | Val::Prop(_) => None,
         }
     }
 
     pub fn as_path(&self) -> Option<&Path> {
         match *self {
             Val::Path(ref p) => Some(p),
-            Val::Id(_) | Val::List(_) => None,
+            Val::Id(_) | Val::List(_) | Val::Prop(_) => None,
         }
     }
 
     pub fn as_list(&self) -> Option<&[Val]> {
         match *self {
             Val::List(ref v) => Some(&v[..]),
-            Val::Id(_) | Val::Path(_) => None,
+            Val::Id(_) | Val::Path(_) | Val::Prop(_) => None,
+        }
+    }
+
+    pub fn as_prop(&self) -> Option<&Prop> {
+        match *self {
+            Val::Prop(ref p) => Some(p),
+            Val::Id(_) | Val::Path(_) | Val::List(_) => None,
         }
     }
 }

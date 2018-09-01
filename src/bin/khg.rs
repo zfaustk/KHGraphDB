@@ -288,6 +288,7 @@ fn fmt_cell(v: &Option<Val>) -> String {
             s.push(']');
             s
         }
+        Some(Val::Prop(ref p)) => p.as_display(),
     }
 }
 

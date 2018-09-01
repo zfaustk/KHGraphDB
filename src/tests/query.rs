@@ -511,6 +511,25 @@ fn val_list() {
 }
 
 #[test]
+fn val_prop() {
+    let v = super::super::Val::Prop(super::super::Prop::from_int(36));
+    assert_eq!(v.as_prop().and_then(|p| p.as_int()), Some(36));
+    assert!(v.as_id().is_none());
+}
+
+#[test]
+fn return_prop() {
+    let mut g = social();
+    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    let r = super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) RETURN a.age");
+    assert!(r.ok);
+    assert_eq!(r.columns, vec!["a.age".to_string()]);
+    assert_eq!(r.rows.len(), 1);
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_int()),
+               Some(36));
+}
+
+#[test]
 fn path_is_khid() {
     let p = super::super::Path::parse_all(&[
         "k1".to_string(),

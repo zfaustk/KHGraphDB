@@ -313,7 +313,7 @@ fn path_fn(path: Option<&Path>, kind: i32) -> Option<Val> {
     None
 }
 
-pub(crate) fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
+pub(crate) fn project(g: &Graph, src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
     let mut agg = false;
     for c in cols.iter() {
         if c.kind == 1 || c.kind == 2 {
@@ -338,6 +338,13 @@ pub(crate) fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
                         Some(i) => nr.push(row.get(i).cloned().unwrap_or(None)),
                         None => nr.push(None),
                     }
+                } else if kind == 6 {
+                    let key = match cols[ci].key {
+                        Some(ref k) => k.clone(),
+                        None => String::new(),
+                    };
+                    nr.push(lookup_attr(g, &src.columns, row, &cols[ci].name, &key)
+                        .map(Val::Prop));
                 } else {
                     let path = match *pos {
                         Some(i) => row.get(i).and_then(|x| x.as_ref()).and_then(|v| v.as_path()),
@@ -367,6 +374,12 @@ pub(crate) fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
                     Some(i) => key.push(row.get(i).cloned().unwrap_or(None)),
                     None => key.push(None),
                 }
+            } else if c.kind == 6 {
+                let k = match c.key {
+                    Some(ref s) => s.clone(),
+                    None => String::new(),
+                };
+                key.push(lookup_attr(g, &src.columns, row, &c.name, &k).map(Val::Prop));
             }
         }
         let mut found = None;
@@ -415,7 +428,7 @@ pub(crate) fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
         let mut ki = 0;
         let mut bi = 0;
         for c in cols.iter() {
-            if c.kind == 0 {
+            if c.kind == 0 || c.kind == 6 {
                 nr.push(key.get(ki).cloned().unwrap_or(None));
                 ki += 1;
             } else if c.kind == 2 {
@@ -435,7 +448,7 @@ pub(crate) fn project(src: &QueryResult, cols: &Vec<RetItem>) -> QueryResult {
     if groups.is_empty() && src.rows.is_empty() {
         let mut nr = Vec::new();
         for c in cols.iter() {
-            if c.kind == 0 {
+            if c.kind == 0 || c.kind == 6 {
                 nr.push(None);
             } else if c.kind == 2 {
                 nr.push(Some(Val::List(Vec::new())));
