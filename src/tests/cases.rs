@@ -205,6 +205,7 @@ fn cell_text(g: &Graph, v: &Option<Val>) -> String {
         }
         Some(Val::Path(ref p)) => format!("path:{}", p.hops()),
         Some(Val::List(ref xs)) => format!("list:{}", xs.len()),
+        Some(Val::Prop(ref p)) => p.as_display(),
     }
 }
 

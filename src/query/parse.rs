@@ -437,7 +437,7 @@ impl Parser {
                 let cols = self.parse_return()?;
                 match last {
                     Some(src) => {
-                        let mut r = project(&src, &cols);
+                        let mut r = project(g, &src, &cols);
                         if distinct {
                             r = distinct_rows(r);
                         }
@@ -456,7 +456,7 @@ impl Parser {
                 let cols = self.parse_return()?;
                 match last {
                     Some(src) => {
-                        let mut r = project(&src, &cols);
+                        let mut r = project(g, &src, &cols);
                         if distinct {
                             r = distinct_rows(r);
                         }
@@ -876,6 +876,7 @@ impl Parser {
                 kind: 1,
                 name: name,
                 alias: alias,
+                key: None,
             });
         }
         if self.ident_is("COLLECT") {
@@ -893,6 +894,7 @@ impl Parser {
                 kind: 2,
                 name: name,
                 alias: alias,
+                key: None,
             });
         }
         if self.ident_is("LENGTH") || self.ident_is("NODES") || self.ident_is("RELATIONSHIPS") {
@@ -918,9 +920,26 @@ impl Parser {
                 kind: kind,
                 name: name,
                 alias: alias,
+                key: None,
             });
         }
         let name = self.expect_ident()?;
+        if self.kind() == TokenKind::Dot {
+            self.next();
+            let key = self.expect_ident()?;
+            let alias = if self.ident_is("AS") {
+                self.next();
+                self.expect_ident()?
+            } else {
+                format!("{}.{}", name, key)
+            };
+            return Ok(RetItem {
+                kind: 6,
+                name: name,
+                alias: alias,
+                key: Some(key),
+            });
+        }
         if self.ident_is("AS") {
             self.next();
             let alias = self.expect_ident()?;
@@ -928,12 +947,14 @@ impl Parser {
                 kind: 0,
                 name: name,
                 alias: alias,
+                key: None,
             })
         } else {
             Ok(RetItem {
                 kind: 0,
                 name: name.clone(),
                 alias: name,
+                key: None,
             })
         }
     }
