@@ -1,0 +1,61 @@
+## return age
+.graph
+N Person Alice age=36
+N Person Bob age=20
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.age
+.expect
+rows 1
+a.age
+36
+
+## return age alias
+.graph
+N Person Alice age=36
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.age AS years
+.expect
+rows 1
+years
+36
+
+## return name str
+.graph
+N Person Alice
+N Person Bob
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.name
+.expect
+rows 1
+a.name
+Alice
+
+## int not str
+.graph
+N Person Alice age=36
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.age
+.expect
+rows 1
+a.age
+36
+
+## missing prop
+.graph
+N Person Alice
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.age
+.expect
+rows 1
+a.age
+
+
+## bool prop
+.graph
+N Person Alice alive=true
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.alive
+.expect
+rows 1
+a.alive
+true

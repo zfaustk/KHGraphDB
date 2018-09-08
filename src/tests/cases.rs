@@ -335,3 +335,8 @@ fn cases_merge() {
 fn cases_explain() {
     run_src(include_str!("data/explain.txt"));
 }
+
+#[test]
+fn cases_prop() {
+    run_src(include_str!("data/prop.txt"));
+}
