@@ -666,3 +666,14 @@ fn param_unknown() {
     assert!(r.message.contains("unknown param $n"));
 }
 
+#[test]
+fn merge_on_match_set_prop() {
+    let mut g = social();
+    let r = super::super::query::run(&mut g,
+        "MERGE (p:Person {name:'Alice'}) ON MATCH SET p.city = 'Paris' RETURN p.city");
+    assert!(r.ok);
+    assert_eq!(r.rows.len(), 1);
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()),
+               Some("Paris"));
+}
+

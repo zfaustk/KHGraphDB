@@ -49,3 +49,23 @@ MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Bob'})
 rows 1
 a | b
 Alice | Bob
+
+## merge on match
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Alice'}) ON MATCH SET p.city = 'Paris' RETURN p.city
+.expect
+rows 1
+p.city
+Paris
+
+## merge on create born
+.graph
+N Person Alice
+.query
+MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = 1815 RETURN p.born
+.expect
+rows 1
+p.born
+1815
