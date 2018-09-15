@@ -224,6 +224,26 @@ fn unique_name() {
 }
 
 #[test]
+fn unique_backfill_rejects_dup() {
+    let mut g = Graph::new();
+    g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+    g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+    assert_eq!(g.vertex_count(), 2);
+    assert!(!g.create_unique("Person", "name"));
+}
+
+#[test]
+fn unique_int_keeps_tag() {
+    let mut g = Graph::new();
+    g.create_unique("Person", "born");
+    let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
+    g.set_prop(&a, "born", super::super::Prop::from_int(1815)).unwrap();
+    let b = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
+    assert!(g.set_prop(&b, "born", super::super::Prop::from_int(1815)).is_err());
+    assert!(g.set_prop(&b, "born", super::super::Prop::from_str("1815")).is_ok());
+}
+
+#[test]
 fn vertex_stores_int() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
