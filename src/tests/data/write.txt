@@ -98,3 +98,33 @@ MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) SET e.since = 2011 RETURN a, b
 rows 1
 a | b
 Alice | Bob
+
+## create return born
+.graph
+.query
+CREATE (a:Person {name:'Ada', born:1815}) RETURN a.born
+.expect
+rows 1
+a.born
+1815
+
+## set two keys
+.graph
+N Person Alice
+.query
+MATCH (a:Person {name:'Alice'}) SET a.city = 'London', a.age = 36 RETURN a.city, a.age
+.expect
+rows 1
+a.city | a.age
+London | 36
+
+## delete edge
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) DELETE e
+.expect
+rows 0
+a | e | b
