@@ -29,3 +29,18 @@ a | Person | k2
 plan | Filter | Filter
 op | Seed |
 op | Filter |
+
+## explain project limit
+.stable
+.graph
+N Person Alice
+.query
+EXPLAIN MATCH (a:Person) RETURN a LIMIT 1
+.expect
+rows 5
+slot | name | khid
+a | Person | k2
+plan | Limit | Limit 1
+op | Seed |
+op | Project |
+op | Limit |

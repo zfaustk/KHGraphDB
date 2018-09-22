@@ -386,6 +386,38 @@ impl Parser {
                 self.next();
                 pat.pred = Some(self.parse_where()?);
             }
+            if self.ident_is("RETURN") {
+                self.next();
+                if self.ident_is("DISTINCT") {
+                    self.next();
+                }
+                let _cols = self.parse_return()?;
+                pat.project = true;
+                if self.ident_is("ORDER") {
+                    self.next();
+                    if !self.ident_is("BY") {
+                        return Err(self.err_here("expected BY"));
+                    }
+                    self.next();
+                    let _ = self.parse_order()?;
+                }
+                if self.ident_is("SKIP") {
+                    self.next();
+                    if self.kind() != TokenKind::Number {
+                        return Err(self.err_here("expected number"));
+                    }
+                    self.next();
+                }
+                if self.ident_is("LIMIT") {
+                    self.next();
+                    if self.kind() != TokenKind::Number {
+                        return Err(self.err_here("expected number"));
+                    }
+                    let n = parse_usize(&self.text())?;
+                    self.next();
+                    pat.limit = Some(n);
+                }
+            }
             return exec_explain(g, &pat);
         }
         while self.kind() != TokenKind::Eof {
@@ -549,6 +581,8 @@ impl Parser {
             on_create: Vec::new(),
             on_match: Vec::new(),
             pred: None,
+            project: false,
+            limit: None,
         };
         pat.nodes.push(self.parse_node()?);
         loop {
