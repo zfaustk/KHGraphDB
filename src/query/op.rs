@@ -22,8 +22,8 @@ pub enum Op {
         inner: Box<Op>,
     },
     Filter { pred: Expr, inner: Box<Op> },
-    Project,
-    Limit { n: usize },
+    Project { inner: Box<Op> },
+    Limit { n: usize, inner: Box<Op> },
     Optional { inner: Box<Op> },
     Shortest,
 }
@@ -34,7 +34,7 @@ impl Op {
             Op::Seed { .. } => "Seed",
             Op::Expand { .. } => "Expand",
             Op::Filter { .. } => "Filter",
-            Op::Project => "Project",
+            Op::Project { .. } => "Project",
             Op::Limit { .. } => "Limit",
             Op::Optional { .. } => "Optional",
             Op::Shortest => "Shortest",
@@ -63,8 +63,8 @@ impl Op {
                 format!("Expand {} -[{}]{} {}", from, rel, arrow, to)
             }
             Op::Filter { .. } => "Filter".to_string(),
-            Op::Project => "Project".to_string(),
-            Op::Limit { n } => format!("Limit {}", n),
+            Op::Project { .. } => "Project".to_string(),
+            Op::Limit { n, .. } => format!("Limit {}", n),
             Op::Optional { ref inner } => format!("Optional ({})", inner.kind()),
             Op::Shortest => "Shortest".to_string(),
         }
@@ -74,7 +74,9 @@ impl Op {
         match *self {
             Op::Expand { ref inner, .. } |
             Op::Optional { ref inner } |
-            Op::Filter { ref inner, .. } => {
+            Op::Filter { ref inner, .. } |
+            Op::Project { ref inner } |
+            Op::Limit { ref inner, .. } => {
                 inner.push_kinds(v);
             }
             _ => {}
@@ -118,6 +120,15 @@ pub fn compile(pat: &Pattern) -> Op {
     if let Some(ref pred) = pat.pred {
         op = Op::Filter {
             pred: pred.clone(),
+            inner: Box::new(op),
+        };
+    }
+    if pat.project {
+        op = Op::Project { inner: Box::new(op) };
+    }
+    if let Some(n) = pat.limit {
+        op = Op::Limit {
+            n: n,
             inner: Box::new(op),
         };
     }
@@ -218,7 +229,14 @@ fn exec_op(g: &Graph,
             }
             out
         }
-        Op::Project | Op::Limit { .. } => Vec::new(),
+        Op::Project { ref inner } => exec_op(g, pat, inner, seed),
+        Op::Limit { n, ref inner } => {
+            let mut rows = exec_op(g, pat, inner, seed);
+            if rows.len() > n {
+                rows.truncate(n);
+            }
+            rows
+        }
     }
 }
 
@@ -507,8 +525,23 @@ mod tests {
         };
         assert_eq!(e.kind(), "Expand");
         assert_eq!(dummy_filter().kind(), "Filter");
-        assert_eq!(Op::Project.kind(), "Project");
-        assert_eq!(Op::Limit { n: 1 }.kind(), "Limit");
+        assert_eq!(Op::Project {
+                       inner: Box::new(Op::Seed {
+                           var: "a".to_string(),
+                           node: 0,
+                       }),
+                   }
+                   .kind(),
+                   "Project");
+        assert_eq!(Op::Limit {
+                       n: 1,
+                       inner: Box::new(Op::Seed {
+                           var: "a".to_string(),
+                           node: 0,
+                       }),
+                   }
+                   .kind(),
+                   "Limit");
         assert_eq!(Op::Shortest.kind(), "Shortest");
     }
 

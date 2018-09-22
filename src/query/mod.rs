@@ -39,6 +39,8 @@ struct Pattern {
     on_create: Vec<(String, String, Prop)>,
     on_match: Vec<(String, String, Prop)>,
     pred: Option<Expr>,
+    project: bool,
+    limit: Option<usize>,
 }
 
 #[derive(Clone)]
