@@ -73,3 +73,34 @@ E KNOWS Alice Bob
 MERGE (a:Person {name:'Alice'})-[:KNOWS*]->(b)
 .expect
 ERR MERGE length
+
+## with without match
+.graph
+N Person Alice
+.query
+WITH a RETURN a
+.expect
+ERR WITH without MATCH near RETURN
+
+## delete without match
+.graph
+N Person Alice
+.query
+DELETE a
+.expect
+ERR DELETE without MATCH at end
+
+## create empty
+.graph
+.query
+CREATE
+.expect
+ERR unexpected token at end
+
+## merge without match set
+.graph
+N Person Alice
+.query
+ON CREATE SET a.x = 1
+.expect
+ERR expected MATCH near ON
