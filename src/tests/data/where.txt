@@ -141,3 +141,25 @@ MATCH (a:Person) WHERE a.name != 'Alice'
 rows 1
 a
 Bob
+
+## where ne diamond
+.graph
+N Person Alice
+N Person Bob
+.query
+MATCH (a:Person) WHERE a.name <> 'Alice'
+.expect
+rows 1
+a
+Bob
+
+## where float
+.graph
+N Person Alice score=1.5
+N Person Bob score=0.5
+.query
+MATCH (a:Person) WHERE a.score > 1.0
+.expect
+rows 1
+a
+Alice
