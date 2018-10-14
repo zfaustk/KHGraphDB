@@ -182,6 +182,15 @@ impl Lexer {
         while self.i < self.s.len() && self.s[self.i].is_digit(10) {
             self.i += 1;
         }
+        if self.i < self.s.len() && self.s[self.i] == '.' {
+            let nxt = self.i + 1;
+            if nxt < self.s.len() && self.s[nxt].is_digit(10) {
+                self.i += 1;
+                while self.i < self.s.len() && self.s[self.i].is_digit(10) {
+                    self.i += 1;
+                }
+            }
+        }
         let t: String = self.s[start..self.i].iter().cloned().collect();
         Ok(tok(TokenKind::Number, &t))
     }
@@ -307,9 +316,16 @@ impl Parser {
             TokenKind::Number => {
                 let t = self.text();
                 self.next();
-                match t.parse::<i64>() {
-                    Ok(n) => Ok(Prop::from_int(n)),
-                    Err(_) => Err(Error::new("bad number")),
+                if t.contains('.') {
+                    match t.parse::<f64>() {
+                        Ok(n) => Ok(Prop::from_float(n)),
+                        Err(_) => Err(Error::new("bad number")),
+                    }
+                } else {
+                    match t.parse::<i64>() {
+                        Ok(n) => Ok(Prop::from_int(n)),
+                        Err(_) => Err(Error::new("bad number")),
+                    }
                 }
             }
             TokenKind::Ident => {

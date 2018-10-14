@@ -59,3 +59,13 @@ MATCH (a:Person {name:'Alice'}) RETURN a.alive
 rows 1
 a.alive
 true
+
+## return float
+.graph
+N Person Alice score=1.5
+.query
+MATCH (a:Person {name:'Alice'}) RETURN a.score
+.expect
+rows 1
+a.score
+1.5

@@ -633,6 +633,16 @@ fn create_int_prop() {
 }
 
 #[test]
+fn create_float_prop() {
+    let mut g = Graph::new();
+    let r = super::super::query::run(&mut g, "CREATE (a:Person {name:'Ada', score:1.5})");
+    assert!(r.ok);
+    let ada = g.vertex_by_name("Ada").unwrap();
+    assert_eq!(ada.get_prop("score").and_then(|p| p.as_float()), Some(1.5));
+    assert!(ada.get("score").is_none());
+}
+
+#[test]
 fn param_str() {
     let mut g = social();
     let mut p = std::collections::HashMap::new();
