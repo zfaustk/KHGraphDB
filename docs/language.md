@@ -39,7 +39,17 @@ shortestPath is hop-count BFS.
 
 MATCH compiles to operators. EXPLAIN MATCH prints Seed,
 Expand, Filter, Optional, Shortest. WHERE on a first MATCH
-is Filter. A second MATCH still joins, then WHERE filters
+is Filter. RETURN and LIMIT are named on the plan.
+A second MATCH still joins, then WHERE filters
 the table.
+
+`RETURN a.age` is a Prop. 1 is not "1". A number with
+a dot is Float. `$name` is a parameter. MERGE ON MATCH
+SET can RETURN the tagged property.
+
+A transaction clones the arena. Drop restores the clone
+unless commit forgot it. khg `:begin` `:commit` `:rollback`.
+
+See `docs/pipeline.md`.
 
 No crates.io. rustc 1.18.
