@@ -51,3 +51,35 @@ fn weighted_shortest() {
     assert_eq!(s, vec![a.clone(), b.clone(), c.clone()]);
 }
 
+#[test]
+fn cycle_is_true() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("N")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
+    g.add_edge(&a, &b, Some("E")).unwrap();
+    g.add_edge(&b, &a, Some("E")).unwrap();
+    assert!(super::super::algo::has_cycle(&g));
+}
+
+#[test]
+fn nearby_depth_one() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("N")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
+    let c = g.add_vertex(attrs("C"), Some("N")).unwrap();
+    g.add_edge(&a, &b, Some("E")).unwrap();
+    g.add_edge(&b, &c, Some("E")).unwrap();
+    let near = super::super::algo::nearby(&g, &a, 1);
+    assert_eq!(near, vec![b.clone()]);
+}
+
+#[test]
+fn path_missing() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("N")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
+    assert!(super::super::algo::path(&g, &a, &b).is_none());
+    assert_eq!(super::super::algo::path(&g, &a, &a).unwrap(), vec![a.clone()]);
+}
+
+
