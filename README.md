@@ -41,6 +41,7 @@ cargo run --bin khg -- graph.khg
 ```
 
 Dot commands: `.load` `.save` `.graphs` `.use` `.create` `.drop`.
+`:param` `:params` `:begin` `:commit` `:rollback`.
 A line that is not a dot is MATCH (or CREATE, MERGE, …) on
 the current graph. Catalog holds the rest.
 
@@ -65,9 +66,11 @@ MATCH p = shortestPath((a)-[:KNOWS*]->(b))
 MATCH (a)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b
 OPTIONAL MATCH (a:Person {name:'Ada'})-[:KNOWS]->(b)
 CREATE (a:Person {name:'Ada'})-[:KNOWS]->(b:Person {name:'Bob'})
-MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = '1815'
+MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = 1815
 WITH, UNWIND, ORDER BY, SKIP, LIMIT, DISTINCT, count, collect
-EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)
+RETURN a.age
+EXPLAIN MATCH (a:Person)-[:KNOWS]->(b) RETURN b LIMIT 1
+$param
 ```
 
 See `docs/type.md` and `docs/language.md`. Type is still
