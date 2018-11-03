@@ -104,6 +104,17 @@ fn catalog_two_graphs() {
 }
 
 #[test]
+fn catalog_drop() {
+    let mut cat = super::super::Catalog::new();
+    cat.create("social").unwrap();
+    cat.create("other").unwrap();
+    assert!(cat.drop("other"));
+    assert!(!cat.drop("other"));
+    assert!(cat.graph("social").is_some());
+    assert!(cat.graph("other").is_none());
+}
+
+#[test]
 fn clear_graph() {
     let mut g = social();
     g.clear();
