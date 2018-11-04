@@ -458,4 +458,25 @@ mod tests {
         let g = sh.graph_mut().unwrap();
         assert!(g.vertex_by_name("Ada").is_some());
     }
+
+    #[test]
+    fn param_then_match() {
+        let mut sh = Shell::new();
+        assert!(sh.one("CREATE (a:Person {name:'Ada'})"));
+        assert!(sh.one(":param n Ada"));
+        assert!(sh.one("MATCH (a:Person {name:$n})"));
+        let g = sh.graph_mut().unwrap();
+        assert!(g.vertex_by_name("Ada").is_some());
+    }
+
+    #[test]
+    fn use_refused_in_tx() {
+        let mut sh = Shell::new();
+        assert!(sh.one(".create other"));
+        assert!(sh.one(".use g1"));
+        assert!(sh.one(":begin"));
+        assert!(sh.one(".use other"));
+        assert_eq!(sh.cur, "g1");
+        assert!(sh.one(":rollback"));
+    }
 }
