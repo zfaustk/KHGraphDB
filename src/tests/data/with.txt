@@ -35,3 +35,28 @@ MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) MATCH (b)-[:KNOWS]->(c) RETURN a, 
 rows 1
 a | b | c
 Alice | Bob | Carol
+
+## with distinct
+.graph
+N Person Alice
+N Person Bob
+N Person Carol
+E KNOWS Alice Bob
+E KNOWS Alice Carol
+.query
+MATCH (a:Person)-[:KNOWS]->(b) WITH DISTINCT a RETURN a
+.expect
+rows 1
+a
+Alice
+
+## unwind after match
+.graph
+N Person Alice
+.query
+MATCH (a:Person {name:'Alice'}) UNWIND ['x', 'y'] AS t RETURN a, t
+.expect
+rows 2
+a | t
+Alice | x
+Alice | y
