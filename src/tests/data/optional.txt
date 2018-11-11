@@ -47,3 +47,15 @@ MATCH (a:Person {name:'Carol'}) OPTIONAL MATCH (a)-[:KNOWS]->(b) RETURN a, b
 rows 1
 a | b
 Carol |
+
+## optional return
+.graph
+N Person Alice
+N Person Bob
+E KNOWS Alice Bob
+.query
+OPTIONAL MATCH (a:Person {name:'Ada'}) RETURN a
+.expect
+rows 1
+a
+
