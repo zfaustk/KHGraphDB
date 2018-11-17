@@ -14,5 +14,8 @@ walk can start from the Type's own edge list. EXPLAIN
 prints the bound Type KHID. Graph::named is the graph's
 own KHID, not a Type.
 
+An edge's source, target, and type are Khid. A vertex
+wears Type as Khid. The print form is Display.
+
 This is the DNA. Do not flatten Type into a string to
 look more like Cypher.
