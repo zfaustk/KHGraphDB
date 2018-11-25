@@ -525,11 +525,15 @@ impl Graph {
     }
 
     pub fn vertex_ids(&self) -> Vec<String> {
+        Khid::display_all(&self.vertex_ids_k())
+    }
+
+    pub fn vertex_ids_k(&self) -> Vec<Khid> {
         let mut out = Vec::new();
         let mut i = 1;
         while i < self.vertices.len() {
             if self.vertices[i].is_some() {
-                out.push(disp(Khid::from_raw(i as u64)));
+                out.push(Khid::from_raw(i as u64));
             }
             i += 1;
         }
