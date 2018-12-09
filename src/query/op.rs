@@ -3,8 +3,8 @@
 //! to a tree of these; hop DFS for `*` stays a
 //! stack of depth at most 16.
 
-use super::super::graph::Graph;
-use super::super::prop::Prop;
+use crate::graph::Graph;
+use crate::prop::Prop;
 use super::scan;
 use super::{Expr, Pattern, QueryResult};
 
@@ -373,7 +373,7 @@ fn exec_shortest_rows(g: &Graph,
             if !scan::seed_ok(seed, &pat.nodes[1], t) {
                 continue;
             }
-            match super::super::algo::path_on(g, s, t, tid, rel.dir, rel.min, rel.max) {
+            match crate::algo::path_on(g, s, t, tid, rel.dir, rel.min, rel.max) {
                 Some(path) => {
                     let mut bind = vec![None; pat.nodes.len()];
                     bind[0] = Some(s.clone());
@@ -491,7 +491,7 @@ fn cmp_prop(got: &Prop, val: &Prop, op: i32) -> bool {
 mod tests {
     use super::Op;
     use super::Expr;
-    use super::super::super::prop::Prop;
+    use crate::prop::Prop;
 
     fn dummy_filter() -> Op {
         Op::Filter {

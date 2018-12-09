@@ -2,9 +2,9 @@
 //! index when a keyed property is present. The walk
 //! used to own this; the operators borrow it.
 
-use super::super::graph::Graph;
-use super::super::khid::Khid;
-use super::super::prop::Prop;
+use crate::graph::Graph;
+use crate::khid::Khid;
+use crate::prop::Prop;
 use super::{NodePat, Path, Pattern, QueryResult, RelPat, Val};
 
 /// Fill missing node names so a flip cannot rename n0 to n1.
