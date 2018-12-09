@@ -2,10 +2,10 @@
 //! in op.rs. CREATE, SET, DELETE, MERGE, WHERE, RETURN
 //! still live here: they take a table of rows.
 
-use super::super::error::{Error, Result};
-use super::super::graph::Graph;
-use super::super::khid::Khid;
-use super::super::prop::Prop;
+use crate::error::{Error, Result};
+use crate::graph::Graph;
+use crate::khid::Khid;
+use crate::prop::Prop;
 use super::{Expr, NodePat, Path, Pattern, QueryResult, RetItem, Val};
 use super::scan;
 use super::op;

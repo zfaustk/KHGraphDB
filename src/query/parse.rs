@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use super::super::error::{Error, Result};
-use super::super::graph::Graph;
-use super::super::prop::Prop;
+use crate::error::{Error, Result};
+use crate::graph::Graph;
+use crate::prop::Prop;
 use super::{Expr, NodePat, Pattern, QueryResult, RelPat, RetItem, Val};
 use super::walk::{distinct_rows, exec_create, exec_delete, exec_explain, exec_match, exec_merge, exec_remove, exec_set, exec_unwind, filter_where, limit_rows, order_by, project, skip_rows};
 
