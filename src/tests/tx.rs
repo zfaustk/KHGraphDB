@@ -1,6 +1,6 @@
 //! Transaction tests. Drop rolls back. commit keeps the write.
 
-use super::super::{query, Graph, Tx};
+use crate::{query, Graph, Tx};
 use super::common::{attrs, social};
 
 #[test]

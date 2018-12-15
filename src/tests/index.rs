@@ -1,8 +1,8 @@
 //! The index posts Khid, not a letter string as identity.
 
-use super::super::index::SchemaIndex;
-use super::super::khid::Khid;
-use super::super::prop::Prop;
+use crate::index::SchemaIndex;
+use crate::khid::Khid;
+use crate::prop::Prop;
 
 #[test]
 fn posting_is_khid() {

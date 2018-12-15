@@ -1,7 +1,7 @@
 //! Shared fixtures.
 
 use std::collections::HashMap;
-use super::super::Graph;
+use crate::Graph;
 
 pub fn attrs(name: &str) -> HashMap<String, String> {
     let mut m = HashMap::new();

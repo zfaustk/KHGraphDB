@@ -1,6 +1,6 @@
 //! Khid is a u64. The letters are only Display.
 
-use super::super::Khid;
+use crate::Khid;
 
 #[test]
 fn display_is_k_hex() {
