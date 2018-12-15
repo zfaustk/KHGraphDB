@@ -1,6 +1,6 @@
 //! algo tests.
 
-use super::super::Graph;
+use crate::Graph;
 use super::common::attrs;
 
 #[test]
@@ -12,15 +12,15 @@ fn bfs_and_dijkstra() {
     g.add_edge(&a, &b, Some("ROAD")).unwrap();
     g.add_edge(&b, &c, Some("ROAD")).unwrap();
     g.add_edge(&a, &c, Some("ROAD")).unwrap();
-    let near = super::super::algo::nearby(&g, &a, 2);
+    let near = crate::algo::nearby(&g, &a, 2);
     assert!(near.len() >= 1);
-    let p = super::super::algo::path(&g, &a, &c).unwrap();
+    let p = crate::algo::path(&g, &a, &c).unwrap();
     assert_eq!(p[0], a);
     assert_eq!(*p.last().unwrap(), c);
-    assert!(!super::super::algo::has_cycle(&g));
-    let s = super::super::algo::shortest(&g, &a, &c).unwrap();
+    assert!(!crate::algo::has_cycle(&g));
+    let s = crate::algo::shortest(&g, &a, &c).unwrap();
     assert_eq!(s.last().unwrap(), &c);
-    let comps = super::super::algo::components(&g);
+    let comps = crate::algo::components(&g);
     assert_eq!(comps.len(), 1);
 }
 
@@ -31,7 +31,7 @@ fn two_components() {
     let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
     g.add_vertex(attrs("C"), Some("N")).unwrap();
     g.add_edge(&a, &b, Some("E")).unwrap();
-    let comps = super::super::algo::components(&g);
+    let comps = crate::algo::components(&g);
     assert_eq!(comps.len(), 2);
 }
 
@@ -47,7 +47,7 @@ fn weighted_shortest() {
     g.set_edge_attr(&ab, "weight", "2");
     g.set_edge_attr(&bc, "weight", "2");
     g.set_edge_attr(&ac, "weight", "5");
-    let s = super::super::algo::shortest(&g, &a, &c).unwrap();
+    let s = crate::algo::shortest(&g, &a, &c).unwrap();
     assert_eq!(s, vec![a.clone(), b.clone(), c.clone()]);
 }
 
@@ -58,7 +58,7 @@ fn cycle_is_true() {
     let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
     g.add_edge(&a, &b, Some("E")).unwrap();
     g.add_edge(&b, &a, Some("E")).unwrap();
-    assert!(super::super::algo::has_cycle(&g));
+    assert!(crate::algo::has_cycle(&g));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn nearby_depth_one() {
     let c = g.add_vertex(attrs("C"), Some("N")).unwrap();
     g.add_edge(&a, &b, Some("E")).unwrap();
     g.add_edge(&b, &c, Some("E")).unwrap();
-    let near = super::super::algo::nearby(&g, &a, 1);
+    let near = crate::algo::nearby(&g, &a, 1);
     assert_eq!(near, vec![b.clone()]);
 }
 
@@ -78,8 +78,8 @@ fn path_missing() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("A"), Some("N")).unwrap();
     let b = g.add_vertex(attrs("B"), Some("N")).unwrap();
-    assert!(super::super::algo::path(&g, &a, &b).is_none());
-    assert_eq!(super::super::algo::path(&g, &a, &a).unwrap(), vec![a.clone()]);
+    assert!(crate::algo::path(&g, &a, &b).is_none());
+    assert_eq!(crate::algo::path(&g, &a, &a).unwrap(), vec![a.clone()]);
 }
 
 

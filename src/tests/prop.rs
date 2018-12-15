@@ -1,7 +1,7 @@
 //! Prop is a value. 1 is not "1".
 
 use std::collections::HashSet;
-use super::super::prop::Prop;
+use crate::prop::Prop;
 
 #[test]
 fn int_is_not_str() {

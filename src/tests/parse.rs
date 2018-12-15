@@ -1,7 +1,7 @@
 //! Parse errors. The token is named.
 
-use super::super::query;
-use super::super::Graph;
+use crate::query;
+use crate::Graph;
 
 fn err(q: &str) -> String {
     let mut g = Graph::new();

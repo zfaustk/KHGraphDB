@@ -1,12 +1,12 @@
 //! query tests.
 
-use super::super::Graph;
+use crate::Graph;
 use super::common::{attrs, social};
 
 #[test]
 fn collect_neighbors() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b) RETURN a, collect(b) AS ns");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -21,11 +21,11 @@ fn collect_neighbors() {
 #[test]
 fn count_star() {
     let mut g = social();
-    let r = super::super::query::run(&mut g, "MATCH (a:Person) RETURN count(a)");
+    let r = crate::query::run(&mut g, "MATCH (a:Person) RETURN count(a)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_id()), Some("3"));
-    let r2 = super::super::query::run(&mut g,
+    let r2 = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b) RETURN a, count(b)");
     assert_eq!(r2.rows.len(), 2);
 }
@@ -33,7 +33,7 @@ fn count_star() {
 #[test]
 fn create_comma() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "CREATE (a:Person {name:'Ada'}), (b:Person {name:'Bob'}), (a)-[:KNOWS]->(b)");
     assert!(r.ok);
     assert_eq!(g.vertex_count(), 2);
@@ -44,7 +44,7 @@ fn create_comma() {
 #[test]
 fn create_edge() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "CREATE (a:Person {name:'Ada'})-[:KNOWS]->(b:Person {name:'Bob'})");
     assert!(r.ok);
     assert_eq!(g.vertex_count(), 2);
@@ -55,7 +55,7 @@ fn create_edge() {
 #[test]
 fn create_node() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g, "CREATE (n:Person {name:'Ada'})");
+    let r = crate::query::run(&mut g, "CREATE (n:Person {name:'Ada'})");
     assert!(r.ok);
     assert_eq!(r.created, 1);
     assert_eq!(r.rows.len(), 1);
@@ -67,8 +67,8 @@ fn create_node() {
 #[test]
 fn delete_free_node() {
     let mut g = Graph::new();
-    super::super::query::run(&mut g, "CREATE (n:Person {name:'Solo'})");
-    let r = super::super::query::run(&mut g, "MATCH (n:Person {name:'Solo'}) DELETE n");
+    crate::query::run(&mut g, "CREATE (n:Person {name:'Solo'})");
+    let r = crate::query::run(&mut g, "MATCH (n:Person {name:'Solo'}) DELETE n");
     assert!(r.ok);
     assert_eq!(g.vertex_count(), 0);
 }
@@ -76,7 +76,7 @@ fn delete_free_node() {
 #[test]
 fn delete_refuses_edges() {
     let mut g = social();
-    let r = super::super::query::run(&mut g, "MATCH (n:Person {name:'Alice'}) DELETE n");
+    let r = crate::query::run(&mut g, "MATCH (n:Person {name:'Alice'}) DELETE n");
     assert!(!r.ok);
     assert_eq!(g.vertex_count(), 3);
 }
@@ -84,7 +84,7 @@ fn delete_refuses_edges() {
 #[test]
 fn detach_delete() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (n:Person {name:'Alice'}) DETACH DELETE n");
     assert!(r.ok);
     assert_eq!(g.vertex_count(), 2);
@@ -94,7 +94,7 @@ fn detach_delete() {
 #[test]
 fn distinct_names() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b) RETURN DISTINCT a");
     assert_eq!(r.rows.len(), 2);
 }
@@ -102,7 +102,7 @@ fn distinct_names() {
 #[test]
 fn explain_types() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)");
     assert!(r.ok);
     assert_eq!(r.columns, vec!["slot".to_string(), "name".to_string(), "khid".to_string()]);
@@ -121,7 +121,7 @@ fn explain_types() {
 #[test]
 fn match_keyed_end() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -135,7 +135,7 @@ fn match_keyed_end() {
 #[test]
 fn match_keyed_end_path() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH p = (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -154,7 +154,7 @@ fn match_keyed_end_scan() {
     let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
     g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
     assert!(!g.has_index("Person", "name"));
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -165,7 +165,7 @@ fn match_keyed_end_scan() {
 #[test]
 fn match_one_hop() {
     let mut g = social();
-    let r = super::super::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");
+    let r = crate::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b:Person)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
 }
@@ -173,7 +173,7 @@ fn match_one_hop() {
 #[test]
 fn match_path_bind() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH p = (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -194,20 +194,20 @@ fn match_path_bind() {
 #[test]
 fn match_rel_bind() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns, vec!["a".to_string(), "e".to_string(), "b".to_string()]);
     let e = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
     let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
-    assert_eq!(g.edge(e).unwrap().source(), super::super::Khid::parse(&alice).unwrap());
+    assert_eq!(g.edge(e).unwrap().source(), crate::Khid::parse(&alice).unwrap());
 }
 
 #[test]
 fn match_rel_star_list() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[e:KNOWS*1..2]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -232,26 +232,26 @@ fn match_shortest_hops() {
     g.set_edge_attr(&ab, "weight", "2");
     g.set_edge_attr(&bc, "weight", "2");
     g.set_edge_attr(&ac, "weight", "5");
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH p = shortestPath((x:City {name:'A'})-[:ROAD*]->(y:City {name:'C'}))");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
     assert_eq!(p.len(), 3);
     assert_eq!(p.hops(), 1);
-    assert_eq!(p[0], super::super::Khid::parse(&a).unwrap());
-    assert_eq!(p[1], super::super::Khid::parse(&ac).unwrap());
-    assert_eq!(p[2], super::super::Khid::parse(&c).unwrap());
+    assert_eq!(p[0], crate::Khid::parse(&a).unwrap());
+    assert_eq!(p[1], crate::Khid::parse(&ac).unwrap());
+    assert_eq!(p[2], crate::Khid::parse(&c).unwrap());
     assert_eq!(p.nodes(),
-               vec![super::super::Khid::parse(&a).unwrap(),
-                    super::super::Khid::parse(&c).unwrap()]);
-    assert_eq!(p.edges(), vec![super::super::Khid::parse(&ac).unwrap()]);
+               vec![crate::Khid::parse(&a).unwrap(),
+                    crate::Khid::parse(&c).unwrap()]);
+    assert_eq!(p.edges(), vec![crate::Khid::parse(&ac).unwrap()]);
 }
 
 #[test]
 fn match_shortest_none() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH p = shortestPath((a:Person {name:'Carol'})-[:KNOWS*]->(b:Person {name:'Alice'}))");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 0);
@@ -263,7 +263,7 @@ fn match_star_cycle_lid() {
     let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
     let carol = g.vertex_by_name("Carol").unwrap().khid().to_string();
     g.add_edge(&carol, &alice, Some("KNOWS")).unwrap();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS*1..8]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -272,7 +272,7 @@ fn match_star_cycle_lid() {
 #[test]
 fn match_star_exact() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS*2]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -281,7 +281,7 @@ fn match_star_exact() {
 #[test]
 fn match_star_hops() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -290,7 +290,7 @@ fn match_star_hops() {
 #[test]
 fn match_star_zero() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS*0..1]->(b:Person)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -299,21 +299,21 @@ fn match_star_zero() {
 #[test]
 fn match_unknown_rel() {
     let mut g = social();
-    let r = super::super::query::run(&mut g, "MATCH (a)-[:Nope]->(b)");
+    let r = crate::query::run(&mut g, "MATCH (a)-[:Nope]->(b)");
     assert!(!r.ok);
 }
 
 #[test]
 fn match_unknown_type() {
     let mut g = social();
-    let r = super::super::query::run(&mut g, "MATCH (n:Nope)");
+    let r = crate::query::run(&mut g, "MATCH (n:Nope)");
     assert!(!r.ok);
 }
 
 #[test]
 fn match_where() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
                              "MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice'");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -322,10 +322,10 @@ fn match_where() {
 #[test]
 fn merge_ada() {
     let mut g = social();
-    let r = super::super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
+    let r = crate::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
     assert!(r.ok);
     assert_eq!(r.message, "created");
-    let r2 = super::super::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
+    let r2 = crate::query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
     assert_eq!(r2.message, "exists");
     assert_eq!(g.vertex_count(), 4);
 }
@@ -333,12 +333,12 @@ fn merge_ada() {
 #[test]
 fn merge_edge() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Dan'})");
     assert!(r.ok);
     assert_eq!(g.vertex_count(), 4);
     assert_eq!(g.edge_count(), 3);
-    let r2 = super::super::query::run(&mut g,
+    let r2 = crate::query::run(&mut g,
         "MERGE (a:Person {name:'Alice'})-[:KNOWS]->(b:Person {name:'Dan'})");
     assert_eq!(r2.message, "exists");
     assert_eq!(g.edge_count(), 3);
@@ -348,11 +348,11 @@ fn merge_edge() {
 fn merge_on_create() {
     let mut g = Graph::new();
     g.create_index("Person", "name");
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = '1815'");
     assert!(r.ok);
     assert_eq!(g.vertex_by_name("Ada").unwrap().get("born"), Some("1815"));
-    let r2 = super::super::query::run(&mut g,
+    let r2 = crate::query::run(&mut g,
         "MERGE (p:Person {name:'Ada'}) ON CREATE SET p.born = 'x' ON MATCH SET p.hit = '1'");
     assert_eq!(r2.message, "exists");
     let ada = g.vertex_by_name("Ada").unwrap();
@@ -363,7 +363,7 @@ fn merge_on_create() {
 #[test]
 fn optional_nobody() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
                              "OPTIONAL MATCH (a:Person {name:'Nobody'})-[:KNOWS]->(b)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -372,7 +372,7 @@ fn optional_nobody() {
 #[test]
 fn order_by_name() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person) RETURN a ORDER BY a.name DESC");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 3);
@@ -383,16 +383,16 @@ fn order_by_name() {
 #[test]
 fn parse_names_the_token() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g, "MATCH (a:Person");
+    let r = crate::query::run(&mut g, "MATCH (a:Person");
     assert!(!r.ok);
     assert!(r.message.contains("at end"));
-    let r = super::super::query::run(&mut g, "MATCH (a) SET 1");
+    let r = crate::query::run(&mut g, "MATCH (a) SET 1");
     assert!(!r.ok);
     assert!(r.message.contains("near 1"));
-    let r = super::super::query::run(&mut g, "@nope");
+    let r = crate::query::run(&mut g, "@nope");
     assert!(!r.ok);
     assert!(r.message.contains("near @"));
-    let r = super::super::query::run(&mut g, "EXPLAIN CREATE (n)");
+    let r = crate::query::run(&mut g, "EXPLAIN CREATE (n)");
     assert!(!r.ok);
     assert!(r.message.contains("near CREATE"));
 }
@@ -400,7 +400,7 @@ fn parse_names_the_token() {
 #[test]
 fn path_functions() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH p = (a:Person {name:'Alice'})-[:KNOWS*1..2]->(b) RETURN length(p), nodes(p), relationships(p)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
@@ -415,8 +415,8 @@ fn path_functions() {
 #[test]
 fn remove_property() {
     let mut g = social();
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.city = 'London'");
-    let r = super::super::query::run(&mut g,
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.city = 'London'");
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'}) REMOVE a.city");
     assert!(r.ok);
     let alice = g.vertex_by_name("Alice").unwrap();
@@ -426,7 +426,7 @@ fn remove_property() {
 #[test]
 fn return_as() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) RETURN b AS friend");
     assert!(r.ok);
     assert_eq!(r.columns, vec!["friend".to_string()]);
@@ -436,7 +436,7 @@ fn return_as() {
 #[test]
 fn second_match() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS]->(b) MATCH (b)-[:KNOWS]->(c) RETURN a, b, c");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -448,7 +448,7 @@ fn second_match() {
 #[test]
 fn set_edge() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) SET e.since = '2011'");
     assert!(r.ok);
     let eids = g.edges_of_type("KNOWS");
@@ -464,7 +464,7 @@ fn set_edge() {
 #[test]
 fn set_property() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'}) SET a.city = 'London'");
     assert!(r.ok);
     let alice = g.vertex_by_name("Alice").unwrap();
@@ -474,7 +474,7 @@ fn set_property() {
 #[test]
 fn skip_limit() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person) RETURN a ORDER BY a.name SKIP 1 LIMIT 1");
     assert_eq!(r.rows.len(), 1);
     let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
@@ -484,7 +484,7 @@ fn skip_limit() {
 #[test]
 fn unwind_list() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g, "UNWIND ['Ada', 'Bob'] AS n RETURN n");
+    let r = crate::query::run(&mut g, "UNWIND ['Ada', 'Bob'] AS n RETURN n");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
     assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_id()), Some("Ada"));
@@ -493,7 +493,7 @@ fn unwind_list() {
 #[test]
 fn unwind_star() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[e:KNOWS*1..2]->(b) UNWIND e AS hop RETURN hop");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 3);
@@ -501,9 +501,9 @@ fn unwind_star() {
 
 #[test]
 fn val_list() {
-    let v = super::super::Val::List(vec![
-        super::super::Val::Id("k1".to_string()),
-        super::super::Val::Id("k2".to_string()),
+    let v = crate::Val::List(vec![
+        crate::Val::Id("k1".to_string()),
+        crate::Val::Id("k2".to_string()),
     ]);
     assert_eq!(v.as_list().unwrap().len(), 2);
     assert!(v.as_id().is_none());
@@ -512,7 +512,7 @@ fn val_list() {
 
 #[test]
 fn val_prop() {
-    let v = super::super::Val::Prop(super::super::Prop::from_int(36));
+    let v = crate::Val::Prop(crate::Prop::from_int(36));
     assert_eq!(v.as_prop().and_then(|p| p.as_int()), Some(36));
     assert!(v.as_id().is_none());
 }
@@ -520,8 +520,8 @@ fn val_prop() {
 #[test]
 fn return_prop() {
     let mut g = social();
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
-    let r = super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) RETURN a.age");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    let r = crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) RETURN a.age");
     assert!(r.ok);
     assert_eq!(r.columns, vec!["a.age".to_string()]);
     assert_eq!(r.rows.len(), 1);
@@ -531,38 +531,38 @@ fn return_prop() {
 
 #[test]
 fn path_is_khid() {
-    let p = super::super::Path::parse_all(&[
+    let p = crate::Path::parse_all(&[
         "k1".to_string(),
         "k2".to_string(),
         "k3".to_string(),
     ]);
     assert_eq!(p.hops(), 1);
     assert_eq!(p.len(), 3);
-    assert_eq!(p[0], super::super::Khid::from_raw(1));
-    assert_eq!(p[1], super::super::Khid::from_raw(2));
+    assert_eq!(p[0], crate::Khid::from_raw(1));
+    assert_eq!(p[1], crate::Khid::from_raw(2));
     assert_eq!(p.nodes(),
-               vec![super::super::Khid::from_raw(1), super::super::Khid::from_raw(3)]);
-    assert_eq!(p.edges(), vec![super::super::Khid::from_raw(2)]);
+               vec![crate::Khid::from_raw(1), crate::Khid::from_raw(3)]);
+    assert_eq!(p.edges(), vec![crate::Khid::from_raw(2)]);
 }
 
 #[test]
 fn where_compare() {
     let mut g = social();
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Bob'}) SET a.age = 20");
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Carol'}) SET a.age = 44");
-    let r = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age > 30");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Bob'}) SET a.age = 20");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Carol'}) SET a.age = 44");
+    let r = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.age > 30");
     assert_eq!(r.rows.len(), 2);
-    let r2 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age <= 20");
+    let r2 = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.age <= 20");
     assert_eq!(r2.rows.len(), 1);
 }
 
 #[test]
 fn where_edge_attr() {
     let mut g = social();
-    super::super::query::run(&mut g,
+    crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[e:KNOWS]->(b) SET e.weight = 3");
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[e:KNOWS]->(b) WHERE e.weight > 1 RETURN e");
     assert_eq!(r.rows.len(), 1);
 }
@@ -570,7 +570,7 @@ fn where_edge_attr() {
 #[test]
 fn where_in() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person) WHERE a.name IN ['Alice', 'Carol']");
     assert_eq!(r.rows.len(), 2);
 }
@@ -578,11 +578,11 @@ fn where_in() {
 #[test]
 fn where_or_not() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person) WHERE a.name = 'Alice' OR a.name = 'Carol'");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
-    let r2 = super::super::query::run(&mut g,
+    let r2 = crate::query::run(&mut g,
         "MATCH (a:Person) WHERE NOT a.name = 'Alice'");
     assert_eq!(r2.rows.len(), 2);
 }
@@ -590,7 +590,7 @@ fn where_or_not() {
 #[test]
 fn with_drops() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b) WITH a WHERE a.name = 'Alice' RETURN a");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
@@ -600,22 +600,22 @@ fn with_drops() {
 #[test]
 fn int_is_not_str_in_where() {
     let mut g = social();
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
-    let r = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age = 36");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    let r = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.age = 36");
     assert_eq!(r.rows.len(), 1);
-    let r2 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age = '36'");
+    let r2 = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.age = '36'");
     assert_eq!(r2.rows.len(), 0);
-    let r3 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.age > '36'");
+    let r3 = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.age > '36'");
     assert_eq!(r3.rows.len(), 0);
 }
 
 #[test]
 fn bool_prop() {
     let mut g = social();
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.alive = true");
-    let r = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.alive = true");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.alive = true");
+    let r = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.alive = true");
     assert_eq!(r.rows.len(), 1);
-    let r2 = super::super::query::run(&mut g, "MATCH (a:Person) WHERE a.alive = false");
+    let r2 = crate::query::run(&mut g, "MATCH (a:Person) WHERE a.alive = false");
     assert_eq!(r2.rows.len(), 0);
     let alice = g.vertex_by_name("Alice").unwrap();
     assert_eq!(alice.get_prop("alive").and_then(|p| p.as_bool()), Some(true));
@@ -625,7 +625,7 @@ fn bool_prop() {
 #[test]
 fn create_int_prop() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g, "CREATE (a:Person {name:'Ada', born:1815})");
+    let r = crate::query::run(&mut g, "CREATE (a:Person {name:'Ada', born:1815})");
     assert!(r.ok);
     let ada = g.vertex_by_name("Ada").unwrap();
     assert_eq!(ada.get("name"), Some("Ada"));
@@ -635,7 +635,7 @@ fn create_int_prop() {
 #[test]
 fn create_float_prop() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g, "CREATE (a:Person {name:'Ada', score:1.5})");
+    let r = crate::query::run(&mut g, "CREATE (a:Person {name:'Ada', score:1.5})");
     assert!(r.ok);
     let ada = g.vertex_by_name("Ada").unwrap();
     assert_eq!(ada.get_prop("score").and_then(|p| p.as_float()), Some(1.5));
@@ -646,8 +646,8 @@ fn create_float_prop() {
 fn param_str() {
     let mut g = social();
     let mut p = std::collections::HashMap::new();
-    p.insert("n".to_string(), super::super::Prop::from_str("Alice"));
-    let r = super::super::query::run_with(&mut g, "MATCH (a:Person {name:$n})", p);
+    p.insert("n".to_string(), crate::Prop::from_str("Alice"));
+    let r = crate::query::run_with(&mut g, "MATCH (a:Person {name:$n})", p);
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
@@ -657,21 +657,21 @@ fn param_str() {
 #[test]
 fn param_int_keeps_tag() {
     let mut g = social();
-    super::super::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
+    crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'}) SET a.age = 36");
     let mut p = std::collections::HashMap::new();
-    p.insert("x".to_string(), super::super::Prop::from_int(36));
-    let r = super::super::query::run_with(&mut g, "MATCH (a:Person) WHERE a.age = $x", p);
+    p.insert("x".to_string(), crate::Prop::from_int(36));
+    let r = crate::query::run_with(&mut g, "MATCH (a:Person) WHERE a.age = $x", p);
     assert_eq!(r.rows.len(), 1);
     let mut p2 = std::collections::HashMap::new();
-    p2.insert("x".to_string(), super::super::Prop::from_str("36"));
-    let r2 = super::super::query::run_with(&mut g, "MATCH (a:Person) WHERE a.age = $x", p2);
+    p2.insert("x".to_string(), crate::Prop::from_str("36"));
+    let r2 = crate::query::run_with(&mut g, "MATCH (a:Person) WHERE a.age = $x", p2);
     assert_eq!(r2.rows.len(), 0);
 }
 
 #[test]
 fn param_unknown() {
     let mut g = Graph::new();
-    let r = super::super::query::run(&mut g, "MATCH (a:Person {name:$n})");
+    let r = crate::query::run(&mut g, "MATCH (a:Person {name:$n})");
     assert!(!r.ok);
     assert!(r.message.contains("unknown param $n"));
 }
@@ -679,7 +679,7 @@ fn param_unknown() {
 #[test]
 fn merge_on_match_set_prop() {
     let mut g = social();
-    let r = super::super::query::run(&mut g,
+    let r = crate::query::run(&mut g,
         "MERGE (p:Person {name:'Alice'}) ON MATCH SET p.city = 'Paris' RETURN p.city");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);

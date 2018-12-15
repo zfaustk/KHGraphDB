@@ -1,10 +1,10 @@
 //! Query cases. A file is a graph, a query, and a table.
 //! Checkout this tree and `cargo test` covers the language.
 
-use super::super::Graph;
-use super::super::query;
-use super::super::query::Val;
-use super::super::Prop;
+use crate::Graph;
+use crate::query;
+use crate::query::Val;
+use crate::Prop;
 
 struct Case {
     name: String,

@@ -1,7 +1,7 @@
 //! Pipeline tests. MATCH compiles to Seed / Expand.
 //! A checkout of 3.6 cargo tests this file.
 
-use super::super::query;
+use crate::query;
 use super::common::social;
 
 #[test]

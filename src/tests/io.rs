@@ -1,7 +1,7 @@
 //! KHG4 round-trip. Tags survive. KHG3 still reads.
 
 use std::io::Cursor;
-use super::super::{io as khio, Graph, Prop};
+use crate::{io as khio, Graph, Prop};
 use super::common::attrs;
 
 #[test]
@@ -51,7 +51,7 @@ fn edge_ends_survive() {
     khio::write_graph(&g, &mut buf).unwrap();
     let h = khio::read_graph(&mut Cursor::new(buf)).unwrap();
     let e2 = h.edge(&e).unwrap();
-    assert_eq!(e2.source(), super::super::Khid::parse(&a).unwrap());
-    assert_eq!(e2.target(), super::super::Khid::parse(&b).unwrap());
+    assert_eq!(e2.source(), crate::Khid::parse(&a).unwrap());
+    assert_eq!(e2.target(), crate::Khid::parse(&b).unwrap());
     assert_eq!(h.edge_type_name(&e).as_ref().map(|s| s.as_str()), Some("ROAD"));
 }
