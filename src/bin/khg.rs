@@ -1,8 +1,6 @@
 //! A stdin shell. Dot commands for the catalog.
 //! MATCH still takes one graph.
 
-extern crate khgraphdb;
-
 use std::env;
 use std::fs::File;
 use std::io::{self, Write, BufRead};
