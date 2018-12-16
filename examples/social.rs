@@ -1,8 +1,6 @@
 //! Alice knows Bob knows Carol. Then Ada.
 //! The C# sample in csharp/Samples/Social, in Rust.
 
-extern crate khgraphdb;
-
 use std::collections::HashMap;
 use khgraphdb::Graph;
 use khgraphdb::query;
