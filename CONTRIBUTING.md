@@ -1,14 +1,9 @@
 # Contributing
 
-KHGraphDB 3.x is Rust 1.18. The C# kernel in csharp/ is frozen.
+KHGraphDB 4.0 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 
-- rustc 1.18. No edition key until 4.0.
-- rustc 1.26 (May 2018) has `impl Trait` and `..=`. This
-  tree does not need them yet.
-- rustc 1.27 named `dyn Trait`. The engine is an enum.
-  There is no trait object to miss.
-- rustc 1.31 (December 2018) is edition 2018. Wait for
-  that release before adding `edition` or `crate::`.
+- rustc 1.31. `edition = "2018"`. `crate::` paths.
+- No `dyn` trait objects. The engine is an enum.
 - `pub(crate)` for the walk and the parser.
 - No crates.io dependencies in the kernel.
 - One idea per commit. A body that says why.

@@ -1,3 +1,13 @@
+## 4.0.0 - 2018-12-16
+
+- rustc 1.31, edition 2018, `crate::` paths.
+- Val::Prop. RETURN a.age keeps the tag.
+- In-memory Tx: clone, Drop rolls back, commit keeps.
+- khg :begin :commit :rollback. :param.
+- A number with a dot is Float.
+- EXPLAIN names Project and Limit.
+- Unique backfill refuses a duplicate.
+
 ## 3.6.0 - 2018-08-05
 
 - MATCH compiles to Seed / Expand / Filter / Optional / Shortest.

@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**3.6.0** (2018). Rust 1.18. No crates.io dependencies.
+**4.0.0** (2018). Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -31,7 +31,7 @@ cargo run --example social
 cargo run --bin khg
 ```
 
-Needs rustc 1.18 (June 2017). No `edition` key.
+Needs rustc 1.31 (December 2018). `edition = "2018"`.
 
 ## Shell
 

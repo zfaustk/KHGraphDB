@@ -1,8 +1,8 @@
 # Pipeline
 
 MATCH compiles to operators. The engine matches on
-an enum. There is no trait object. rustc 1.18 has
-no `dyn` to miss.
+an enum. There is no trait object. rustc 1.31 still
+has no reason to add `dyn`.
 
 ```
 Seed → Expand → Expand → Filter
