@@ -52,4 +52,4 @@ unless commit forgot it. khg `:begin` `:commit` `:rollback`.
 
 See `docs/pipeline.md`.
 
-No crates.io. rustc 1.18.
+No crates.io. rustc 1.31, edition 2018.
