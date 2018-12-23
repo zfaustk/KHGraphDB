@@ -73,7 +73,9 @@ EXPLAIN MATCH (a:Person)-[:KNOWS]->(b) RETURN b LIMIT 1
 $param
 ```
 
-See `docs/type.md` and `docs/language.md`. Type is still
-not a string. MATCH binds it by KHID. Path is a value.
-A graph can be named, cloned, or cut down to a subgraph.
-A Catalog holds several graphs; the query still takes one.
+See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
+and `docs/tx.md`. Type is still not a string. MATCH binds
+it by KHID. Path is a value. A graph can be named, cloned,
+or cut down to a subgraph. A Catalog holds several graphs;
+the query still takes one. A transaction clones the arena.
+
