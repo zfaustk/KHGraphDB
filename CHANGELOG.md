@@ -7,6 +7,8 @@
 - A number with a dot is Float.
 - EXPLAIN names Project and Limit.
 - Unique backfill refuses a duplicate.
+- Graph lookups take Khid. Writes return Khid.
+  vertex_k is gone: vertex is that lookup.
 
 ## 3.6.0 - 2018-08-05
 

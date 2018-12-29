@@ -171,21 +171,21 @@ fn load_graph(text: &str) -> Graph {
             while i < parts.len() {
                 let kv: Vec<&str> = parts[i].splitn(2, '=').collect();
                 if kv.len() == 2 {
-                    g.set_prop(&id, kv[0], parse_prop(kv[1])).unwrap();
+                    g.set_prop(id, kv[0], parse_prop(kv[1])).unwrap();
                 }
                 i += 1;
             }
         } else if parts.len() >= 4 && parts[0] == "E" {
             // E Type srcName dstName [k=v ...]
             let ty = parts[1];
-            let a = g.vertex_by_name(parts[2]).unwrap().khid().to_string();
-            let b = g.vertex_by_name(parts[3]).unwrap().khid().to_string();
-            let eid = g.add_edge(&a, &b, Some(ty)).unwrap();
+            let a = g.vertex_by_name(parts[2]).unwrap().khid();
+            let b = g.vertex_by_name(parts[3]).unwrap().khid();
+            let eid = g.add_edge(a, b, Some(ty)).unwrap();
             let mut i = 4;
             while i < parts.len() {
                 let kv: Vec<&str> = parts[i].splitn(2, '=').collect();
                 if kv.len() == 2 {
-                    g.set_edge_prop(&eid, kv[0], parse_prop(kv[1]));
+                    g.set_edge_prop(eid, kv[0], parse_prop(kv[1]));
                 }
                 i += 1;
             }
@@ -198,7 +198,10 @@ fn cell_text(g: &Graph, v: &Option<Val>) -> String {
     match *v {
         None => String::new(),
         Some(Val::Id(ref id)) => {
-            match g.vertex(id).and_then(|x| x.get("name")).map(|s| s.to_string()) {
+            match crate::Khid::parse(id)
+                .and_then(|k| g.vertex(k))
+                .and_then(|x| x.get("name"))
+                .map(|s| s.to_string()) {
                 Some(n) => n,
                 None => id.clone(),
             }

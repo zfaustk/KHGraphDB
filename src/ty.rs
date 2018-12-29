@@ -12,9 +12,8 @@ pub struct Type {
 }
 
 impl Type {
-    pub fn new(id: String, name: String) -> Type {
-        let kid = Khid::parse(&id).unwrap_or(Khid::nil());
-        Type::with_khid(kid, name)
+    pub fn new(id: Khid, name: String) -> Type {
+        Type::with_khid(id, name)
     }
 
     pub fn with_khid(id: Khid, name: String) -> Type {

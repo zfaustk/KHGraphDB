@@ -13,15 +13,12 @@ pub struct Edge {
 }
 
 impl Edge {
-    pub fn new(id: String, source: String, target: String, attrs: HashMap<String, String>) -> Edge {
+    pub fn new(id: Khid, source: Khid, target: Khid, attrs: HashMap<String, String>) -> Edge {
         let mut p = HashMap::new();
         for (k, v) in attrs.into_iter() {
             p.insert(k, Prop::from_str(&v));
         }
-        let kid = Khid::parse(&id).unwrap_or(Khid::nil());
-        let src = Khid::parse(&source).unwrap_or(Khid::nil());
-        let dst = Khid::parse(&target).unwrap_or(Khid::nil());
-        Edge::with_props(kid, src, dst, p)
+        Edge::with_props(id, source, target, p)
     }
 
     pub fn with_props(id: Khid,

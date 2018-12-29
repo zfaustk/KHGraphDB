@@ -9,15 +9,15 @@ fn add_and_lookup() {
     let mut g = Graph::new();
     let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
     let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-    let _e = g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
+    let _e = g.add_edge(alice, bob, Some("KNOWS")).unwrap();
     assert_eq!(g.vertex_count(), 2);
     assert_eq!(g.edge_count(), 1);
     assert!(g.vertex_by_name("Alice").is_some());
-    assert!(g.has_type(&alice, "Person"));
+    assert!(g.has_type(alice, "Person"));
     assert_eq!(g.edges_of_type("KNOWS").len(), 1);
-    assert!(g.remove_vertex(&bob));
+    assert!(g.remove_vertex(bob));
     assert_eq!(g.edge_count(), 0);
-    assert_eq!(g.vertex(&alice).unwrap().out_degree(), 0);
+    assert_eq!(g.vertex(alice).unwrap().out_degree(), 0);
 }
 
 #[test]
@@ -27,8 +27,8 @@ fn add_edge_with_attrs() {
     let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
     let mut w = HashMap::new();
     w.insert("weight".to_string(), "5".to_string());
-    let e = g.add_edge_with(&a, &b, Some("ROAD"), w).unwrap();
-    assert_eq!(g.edge(&e).unwrap().get("weight"), Some("5"));
+    let e = g.add_edge_with(a, b, Some("ROAD"), w).unwrap();
+    assert_eq!(g.edge(e).unwrap().get("weight"), Some("5"));
 }
 
 #[test]
@@ -36,12 +36,12 @@ fn edge_endpoints_are_khid() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
     let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
-    let e = g.add_edge(&a, &b, Some("ROAD")).unwrap();
-    let src = g.edge(&e).unwrap().source();
-    let dst = g.edge(&e).unwrap().target();
-    assert_eq!(src, crate::Khid::parse(&a).unwrap());
-    assert_eq!(dst, crate::Khid::parse(&b).unwrap());
-    assert_eq!(format!("{}", src), a);
+    let e = g.add_edge(a, b, Some("ROAD")).unwrap();
+    let src = g.edge(e).unwrap().source();
+    let dst = g.edge(e).unwrap().target();
+    assert_eq!(src, a);
+    assert_eq!(dst, b);
+    assert_eq!(format!("{}", src), format!("{}", a));
 }
 
 #[test]
@@ -49,38 +49,37 @@ fn edge_type_is_khid() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
     let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
-    let e = g.add_edge(&a, &b, Some("ROAD")).unwrap();
-    let tid = g.edge(&e).unwrap().type_id().unwrap();
-    assert_eq!(g.ty(&format!("{}", tid)).unwrap().name(), "ROAD");
+    let e = g.add_edge(a, b, Some("ROAD")).unwrap();
+    let tid = g.edge(e).unwrap().type_id().unwrap();
+    assert_eq!(g.ty(tid).unwrap().name(), "ROAD");
 }
 
 #[test]
 fn vertex_types_are_khid() {
     let mut g = Graph::new();
     let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    let types = g.vertex(&ada).unwrap().types();
+    let types = g.vertex(ada).unwrap().types();
     assert_eq!(types.len(), 1);
-    assert_eq!(g.ty(&format!("{}", types[0])).unwrap().name(), "Person");
+    assert_eq!(g.ty(types[0]).unwrap().name(), "Person");
 }
 
 #[test]
 fn lookup_by_khid() {
     let mut g = Graph::new();
     let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    let k = crate::Khid::parse(&ada).unwrap();
-    assert!(g.vertex_k(k).is_some());
-    assert_eq!(g.vertex_k(k).unwrap().get("name"), Some("Ada"));
-    let tid = g.vertex_k(k).unwrap().types()[0];
-    assert_eq!(g.ty_k(tid).unwrap().name(), "Person");
+    assert!(g.vertex(ada).is_some());
+    assert_eq!(g.vertex(ada).unwrap().get("name"), Some("Ada"));
+    let tid = g.vertex(ada).unwrap().types()[0];
+    assert_eq!(g.ty(tid).unwrap().name(), "Person");
 }
 
 #[test]
 fn vertex_ids_are_khid() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    let ids = g.vertex_ids_k();
+    let ids = g.vertex_ids();
     assert_eq!(ids.len(), 1);
-    assert_eq!(ids[0], crate::Khid::parse(&a).unwrap());
+    assert_eq!(ids[0], a);
     assert_eq!(g.vertex_ids(), vec![a]);
 }
 
@@ -156,7 +155,7 @@ fn snapshot_is_a_clone() {
 fn edge_index() {
     let mut g = social();
     let eids = g.edges_of_type("KNOWS");
-    g.set_edge_attr(&eids[0], "since", "2010");
+    g.set_edge_attr(eids[0], "since", "2010");
     g.create_edge_index("KNOWS", "since");
     assert_eq!(g.find_edge("KNOWS", "since", "2010").len(), 1);
 }
@@ -165,9 +164,9 @@ fn edge_index() {
 fn multi_type() {
     let mut g = Graph::new();
     let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    assert!(g.add_type_to_vertex(&ada, "Author").unwrap());
-    assert!(g.has_type(&ada, "Person"));
-    assert!(g.has_type(&ada, "Author"));
+    assert!(g.add_type_to_vertex(ada, "Author").unwrap());
+    assert!(g.has_type(ada, "Person"));
+    assert!(g.has_type(ada, "Author"));
     assert_eq!(g.type_by_name("Author").unwrap().vertex_count(), 1);
 }
 
@@ -182,17 +181,17 @@ fn snapshot() {
     use std::io::Cursor;
     let mut g = Graph::new();
     let ada = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    g.add_type_to_vertex(&ada, "Author").unwrap();
+    g.add_type_to_vertex(ada, "Author").unwrap();
     let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-    g.add_edge(&ada, &bob, Some("KNOWS")).unwrap();
+    g.add_edge(ada, bob, Some("KNOWS")).unwrap();
     let mut buf = Vec::new();
     crate::io::write_graph(&g, &mut buf).unwrap();
     let mut cur = Cursor::new(buf);
     let mut h = crate::io::read_graph(&mut cur).unwrap();
     assert_eq!(h.vertex_count(), 2);
     assert!(h.vertex_by_name("Ada").is_some());
-    let ada2 = h.vertex_by_name("Ada").unwrap().khid().to_string();
-    assert!(h.has_type(&ada2, "Author"));
+    let ada2 = h.vertex_by_name("Ada").unwrap().khid();
+    assert!(h.has_type(ada2, "Author"));
     assert_eq!(h.edges_of_type("KNOWS").len(), 1);
     assert_eq!(h.khid(), "g1");
     let before = h.vertex_count();
@@ -208,22 +207,22 @@ fn snapshot_edge_attrs() {
     let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
     let mut w = HashMap::new();
     w.insert("weight".to_string(), "7".to_string());
-    g.add_edge_with(&a, &b, Some("ROAD"), w).unwrap();
+    g.add_edge_with(a, b, Some("ROAD"), w).unwrap();
     let mut buf = Vec::new();
     crate::io::write_graph(&g, &mut buf).unwrap();
     let mut cur = Cursor::new(buf);
     let h = crate::io::read_graph(&mut cur).unwrap();
     let eids = h.edges_of_type("ROAD");
     assert_eq!(eids.len(), 1);
-    assert_eq!(h.edge(&eids[0]).unwrap().get("weight"), Some("7"));
+    assert_eq!(h.edge(eids[0]).unwrap().get("weight"), Some("7"));
 }
 
 #[test]
 fn subgraph_alice() {
     let g = social();
-    let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
-    let bob = g.vertex_by_name("Bob").unwrap().khid().to_string();
-    let h = g.subgraph(&[alice.clone(), bob.clone()]);
+    let alice = g.vertex_by_name("Alice").unwrap().khid();
+    let bob = g.vertex_by_name("Bob").unwrap().khid();
+    let h = g.subgraph(&[alice, bob]);
     assert_eq!(h.vertex_count(), 2);
     assert_eq!(h.edge_count(), 1);
     assert!(h.vertex_by_name("Carol").is_none());
@@ -239,9 +238,9 @@ fn unique_name() {
     assert!(g.add_vertex(attrs("Alice"), Some("Person")).is_err());
     assert_eq!(g.vertex_count(), 1);
     let c = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
-    assert!(g.set_attr(&c, "name", "Alice").is_err());
-    assert_eq!(g.vertex(&c).unwrap().get("name"), Some("Carol"));
-    assert_eq!(g.find("Person", "name", "Alice"), vec![a.clone()]);
+    assert!(g.set_attr(c, "name", "Alice").is_err());
+    assert_eq!(g.vertex(c).unwrap().get("name"), Some("Carol"));
+    assert_eq!(g.find("Person", "name", "Alice"), vec![a]);
 }
 
 #[test]
@@ -258,18 +257,18 @@ fn unique_int_keeps_tag() {
     let mut g = Graph::new();
     g.create_unique("Person", "born");
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    g.set_prop(&a, "born", crate::Prop::from_int(1815)).unwrap();
+    g.set_prop(a, "born", crate::Prop::from_int(1815)).unwrap();
     let b = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-    assert!(g.set_prop(&b, "born", crate::Prop::from_int(1815)).is_err());
-    assert!(g.set_prop(&b, "born", crate::Prop::from_str("1815")).is_ok());
+    assert!(g.set_prop(b, "born", crate::Prop::from_int(1815)).is_err());
+    assert!(g.set_prop(b, "born", crate::Prop::from_str("1815")).is_ok());
 }
 
 #[test]
 fn vertex_stores_int() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    g.vertex_mut(&a).unwrap().set_prop("born", crate::Prop::from_int(1815));
-    let v = g.vertex(&a).unwrap();
+    g.vertex_mut(a).unwrap().set_prop("born", crate::Prop::from_int(1815));
+    let v = g.vertex(a).unwrap();
     assert!(v.get("born").is_none());
     assert_eq!(v.get_prop("born").and_then(|p| p.as_int()), Some(1815));
     assert_eq!(v.get("name"), Some("Ada"));
@@ -281,7 +280,7 @@ fn index_int_not_str() {
     g.add_type("Person").unwrap();
     g.create_index("Person", "born");
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    g.set_prop(&a, "born", crate::Prop::from_int(1815)).unwrap();
+    g.set_prop(a, "born", crate::Prop::from_int(1815)).unwrap();
     assert_eq!(g.find_prop("Person", "born", &crate::Prop::from_int(1815)).len(), 1);
     assert_eq!(g.find("Person", "born", "1815").len(), 0);
 }
@@ -291,7 +290,7 @@ fn snapshot_keeps_int() {
     use std::io::Cursor;
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    g.set_prop(&a, "born", crate::Prop::from_int(1815)).unwrap();
+    g.set_prop(a, "born", crate::Prop::from_int(1815)).unwrap();
     let mut buf = Vec::new();
     crate::io::write_graph(&g, &mut buf).unwrap();
     assert_eq!(&buf[0..4], b"KHG4");
@@ -306,8 +305,8 @@ fn snapshot_keeps_int() {
 fn vertex_khid_is_copy() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    let k = g.vertex(&a).unwrap().khid();
-    assert_eq!(format!("{}", k), a);
+    let k = g.vertex(a).unwrap().khid();
+    assert_eq!(k, a);
     assert!(!k.is_nil());
     let k2 = k;
     assert_eq!(k, k2);
@@ -319,9 +318,9 @@ fn edge_khid_is_copy() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
     let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
-    let e = g.add_edge(&a, &b, Some("ROAD")).unwrap();
-    let k = g.edge(&e).unwrap().khid();
-    assert_eq!(format!("{}", k), e);
+    let e = g.add_edge(a, b, Some("ROAD")).unwrap();
+    let k = g.edge(e).unwrap().khid();
+    assert_eq!(k, e);
     assert!(!k.is_nil());
 }
 
@@ -340,22 +339,19 @@ fn type_khid_is_copy() {
 fn graph_keys_are_khid() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    let k = crate::Khid::parse(&a).unwrap();
-    assert_eq!(g.vertex(&a).unwrap().khid(), k);
-    g.remove_vertex(&a);
+    assert_eq!(g.vertex(a).unwrap().khid(), a);
+    g.remove_vertex(a);
     let b = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-    let k2 = crate::Khid::parse(&b).unwrap();
-    assert!(k2.raw() > k.raw());
+    assert!(b.raw() > a.raw());
 }
 
 #[test]
 fn slot_zero_is_not_a_vertex() {
     let mut g = Graph::new();
-    assert!(g.vertex("k0").is_none());
+    assert!(g.vertex(crate::Khid::nil()).is_none());
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
-    let k = crate::Khid::parse(&a).unwrap();
-    assert!(k.raw() >= 1);
-    assert!(g.vertex("k0").is_none());
+    assert!(a.raw() >= 1);
+    assert!(g.vertex(crate::Khid::nil()).is_none());
 }
 
 #[test]
@@ -363,16 +359,14 @@ fn arena_holes_after_delete() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("Ada"), Some("Person")).unwrap();
     let b = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-    g.add_edge(&a, &b, Some("KNOWS")).unwrap();
+    g.add_edge(a, b, Some("KNOWS")).unwrap();
     let before_types = g.type_count();
-    assert!(g.remove_vertex(&a));
+    assert!(g.remove_vertex(a));
     assert_eq!(g.vertex_count(), 1);
-    assert!(g.vertex(&a).is_none());
-    assert!(g.vertex(&b).is_some());
+    assert!(g.vertex(a).is_none());
+    assert!(g.vertex(b).is_some());
     let c = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
-    let ka = crate::Khid::parse(&a).unwrap().raw();
-    let kc = crate::Khid::parse(&c).unwrap().raw();
-    assert!(kc > ka);
+    assert!(c.raw() > a.raw());
     assert_eq!(g.type_count(), before_types);
 }
 
@@ -383,6 +377,6 @@ fn arena_clone_keeps_slots() {
     assert_eq!(h.vertex_count(), g.vertex_count());
     assert_eq!(h.edge_count(), g.edge_count());
     let alice = g.vertex_by_name("Alice").unwrap().khid();
-    assert_eq!(h.vertex(&format!("{}", alice)).unwrap().get("name"), Some("Alice"));
+    assert_eq!(h.vertex(alice).unwrap().get("name"), Some("Alice"));
 }
 

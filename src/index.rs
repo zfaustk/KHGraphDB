@@ -38,15 +38,7 @@ impl SchemaIndex {
         self.unique = true;
     }
 
-    pub fn add(&mut self, vid: &str, value: &Prop) {
-        let k = match Khid::parse(vid) {
-            Some(k) => k,
-            None => return,
-        };
-        self.add_khid(k, value);
-    }
-
-    pub fn add_khid(&mut self, vid: Khid, value: &Prop) {
+    pub fn add(&mut self, vid: Khid, value: &Prop) {
         if let Prop::Str(ref s) = *value {
             if s.is_empty() {
                 return;
@@ -55,15 +47,7 @@ impl SchemaIndex {
         self.posting.entry(value.clone()).or_insert(HashSet::new()).insert(vid);
     }
 
-    pub fn remove(&mut self, vid: &str, value: &Prop) {
-        let k = match Khid::parse(vid) {
-            Some(k) => k,
-            None => return,
-        };
-        self.remove_khid(k, value);
-    }
-
-    pub fn remove_khid(&mut self, vid: Khid, value: &Prop) {
+    pub fn remove(&mut self, vid: Khid, value: &Prop) {
         let drop_key = match self.posting.get_mut(value) {
             Some(set) => {
                 set.remove(&vid);
@@ -76,28 +60,18 @@ impl SchemaIndex {
         }
     }
 
-    pub fn get(&self, value: &Prop) -> Vec<String> {
-        self.get_khid(value).iter().map(|k| format!("{}", k)).collect()
-    }
-
-    pub fn get_khid(&self, value: &Prop) -> Vec<Khid> {
+    pub fn get(&self, value: &Prop) -> Vec<Khid> {
         match self.posting.get(value) {
-            Some(set) => set.iter().map(|k| *k).collect(),
+            Some(set) => set.iter().cloned().collect(),
             None => Vec::new(),
         }
     }
 
-    pub fn contains_other(&self, value: &Prop, self_id: &str) -> bool {
-        let self_k = Khid::parse(self_id);
+    /// True when some other KHID already posts this value.
+    /// Pass nil on insert: any posting is a duplicate.
+    pub fn contains_other(&self, value: &Prop, self_id: Khid) -> bool {
         match self.posting.get(value) {
-            Some(set) => {
-                set.iter().any(|id| {
-                    match self_k {
-                        Some(k) => *id != k,
-                        None => true,
-                    }
-                })
-            }
+            Some(set) => set.iter().any(|id| *id != self_id),
             None => false,
         }
     }

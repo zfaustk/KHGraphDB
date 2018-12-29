@@ -10,6 +10,7 @@ use super::khid::Khid;
 
 /// Directed property graph. Vertices live in a slot Vec.
 /// The index is the KHID. KHID is identity.
+/// Lookups take Khid. Names stay strings.
 #[derive(Clone)]
 pub struct Graph {
     id: String,
@@ -21,10 +22,6 @@ pub struct Graph {
     vertices_by_name: HashMap<String, Khid>,
     indexes: HashMap<String, SchemaIndex>,
     edge_indexes: HashMap<String, SchemaIndex>,
-}
-
-fn disp(k: Khid) -> String {
-    format!("{}", k)
 }
 
 impl Graph {
@@ -58,6 +55,7 @@ impl Graph {
         }
     }
 
+    /// Catalog name. Not a serial KHID.
     pub fn khid(&self) -> &str {
         &self.id
     }
@@ -82,7 +80,7 @@ impl Graph {
         self.edge_indexes.clear();
     }
 
-    pub fn subgraph(&self, vids: &[String]) -> Graph {
+    pub fn subgraph(&self, vids: &[Khid]) -> Graph {
         let mut g = self.clone();
         let ids = g.vertex_ids();
         for id in ids.iter() {
@@ -94,7 +92,7 @@ impl Graph {
                 }
             }
             if !keep {
-                g.remove_vertex(id);
+                g.remove_vertex(*id);
             }
         }
         g
@@ -141,11 +139,9 @@ impl Graph {
         Khid::from_raw(self.serial)
     }
 
-    fn note_id(&mut self, id: &str) {
-        if let Some(k) = Khid::parse(id) {
-            if k.raw() > self.serial {
-                self.serial = k.raw();
-            }
+    fn note_khid(&mut self, k: Khid) {
+        if k.raw() > self.serial {
+            self.serial = k.raw();
         }
     }
 
@@ -217,48 +213,19 @@ impl Graph {
         self.types[i] = Some(t);
     }
 
-    fn parse(&self, khid: &str) -> Option<Khid> {
-        Khid::parse(khid)
-    }
-
-    pub fn vertex(&self, khid: &str) -> Option<&Vertex> {
-        match self.parse(khid) {
-            Some(k) => self.at(k),
-            None => None,
-        }
-    }
-
-    /// Same lookup. The caller already has a Khid.
-    pub fn vertex_k(&self, k: Khid) -> Option<&Vertex> {
+    pub fn vertex(&self, k: Khid) -> Option<&Vertex> {
         self.at(k)
     }
 
-    pub fn vertex_mut(&mut self, khid: &str) -> Option<&mut Vertex> {
-        match Khid::parse(khid) {
-            Some(k) => self.at_mut(k),
-            None => None,
-        }
+    pub fn vertex_mut(&mut self, k: Khid) -> Option<&mut Vertex> {
+        self.at_mut(k)
     }
 
-    pub fn edge(&self, khid: &str) -> Option<&Edge> {
-        match Khid::parse(khid) {
-            Some(k) => self.eget(k),
-            None => None,
-        }
-    }
-
-    pub fn edge_k(&self, k: Khid) -> Option<&Edge> {
+    pub fn edge(&self, k: Khid) -> Option<&Edge> {
         self.eget(k)
     }
 
-    pub fn ty(&self, khid: &str) -> Option<&Type> {
-        match Khid::parse(khid) {
-            Some(k) => self.tget(k),
-            None => None,
-        }
-    }
-
-    pub fn ty_k(&self, k: Khid) -> Option<&Type> {
+    pub fn ty(&self, k: Khid) -> Option<&Type> {
         self.tget(k)
     }
 
@@ -276,24 +243,24 @@ impl Graph {
         }
     }
 
-    pub fn add_type(&mut self, name: &str) -> Result<String> {
+    pub fn add_type(&mut self, name: &str) -> Result<Khid> {
         if name.is_empty() {
             return Err(Error::new("empty type name"));
         }
         if let Some(id) = self.types_by_name.get(name) {
-            return Ok(disp(*id));
+            return Ok(*id);
         }
         let id = self.next_khid();
         let t = Type::with_khid(id, name.to_string());
         self.types_by_name.insert(name.to_string(), id);
         self.tput(id, t);
-        Ok(disp(id))
+        Ok(id)
     }
 
     pub fn add_vertex(&mut self,
                       attrs: HashMap<String, String>,
                       type_name: Option<&str>)
-                      -> Result<String> {
+                      -> Result<Khid> {
         let mut p = HashMap::new();
         for (k, v) in attrs.into_iter() {
             p.insert(k, Prop::from_str(&v));
@@ -304,19 +271,18 @@ impl Graph {
     pub fn add_vertex_props(&mut self,
                             attrs: HashMap<String, Prop>,
                             type_name: Option<&str>)
-                            -> Result<String> {
+                            -> Result<Khid> {
         if let Some(tn) = type_name {
             for (k, val) in attrs.iter() {
                 let iid = SchemaIndex::id(tn, k);
                 if let Some(idx) = self.indexes.get(&iid) {
-                    if idx.unique() && idx.contains_other(val, "") {
+                    if idx.unique() && idx.contains_other(val, Khid::nil()) {
                         return Err(Error::new("unique constraint"));
                     }
                 }
             }
         }
         let kid = self.next_khid();
-        let id = disp(kid);
         let mut v = Vertex::with_props(kid, attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
@@ -325,11 +291,9 @@ impl Graph {
         }
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
-            if let Some(k) = Khid::parse(&tid) {
-                v.attach_type(k);
-                if let Some(t) = self.tget_mut(k) {
-                    t.add_vertex(kid);
-                }
+            v.attach_type(tid);
+            if let Some(t) = self.tget_mut(tid) {
+                t.add_vertex(kid);
             }
             let keys: Vec<(String, Prop)> = v.attrs()
                 .iter()
@@ -338,52 +302,41 @@ impl Graph {
             for (k, val) in keys.iter() {
                 let iid = SchemaIndex::id(tn, k);
                 if let Some(idx) = self.indexes.get_mut(&iid) {
-                    idx.add_khid(kid, val);
+                    idx.add(kid, val);
                 }
             }
         }
         self.vput(kid, v);
-        Ok(id)
+        Ok(kid)
     }
 
     pub fn add_edge(&mut self,
-                    src: &str,
-                    dst: &str,
+                    src: Khid,
+                    dst: Khid,
                     type_name: Option<&str>)
-                    -> Result<String> {
+                    -> Result<Khid> {
         self.add_edge_with(src, dst, type_name, HashMap::new())
     }
 
     pub fn add_edge_with(&mut self,
-                         src: &str,
-                         dst: &str,
+                         src: Khid,
+                         dst: Khid,
                          type_name: Option<&str>,
                          attrs: HashMap<String, String>)
-                         -> Result<String> {
-        let sk = match Khid::parse(src) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
-        let dk = match Khid::parse(dst) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
-        if !self.vhas(sk) || !self.vhas(dk) {
+                         -> Result<Khid> {
+        if !self.vhas(src) || !self.vhas(dst) {
             return Err(Error::new("missing vertex"));
         }
         let kid = self.next_khid();
-        let id = disp(kid);
         let mut props = HashMap::new();
         for (k, v) in attrs.into_iter() {
             props.insert(k, Prop::from_str(&v));
         }
-        let mut e = Edge::with_props(kid, sk, dk, props);
+        let mut e = Edge::with_props(kid, src, dst, props);
         if let Some(tn) = type_name {
             let tid = self.add_type(tn)?;
-            if let Some(k) = Khid::parse(&tid) {
-                e.set_type(k);
-            }
-            if let Some(t) = Khid::parse(&tid).and_then(|k| self.tget_mut(k)) {
+            e.set_type(tid);
+            if let Some(t) = self.tget_mut(tid) {
                 t.add_edge(kid);
             }
             let keys: Vec<(String, Prop)> = e.attrs()
@@ -393,27 +346,23 @@ impl Graph {
             for (k, val) in keys.iter() {
                 let iid = SchemaIndex::id(tn, k);
                 if let Some(idx) = self.edge_indexes.get_mut(&iid) {
-                    idx.add_khid(kid, val);
+                    idx.add(kid, val);
                 }
             }
         }
         {
-            let srcv = self.at_mut(sk).unwrap();
+            let srcv = self.at_mut(src).unwrap();
             srcv.add_out(kid);
         }
         {
-            let dstv = self.at_mut(dk).unwrap();
+            let dstv = self.at_mut(dst).unwrap();
             dstv.add_in(kid);
         }
         self.eput(kid, e);
-        Ok(id)
+        Ok(kid)
     }
 
-    pub fn remove_edge(&mut self, eid: &str) -> bool {
-        let ek = match Khid::parse(eid) {
-            Some(k) => k,
-            None => return false,
-        };
+    pub fn remove_edge(&mut self, ek: Khid) -> bool {
         let (src, dst, tid) = match self.eget(ek) {
             Some(e) => (e.source(), e.target(), e.type_id()),
             None => return false,
@@ -432,15 +381,11 @@ impl Graph {
         self.etake(ek)
     }
 
-    pub fn remove_vertex(&mut self, vid: &str) -> bool {
-        let vk = match Khid::parse(vid) {
-            Some(k) => k,
-            None => return false,
-        };
+    pub fn remove_vertex(&mut self, vk: Khid) -> bool {
         let (outs, ins, tps, name) = match self.at(vk) {
             Some(v) => {
-                let o: Vec<String> = Khid::display_all(v.outgoing());
-                let i: Vec<String> = Khid::display_all(v.incoming());
+                let o: Vec<Khid> = v.outgoing().iter().cloned().collect();
+                let i: Vec<Khid> = v.incoming().iter().cloned().collect();
                 let t: Vec<Khid> = v.types().iter().cloned().collect();
                 let n = v.get("name").map(|s| s.to_string());
                 (o, i, t, n)
@@ -448,10 +393,10 @@ impl Graph {
             None => return false,
         };
         for e in outs.iter() {
-            self.remove_edge(e);
+            self.remove_edge(*e);
         }
         for e in ins.iter() {
-            self.remove_edge(e);
+            self.remove_edge(*e);
         }
         for t in tps.iter() {
             if let Some(ty) = self.tget_mut(*t) {
@@ -468,35 +413,25 @@ impl Graph {
         self.vtake(vk)
     }
 
-    pub fn add_type_to_vertex(&mut self, vid: &str, type_name: &str) -> Result<bool> {
+    pub fn add_type_to_vertex(&mut self, vk: Khid, type_name: &str) -> Result<bool> {
         let tid = self.add_type(type_name)?;
-        let vk = match Khid::parse(vid) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
         {
             let v = match self.at_mut(vk) {
                 Some(v) => v,
                 None => return Err(Error::new("missing vertex")),
             };
-            if let Some(k) = Khid::parse(&tid) {
-                if !v.attach_type(k) {
-                    return Ok(false);
-                }
-            } else {
+            if !v.attach_type(tid) {
                 return Ok(false);
             }
         }
-        if let Some(tk) = Khid::parse(&tid) {
-            if let Some(t) = self.tget_mut(tk) {
-                t.add_vertex(vk);
-            }
+        if let Some(t) = self.tget_mut(tid) {
+            t.add_vertex(vk);
         }
         Ok(true)
     }
 
-    pub fn has_type(&self, vid: &str, type_name: &str) -> bool {
-        let v = match self.vertex(vid) {
+    pub fn has_type(&self, vk: Khid, type_name: &str) -> bool {
+        let v = match self.vertex(vk) {
             Some(v) => v,
             None => return false,
         };
@@ -510,25 +445,21 @@ impl Graph {
         false
     }
 
-    pub fn vertices_of_type(&self, type_name: &str) -> Vec<String> {
+    pub fn vertices_of_type(&self, type_name: &str) -> Vec<Khid> {
         match self.type_by_name(type_name) {
-            Some(t) => Khid::display_all(&t.vertices().iter().cloned().collect::<Vec<_>>()),
+            Some(t) => t.vertices().iter().cloned().collect(),
             None => Vec::new(),
         }
     }
 
-    pub fn edges_of_type(&self, type_name: &str) -> Vec<String> {
+    pub fn edges_of_type(&self, type_name: &str) -> Vec<Khid> {
         match self.type_by_name(type_name) {
-            Some(t) => Khid::display_all(&t.edges().iter().cloned().collect::<Vec<_>>()),
+            Some(t) => t.edges().iter().cloned().collect(),
             None => Vec::new(),
         }
     }
 
-    pub fn vertex_ids(&self) -> Vec<String> {
-        Khid::display_all(&self.vertex_ids_k())
-    }
-
-    pub fn vertex_ids_k(&self) -> Vec<Khid> {
+    pub fn vertex_ids(&self) -> Vec<Khid> {
         let mut out = Vec::new();
         let mut i = 1;
         while i < self.vertices.len() {
@@ -540,7 +471,7 @@ impl Graph {
         out
     }
 
-    pub fn type_name_of(&self, tid: &str) -> Option<&str> {
+    pub fn type_name_of(&self, tid: Khid) -> Option<&str> {
         self.ty(tid).map(|t| t.name())
     }
 
@@ -566,14 +497,14 @@ impl Graph {
         let mut idx = SchemaIndex::new(type_name, key, unique);
         let vids = self.vertices_of_type(type_name);
         for vid in vids.iter() {
-            let val = match self.vertex(vid).and_then(|v| v.get_prop(key)).cloned() {
+            let val = match self.vertex(*vid).and_then(|v| v.get_prop(key)).cloned() {
                 Some(p) => p,
                 None => continue,
             };
-            if unique && idx.contains_other(&val, vid) {
+            if unique && idx.contains_other(&val, *vid) {
                 return false;
             }
-            idx.add(vid, &val);
+            idx.add(*vid, &val);
         }
         self.indexes.insert(id, idx);
         true
@@ -590,48 +521,48 @@ impl Graph {
         let mut idx = SchemaIndex::new(type_name, key, false);
         let eids = self.edges_of_type(type_name);
         for eid in eids.iter() {
-            if let Some(p) = self.edge(eid).and_then(|e| e.get_prop(key)).cloned() {
-                idx.add(eid, &p);
+            if let Some(p) = self.edge(*eid).and_then(|e| e.get_prop(key)).cloned() {
+                idx.add(*eid, &p);
             }
         }
         self.edge_indexes.insert(id, idx);
         true
     }
 
-    pub fn find_edge(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
+    pub fn find_edge(&self, type_name: &str, key: &str, value: &str) -> Vec<Khid> {
         self.find_edge_prop(type_name, key, &Prop::from_str(value))
     }
 
-    pub fn find_edge_prop(&self, type_name: &str, key: &str, value: &Prop) -> Vec<String> {
+    pub fn find_edge_prop(&self, type_name: &str, key: &str, value: &Prop) -> Vec<Khid> {
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.edge_indexes.get(&id) {
             return idx.get(value);
         }
         let mut hits = Vec::new();
         for eid in self.edges_of_type(type_name).iter() {
-            if let Some(e) = self.edge(eid) {
+            if let Some(e) = self.edge(*eid) {
                 if e.get_prop(key) == Some(value) {
-                    hits.push(eid.clone());
+                    hits.push(*eid);
                 }
             }
         }
         hits
     }
 
-    pub fn find(&self, type_name: &str, key: &str, value: &str) -> Vec<String> {
+    pub fn find(&self, type_name: &str, key: &str, value: &str) -> Vec<Khid> {
         self.find_prop(type_name, key, &Prop::from_str(value))
     }
 
-    pub fn find_prop(&self, type_name: &str, key: &str, value: &Prop) -> Vec<String> {
+    pub fn find_prop(&self, type_name: &str, key: &str, value: &Prop) -> Vec<Khid> {
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.indexes.get(&id) {
             return idx.get(value);
         }
         let mut hits = Vec::new();
         for vid in self.vertices_of_type(type_name).iter() {
-            if let Some(v) = self.vertex(vid) {
+            if let Some(v) = self.vertex(*vid) {
                 if v.get_prop(key) == Some(value) {
-                    hits.push(vid.clone());
+                    hits.push(*vid);
                 }
             }
         }
@@ -643,15 +574,11 @@ impl Graph {
         self.indexes.contains_key(&SchemaIndex::id(type_name, key))
     }
 
-    pub fn set_attr(&mut self, vid: &str, key: &str, value: &str) -> Result<()> {
+    pub fn set_attr(&mut self, vid: Khid, key: &str, value: &str) -> Result<()> {
         self.set_prop(vid, key, Prop::from_str(value))
     }
 
-    pub fn set_prop(&mut self, vid: &str, key: &str, value: Prop) -> Result<()> {
-        let vk = match Khid::parse(vid) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
+    pub fn set_prop(&mut self, vk: Khid, key: &str, value: Prop) -> Result<()> {
         let types: Vec<Khid> = match self.at(vk) {
             Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
@@ -665,7 +592,7 @@ impl Graph {
             };
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get(&iid) {
-                if idx.unique() && idx.contains_other(&value, vid) {
+                if idx.unique() && idx.contains_other(&value, vk) {
                     return Err(Error::new("unique constraint"));
                 }
             }
@@ -695,19 +622,15 @@ impl Graph {
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get_mut(&iid) {
                 if let Some(ref o) = old_prop {
-                    idx.remove(vid, o);
+                    idx.remove(vk, o);
                 }
-                idx.add(vid, &value);
+                idx.add(vk, &value);
             }
         }
         Ok(())
     }
 
-    pub fn remove_attr(&mut self, vid: &str, key: &str) -> Result<Option<String>> {
-        let vk = match Khid::parse(vid) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
+    pub fn remove_attr(&mut self, vk: Khid, key: &str) -> Result<Option<String>> {
         let types: Vec<Khid> = match self.at(vk) {
             Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
@@ -732,7 +655,7 @@ impl Graph {
             let iid = SchemaIndex::id(&tname, key);
             if let Some(idx) = self.indexes.get_mut(&iid) {
                 if let Some(ref o) = old_prop {
-                    idx.remove(vid, o);
+                    idx.remove(vk, o);
                 }
             }
         }
@@ -742,27 +665,24 @@ impl Graph {
         }
     }
 
-    pub fn all_types(&self) -> Vec<(String, String)> {
+    pub fn all_types(&self) -> Vec<(Khid, String)> {
         let mut out = Vec::new();
         let mut i = 1;
         while i < self.types.len() {
             if let Some(ref t) = self.types[i] {
-                out.push((disp(t.khid()), t.name().to_string()));
+                out.push((t.khid(), t.name().to_string()));
             }
             i += 1;
         }
         out
     }
 
-    pub fn all_edges(&self) -> Vec<(String, String, String, Option<String>)> {
+    pub fn all_edges(&self) -> Vec<(Khid, Khid, Khid, Option<Khid>)> {
         let mut out = Vec::new();
         let mut i = 1;
         while i < self.edges.len() {
             if let Some(ref e) = self.edges[i] {
-                out.push((disp(e.khid()),
-                          disp(e.source()),
-                          disp(e.target()),
-                          e.type_id().map(|k| disp(k))));
+                out.push((e.khid(), e.source(), e.target(), e.type_id()));
             }
             i += 1;
         }
@@ -770,84 +690,62 @@ impl Graph {
     }
 
     pub fn restore_vertex(&mut self,
-                          id: String,
+                          kid: Khid,
                           attrs: HashMap<String, Prop>,
                           type_names: Vec<String>)
-                          -> Result<String> {
-        self.note_id(&id);
-        let kid = match Khid::parse(&id) {
-            Some(k) => k,
-            None => return Err(Error::new("bad khid")),
-        };
+                          -> Result<Khid> {
+        self.note_khid(kid);
         let mut v = Vertex::with_props(kid, attrs);
         if let Some(name) = v.get("name") {
             if !self.vertices_by_name.contains_key(name) {
                 self.vertices_by_name.insert(name.to_string(), kid);
             }
         }
-        let names = type_names;
-        for (i, tn) in names.iter().enumerate() {
+        for tn in type_names.iter() {
             let tid = self.add_type(tn)?;
-            if let Some(tk) = Khid::parse(&tid) {
-                v.attach_type(tk);
-                if let Some(t) = self.tget_mut(tk) {
-                    t.add_vertex(kid);
-                }
+            v.attach_type(tid);
+            if let Some(t) = self.tget_mut(tid) {
+                t.add_vertex(kid);
             }
-            let _ = i;
         }
         self.vput(kid, v);
-        Ok(id)
+        Ok(kid)
     }
 
     pub fn restore_edge(&mut self,
-                        id: String,
-                        src: String,
-                        dst: String,
+                        kid: Khid,
+                        src: Khid,
+                        dst: Khid,
                         type_name: Option<String>,
                         attrs: HashMap<String, Prop>)
-                        -> Result<String> {
-        let sk = match Khid::parse(&src) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
-        let dk = match Khid::parse(&dst) {
-            Some(k) => k,
-            None => return Err(Error::new("missing vertex")),
-        };
-        if !self.vhas(sk) || !self.vhas(dk) {
+                        -> Result<Khid> {
+        if !self.vhas(src) || !self.vhas(dst) {
             return Err(Error::new("missing vertex"));
         }
-        self.note_id(&id);
-        let kid = match Khid::parse(&id) {
-            Some(k) => k,
-            None => return Err(Error::new("bad khid")),
-        };
-        let mut e = Edge::with_props(kid, sk, dk, attrs);
+        self.note_khid(kid);
+        let mut e = Edge::with_props(kid, src, dst, attrs);
         if let Some(ref tn) = type_name {
             if !tn.is_empty() {
                 let tid = self.add_type(tn)?;
-                if let Some(tk) = Khid::parse(&tid) {
-                    e.set_type(tk);
-                    if let Some(t) = self.tget_mut(tk) {
-                        t.add_edge(kid);
-                    }
+                e.set_type(tid);
+                if let Some(t) = self.tget_mut(tid) {
+                    t.add_edge(kid);
                 }
             }
         }
         {
-            let srcv = self.at_mut(sk).unwrap();
+            let srcv = self.at_mut(src).unwrap();
             srcv.add_out(kid);
         }
         {
-            let dstv = self.at_mut(dk).unwrap();
+            let dstv = self.at_mut(dst).unwrap();
             dstv.add_in(kid);
         }
         self.eput(kid, e);
-        Ok(id)
+        Ok(kid)
     }
 
-    pub fn type_names_of_vertex(&self, vid: &str) -> Vec<String> {
+    pub fn type_names_of_vertex(&self, vid: Khid) -> Vec<String> {
         match self.vertex(vid) {
             Some(v) => {
                 let mut names = Vec::new();
@@ -862,22 +760,18 @@ impl Graph {
         }
     }
 
-    pub fn edge_type_name(&self, eid: &str) -> Option<String> {
+    pub fn edge_type_name(&self, eid: Khid) -> Option<String> {
         match self.edge(eid) {
-            Some(e) => e.type_id().and_then(|tid| self.ty(&disp(tid)).map(|t| t.name().to_string())),
+            Some(e) => e.type_id().and_then(|tid| self.ty(tid).map(|t| t.name().to_string())),
             None => None,
         }
     }
 
-    pub fn set_edge_attr(&mut self, eid: &str, key: &str, value: &str) -> bool {
+    pub fn set_edge_attr(&mut self, eid: Khid, key: &str, value: &str) -> bool {
         self.set_edge_prop(eid, key, Prop::from_str(value))
     }
 
-    pub fn set_edge_prop(&mut self, eid: &str, key: &str, value: Prop) -> bool {
-        let ek = match Khid::parse(eid) {
-            Some(k) => k,
-            None => return false,
-        };
+    pub fn set_edge_prop(&mut self, ek: Khid, key: &str, value: Prop) -> bool {
         let tid = match self.eget(ek) {
             Some(e) => e.type_id(),
             None => return false,
@@ -889,13 +783,13 @@ impl Graph {
             }
             None => return false,
         }
-        if let Some(tn) = tid.and_then(|t| self.type_name_of(&disp(t)).map(|s| s.to_string())) {
+        if let Some(tn) = tid.and_then(|t| self.type_name_of(t).map(|s| s.to_string())) {
             let iid = SchemaIndex::id(&tn, key);
             if let Some(idx) = self.edge_indexes.get_mut(&iid) {
                 if let Some(ref o) = old {
-                    idx.remove(eid, o);
+                    idx.remove(ek, o);
                 }
-                idx.add(eid, &value);
+                idx.add(ek, &value);
             }
         }
         true

@@ -2,7 +2,7 @@
 //! The C# sample in csharp/Samples/Social, in Rust.
 
 use std::collections::HashMap;
-use khgraphdb::Graph;
+use khgraphdb::{Graph, Khid};
 use khgraphdb::query;
 
 fn attrs(name: &str) -> HashMap<String, String> {
@@ -17,8 +17,8 @@ fn main() {
     let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
     let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
     let carol = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
-    g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
-    g.add_edge(&bob, &carol, Some("KNOWS")).unwrap();
+    g.add_edge(alice, bob, Some("KNOWS")).unwrap();
+    g.add_edge(bob, carol, Some("KNOWS")).unwrap();
 
     query::run(&mut g, "MERGE (p:Person {name:'Ada'})");
     query::run(&mut g,
@@ -32,7 +32,7 @@ fn main() {
             Some(s) => s,
             None => continue,
         };
-        match g.vertex(id).and_then(|v| v.get("name")).map(|s| s.to_string()) {
+        match Khid::parse(id).and_then(|k| g.vertex(k)).and_then(|v| v.get("name")).map(|s| s.to_string()) {
             Some(n) => println!("  {}", n),
             None => println!("  {}", id),
         }

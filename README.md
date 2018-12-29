@@ -8,7 +8,8 @@ Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
 and types live in a slot Vec. Slot 0 is nil.
 An edge stores Khid ends. A vertex wears Type as Khid.
-MATCH compiles to Seed, Expand, Filter. EXPLAIN prints the tree.
+The arena returns a Khid. MATCH compiles to Seed, Expand, Filter.
+EXPLAIN prints the tree.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 
@@ -51,7 +52,7 @@ the current graph. Catalog holds the rest.
 let mut g = Graph::new();
 let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
 let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
+g.add_edge(alice, bob, Some("KNOWS")).unwrap();
 g.create_unique("Person", "name");
 let r = khgraphdb::query::run(&mut g, "MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice'");
 ```
