@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write, Result, Error, ErrorKind};
 
 use super::graph::Graph;
+use super::khid::Khid;
 use super::prop::Prop;
 
 const MAGIC: &'static [u8] = b"KHG2";
@@ -128,29 +129,39 @@ fn read_attrs_str<R: Read>(r: &mut R) -> Result<HashMap<String, Prop>> {
     Ok(m)
 }
 
+fn read_khid<R: Read>(r: &mut R) -> Result<Khid> {
+    let s = read_str(r)?;
+    match Khid::parse(&s) {
+        Some(k) => Ok(k),
+        None => Err(Error::new(ErrorKind::InvalidData, "bad khid")),
+    }
+}
+
 /// KHG4 snapshot. Attributes keep their tag.
 /// KHG3 and KHG2 still read; their values become Str.
+/// The letters on the wire are Display. The arena
+/// takes Khid.
 pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
     w.write_all(MAGIC4)?;
     write_str(w, g.khid())?;
 
     let types = g.all_types();
     write_u32(w, types.len() as u32)?;
-    for &(ref id, ref name) in types.iter() {
-        write_str(w, id)?;
+    for &(id, ref name) in types.iter() {
+        write_str(w, &format!("{}", id))?;
         write_str(w, name)?;
     }
 
     let vids = g.vertex_ids();
     write_u32(w, vids.len() as u32)?;
     for vid in vids.iter() {
-        write_str(w, vid)?;
-        let names = g.type_names_of_vertex(vid);
+        write_str(w, &format!("{}", vid))?;
+        let names = g.type_names_of_vertex(*vid);
         write_u32(w, names.len() as u32)?;
         for n in names.iter() {
             write_str(w, n)?;
         }
-        match g.vertex(vid) {
+        match g.vertex(*vid) {
             Some(v) => write_attrs(w, v.attrs())?,
             None => write_u32(w, 0)?,
         }
@@ -158,10 +169,10 @@ pub fn write_graph<W: Write>(g: &Graph, w: &mut W) -> Result<()> {
 
     let edges = g.all_edges();
     write_u32(w, edges.len() as u32)?;
-    for &(ref id, ref src, ref dst, _) in edges.iter() {
-        write_str(w, id)?;
-        write_str(w, src)?;
-        write_str(w, dst)?;
+    for &(id, src, dst, _) in edges.iter() {
+        write_str(w, &format!("{}", id))?;
+        write_str(w, &format!("{}", src))?;
+        write_str(w, &format!("{}", dst))?;
         let tn = g.edge_type_name(id).unwrap_or(String::new());
         write_str(w, &tn)?;
         match g.edge(id) {
@@ -199,7 +210,7 @@ pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
 
     let n_v = read_u32(r)? as usize;
     for _ in 0..n_v {
-        let id = read_str(r)?;
+        let id = read_khid(r)?;
         let n_names = read_u32(r)? as usize;
         let mut names = Vec::new();
         for _ in 0..n_names {
@@ -218,9 +229,9 @@ pub fn read_graph<R: Read>(r: &mut R) -> Result<Graph> {
 
     let n_e = read_u32(r)? as usize;
     for _ in 0..n_e {
-        let id = read_str(r)?;
-        let src = read_str(r)?;
-        let dst = read_str(r)?;
+        let id = read_khid(r)?;
+        let src = read_khid(r)?;
+        let dst = read_khid(r)?;
         let tn = read_str(r)?;
         let tno = if tn.is_empty() { None } else { Some(tn) };
         let attrs = if tagged {

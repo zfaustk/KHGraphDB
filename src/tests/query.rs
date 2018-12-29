@@ -1,7 +1,9 @@
 //! query tests.
 
-use crate::Graph;
+use crate::{Graph, Khid};
 use super::common::{attrs, social};
+
+fn vk(s: &str) -> Khid { Khid::parse(s).unwrap() }
 
 #[test]
 fn collect_neighbors() {
@@ -61,7 +63,7 @@ fn create_node() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(g.vertex_count(), 1);
     assert!(g.vertex_by_name("Ada").is_some());
-    assert!(g.has_type(&g.vertex_by_name("Ada").unwrap().khid().to_string(), "Person"));
+    assert!(g.has_type(g.vertex_by_name("Ada").unwrap().khid(), "Person"));
 }
 
 #[test]
@@ -127,9 +129,9 @@ fn match_keyed_end() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns, vec!["a".to_string(), "b".to_string()]);
     let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(a).unwrap().get("name"), Some("Alice"));
+    assert_eq!(g.vertex(vk(a)).unwrap().get("name"), Some("Alice"));
     let b = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(b).unwrap().get("name"), Some("Bob"));
+    assert_eq!(g.vertex(vk(b)).unwrap().get("name"), Some("Bob"));
 }
 
 #[test]
@@ -152,14 +154,14 @@ fn match_keyed_end_scan() {
     let mut g = Graph::new();
     let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
     let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
-    g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
+    g.add_edge(alice, bob, Some("KNOWS")).unwrap();
     assert!(!g.has_index("Person", "name"));
     let r = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b:Person {name:'Bob'})");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(a, alice);
+    assert_eq!(vk(a), alice);
 }
 
 #[test]
@@ -200,8 +202,8 @@ fn match_rel_bind() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns, vec!["a".to_string(), "e".to_string(), "b".to_string()]);
     let e = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
-    let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
-    assert_eq!(g.edge(e).unwrap().source(), crate::Khid::parse(&alice).unwrap());
+    let alice = g.vertex_by_name("Alice").unwrap().khid();
+    assert_eq!(g.edge(vk(e)).unwrap().source(), alice);
 }
 
 #[test]
@@ -226,12 +228,12 @@ fn match_shortest_hops() {
     let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
     let b = g.add_vertex(attrs("B"), Some("City")).unwrap();
     let c = g.add_vertex(attrs("C"), Some("City")).unwrap();
-    let ab = g.add_edge(&a, &b, Some("ROAD")).unwrap();
-    let bc = g.add_edge(&b, &c, Some("ROAD")).unwrap();
-    let ac = g.add_edge(&a, &c, Some("ROAD")).unwrap();
-    g.set_edge_attr(&ab, "weight", "2");
-    g.set_edge_attr(&bc, "weight", "2");
-    g.set_edge_attr(&ac, "weight", "5");
+    let ab = g.add_edge(a, b, Some("ROAD")).unwrap();
+    let bc = g.add_edge(b, c, Some("ROAD")).unwrap();
+    let ac = g.add_edge(a, c, Some("ROAD")).unwrap();
+    g.set_edge_attr(ab, "weight", "2");
+    g.set_edge_attr(bc, "weight", "2");
+    g.set_edge_attr(ac, "weight", "5");
     let r = crate::query::run(&mut g,
         "MATCH p = shortestPath((x:City {name:'A'})-[:ROAD*]->(y:City {name:'C'}))");
     assert!(r.ok);
@@ -239,13 +241,12 @@ fn match_shortest_hops() {
     let p = r.rows[0][0].as_ref().and_then(|v| v.as_path()).unwrap();
     assert_eq!(p.len(), 3);
     assert_eq!(p.hops(), 1);
-    assert_eq!(p[0], crate::Khid::parse(&a).unwrap());
-    assert_eq!(p[1], crate::Khid::parse(&ac).unwrap());
-    assert_eq!(p[2], crate::Khid::parse(&c).unwrap());
+    assert_eq!(p[0], a);
+    assert_eq!(p[1], ac);
+    assert_eq!(p[2], c);
     assert_eq!(p.nodes(),
-               vec![crate::Khid::parse(&a).unwrap(),
-                    crate::Khid::parse(&c).unwrap()]);
-    assert_eq!(p.edges(), vec![crate::Khid::parse(&ac).unwrap()]);
+               vec![a, c]);
+    assert_eq!(p.edges(), vec![ac]);
 }
 
 #[test]
@@ -260,9 +261,9 @@ fn match_shortest_none() {
 #[test]
 fn match_star_cycle_lid() {
     let mut g = social();
-    let alice = g.vertex_by_name("Alice").unwrap().khid().to_string();
-    let carol = g.vertex_by_name("Carol").unwrap().khid().to_string();
-    g.add_edge(&carol, &alice, Some("KNOWS")).unwrap();
+    let alice = g.vertex_by_name("Alice").unwrap().khid();
+    let carol = g.vertex_by_name("Carol").unwrap().khid();
+    g.add_edge(carol, alice, Some("KNOWS")).unwrap();
     let r = crate::query::run(&mut g,
         "MATCH (a:Person {name:'Alice'})-[:KNOWS*1..8]->(b)");
     assert!(r.ok);
@@ -377,7 +378,7 @@ fn order_by_name() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 3);
     let first = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(first).unwrap().get("name"), Some("Carol"));
+    assert_eq!(g.vertex(vk(first)).unwrap().get("name"), Some("Carol"));
 }
 
 #[test]
@@ -442,7 +443,7 @@ fn second_match() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns.len(), 3);
     let c = r.rows[0][2].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(c).unwrap().get("name"), Some("Carol"));
+    assert_eq!(g.vertex(vk(c)).unwrap().get("name"), Some("Carol"));
 }
 
 #[test]
@@ -454,7 +455,7 @@ fn set_edge() {
     let eids = g.edges_of_type("KNOWS");
     let mut saw = false;
     for eid in eids.iter() {
-        if g.edge(eid).unwrap().get("since") == Some("2011") {
+        if g.edge(*eid).unwrap().get("since") == Some("2011") {
             saw = true;
         }
     }
@@ -478,7 +479,7 @@ fn skip_limit() {
         "MATCH (a:Person) RETURN a ORDER BY a.name SKIP 1 LIMIT 1");
     assert_eq!(r.rows.len(), 1);
     let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(id).unwrap().get("name"), Some("Bob"));
+    assert_eq!(g.vertex(vk(id)).unwrap().get("name"), Some("Bob"));
 }
 
 #[test]
@@ -651,7 +652,7 @@ fn param_str() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(id).unwrap().get("name"), Some("Alice"));
+    assert_eq!(g.vertex(vk(id)).unwrap().get("name"), Some("Alice"));
 }
 
 #[test]

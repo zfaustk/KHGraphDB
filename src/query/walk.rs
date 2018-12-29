@@ -179,10 +179,14 @@ fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str,
         Some(id) => id,
         None => return None,
     };
-    if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key).cloned()) {
+    let k = match Khid::parse(id) {
+        Some(k) => k,
+        None => return None,
+    };
+    if let Some(p) = g.vertex(k).and_then(|v| v.get_prop(key).cloned()) {
         return Some(p);
     }
-    g.edge(id).and_then(|e| e.get_prop(key).cloned())
+    g.edge(k).and_then(|e| e.get_prop(key).cloned())
 }
 
 fn cmp_prop(got: &Prop, val: &Prop, op: i32) -> bool {
@@ -210,10 +214,14 @@ pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, Str
                 Some(id) => id.to_string(),
                 None => return Err(Error::new("SET needs a node")),
             };
-            if g.vertex(&id).is_some() {
-                g.set_prop(&id, key, val.clone())?;
-            } else if g.edge(&id).is_some() {
-                if !g.set_edge_prop(&id, key, val.clone()) {
+            let k = match Khid::parse(&id) {
+                Some(k) => k,
+                None => return Err(Error::new("SET missing")),
+            };
+            if g.vertex(k).is_some() {
+                g.set_prop(k, key, val.clone())?;
+            } else if g.edge(k).is_some() {
+                if !g.set_edge_prop(k, key, val.clone()) {
                     return Err(Error::new("SET missing"));
                 }
             } else {
@@ -237,7 +245,11 @@ pub(crate) fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, 
                 Some(id) => id.to_string(),
                 None => return Err(Error::new("REMOVE needs a node")),
             };
-            g.remove_attr(&id, key)?;
+            let k = match Khid::parse(&id) {
+                Some(k) => k,
+                None => return Err(Error::new("REMOVE needs a node")),
+            };
+            g.remove_attr(k, key)?;
         }
     }
     let mut r = src;
@@ -261,16 +273,20 @@ pub(crate) fn exec_delete(g: &mut Graph,
                 Some(id) => id.to_string(),
                 None => continue,
             };
-            if g.edge(&id).is_some() {
-                g.remove_edge(&id);
+            let k = match Khid::parse(&id) {
+                Some(k) => k,
+                None => continue,
+            };
+            if g.edge(k).is_some() {
+                g.remove_edge(k);
                 deleted += 1;
                 continue;
             }
-            if g.vertex(&id).is_none() {
+            if g.vertex(k).is_none() {
                 continue;
             }
             if !detach {
-                let (out_n, in_n) = match g.vertex(&id) {
+                let (out_n, in_n) = match g.vertex(k) {
                     Some(v) => (v.out_degree(), v.in_degree()),
                     None => (0, 0),
                 };
@@ -278,7 +294,7 @@ pub(crate) fn exec_delete(g: &mut Graph,
                     return Err(Error::new("DELETE edges"));
                 }
             }
-            g.remove_vertex(&id);
+            g.remove_vertex(k);
             deleted += 1;
         }
     }
@@ -624,10 +640,18 @@ pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResul
             let a = &node_ids[i];
             let b = &node_ids[i + 1];
             let tn = pat.rels[i].type_name.as_ref().map(|s| &s[..]);
-            let eid = g.add_edge(a, b, tn)?;
+            let ak = match Khid::parse(a) {
+                Some(k) => k,
+                None => return Err(Error::new("missing vertex")),
+            };
+            let bk = match Khid::parse(b) {
+                Some(k) => k,
+                None => return Err(Error::new("missing vertex")),
+            };
+            let eid = g.add_edge(ak, bk, tn)?;
             created += 1;
             if let Some(ref v) = pat.rels[i].var {
-                bound.insert(v.clone(), eid.clone());
+                bound.insert(v.clone(), format!("{}", eid));
             }
             i += 1;
         }
@@ -689,7 +713,8 @@ fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
     for &(ref k, ref v) in n.props.iter() {
         attrs.insert(k.clone(), v.clone());
     }
-    g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))
+    let id = g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
+    Ok(format!("{}", id))
 }
 
 pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
@@ -723,8 +748,16 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
         None => return Err(Error::new("MERGE nodes")),
     };
     let rel = &pat.rels[0];
-    let eids: Vec<String> = match g.vertex(&a) {
-        Some(v) => Khid::display_all(v.outgoing()),
+    let ak = match Khid::parse(&a) {
+        Some(k) => k,
+        None => return Err(Error::new("MERGE nodes")),
+    };
+    let bk = match Khid::parse(&b) {
+        Some(k) => k,
+        None => return Err(Error::new("MERGE nodes")),
+    };
+    let eids: Vec<Khid> = match g.vertex(ak) {
+        Some(v) => v.outgoing().iter().cloned().collect(),
         None => Vec::new(),
     };
     let mut cols = Vec::new();
@@ -734,8 +767,8 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     }
     cols.push(pat.nodes[1].var.clone().unwrap_or("b".to_string()));
     for eid in eids.iter() {
-        if let Some(e) = g.edge(eid) {
-            if format!("{}", e.target()) == b {
+        if let Some(e) = g.edge(*eid) {
+            if e.target() == bk {
                 let ok_t = match rel.type_id {
                     Some(ref tid) => e.type_id() == Khid::parse(tid),
                     None => true,
@@ -745,7 +778,7 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
                     r.columns = cols;
                     let mut row = vec![Some(Val::Id(a.clone()))];
                     if rel.var.is_some() {
-                        row.push(Some(Val::Id(eid.clone())));
+                        row.push(Some(Val::Id(format!("{}", eid))));
                     }
                     row.push(Some(Val::Id(b.clone())));
                     r.rows.push(row);
@@ -756,12 +789,12 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
             }
         }
     }
-    let eid = g.add_edge(&a, &b, rel.type_name.as_ref().map(|s| &s[..]))?;
+    let eid = g.add_edge(ak, bk, rel.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.columns = cols;
     let mut row = vec![Some(Val::Id(a))];
     if rel.var.is_some() {
-        row.push(Some(Val::Id(eid)));
+        row.push(Some(Val::Id(format!("{}", eid))));
     }
     row.push(Some(Val::Id(b)));
     r.rows.push(row);
@@ -787,6 +820,6 @@ fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
     let id = g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.columns.push(n.var.clone().unwrap_or("n".to_string()));
-    r.rows.push(vec![Some(Val::Id(id))]);
+    r.rows.push(vec![Some(Val::Id(format!("{}", id)))]);
     Ok(r)
 }

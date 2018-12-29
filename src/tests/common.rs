@@ -15,7 +15,7 @@ pub fn social() -> Graph {
     let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
     let bob = g.add_vertex(attrs("Bob"), Some("Person")).unwrap();
     let _carol = g.add_vertex(attrs("Carol"), Some("Person")).unwrap();
-    g.add_edge(&alice, &bob, Some("KNOWS")).unwrap();
-    g.add_edge(&bob, &_carol, Some("KNOWS")).unwrap();
+    g.add_edge(alice, bob, Some("KNOWS")).unwrap();
+    g.add_edge(bob, _carol, Some("KNOWS")).unwrap();
     g
 }

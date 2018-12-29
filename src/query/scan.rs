@@ -7,6 +7,14 @@ use crate::khid::Khid;
 use crate::prop::Prop;
 use super::{NodePat, Path, Pattern, QueryResult, RelPat, Val};
 
+fn of(s: &str) -> Option<Khid> {
+    Khid::parse(s)
+}
+
+fn letters(ks: &[Khid]) -> Vec<String> {
+    Khid::display_all(ks)
+}
+
 /// Fill missing node names so a flip cannot rename n0 to n1.
 pub fn name_slots(pat: &mut Pattern) {
     let mut i = 0;
@@ -76,7 +84,7 @@ pub fn resolve_types(g: &Graph, pat: &mut Pattern, required: bool) -> Option<Str
     for n in pat.nodes.iter_mut() {
         if let Some(ref tn) = n.type_name {
             match g.type_by_name(tn) {
-                Some(t) => n.type_id = Some(t.khid().to_string()),
+                Some(t) => n.type_id = Some(format!("{}", t.khid())),
                 None => {
                     if required {
                         return Some(format!("unknown type {}", tn));
@@ -88,7 +96,7 @@ pub fn resolve_types(g: &Graph, pat: &mut Pattern, required: bool) -> Option<Str
     for r in pat.rels.iter_mut() {
         if let Some(ref tn) = r.type_name {
             match g.type_by_name(tn) {
-                Some(t) => r.type_id = Some(t.khid().to_string()),
+                Some(t) => r.type_id = Some(format!("{}", t.khid())),
                 None => {
                     if required {
                         return Some(format!("unknown type {}", tn));
@@ -137,17 +145,17 @@ pub fn seeds(g: &Graph, n: &NodePat) -> Vec<String> {
                 None => (n.props[0].0.clone(), n.props[0].1.clone()),
             };
             let found = g.find_prop(tn, &k, &val);
-            return found.into_iter().filter(|id| node_ok(g, id, n)).collect();
+            return letters(&found).into_iter().filter(|id| node_ok(g, id, n)).collect();
         }
     }
     let src: Vec<String> = match n.type_id {
         Some(ref tid) => {
-            match g.ty(tid) {
-                Some(t) => Khid::display_all(&t.vertices().iter().cloned().collect::<Vec<_>>()),
+            match of(tid).and_then(|k| g.ty(k)) {
+                Some(t) => letters(&t.vertices().iter().cloned().collect::<Vec<_>>()),
                 None => Vec::new(),
             }
         }
-        None => g.vertex_ids(),
+        None => letters(&g.vertex_ids()),
     };
     src.into_iter().filter(|id| node_ok(g, id, n)).collect()
 }
@@ -229,13 +237,13 @@ pub fn start_seeds(g: &Graph, pat: &Pattern) -> Vec<String> {
 }
 
 fn starts_from_type(g: &Graph, tid: &str, dir: i32, n0: &NodePat) -> Vec<String> {
-    let eids: Vec<String> = match g.ty(tid) {
-        Some(t) => Khid::display_all(&t.edges().iter().cloned().collect::<Vec<_>>()),
+    let eids: Vec<String> = match of(tid).and_then(|k| g.ty(k)) {
+        Some(t) => letters(&t.edges().iter().cloned().collect::<Vec<_>>()),
         None => return Vec::new(),
     };
     let mut out = Vec::new();
     for eid in eids.iter() {
-        let e = match g.edge(eid) {
+        let e = match of(eid).and_then(|k| g.edge(k)) {
             Some(e) => e,
             None => continue,
         };
@@ -256,9 +264,9 @@ fn starts_from_type(g: &Graph, tid: &str, dir: i32, n0: &NodePat) -> Vec<String>
 }
 
 fn wears(g: &Graph, vid: &str, tid: &str) -> bool {
-    match g.vertex(vid) {
+    match of(vid).and_then(|k| g.vertex(k)) {
         Some(v) => {
-            match Khid::parse(tid) {
+            match of(tid) {
                 Some(k) => v.types().iter().any(|t| *t == k),
                 None => false,
             }
@@ -274,7 +282,7 @@ pub fn node_ok(g: &Graph, vid: &str, n: &NodePat) -> bool {
         }
     }
     for &(ref k, ref val) in n.props.iter() {
-        match g.vertex(vid).and_then(|v| v.get_prop(k)) {
+        match of(vid).and_then(|id| g.vertex(id)).and_then(|v| v.get_prop(k)) {
             Some(got) if got == val => {}
             _ => return false,
         }
@@ -283,24 +291,24 @@ pub fn node_ok(g: &Graph, vid: &str, n: &NodePat) -> bool {
 }
 
 pub fn edges_of(g: &Graph, vid: &str, rel: &RelPat) -> Vec<String> {
-    let v = match g.vertex(vid) {
+    let v = match of(vid).and_then(|k| g.vertex(k)) {
         Some(v) => v,
         None => return Vec::new(),
     };
     let mut ids = Vec::new();
     let src: Vec<String> = if rel.dir > 0 {
-        Khid::display_all(v.outgoing())
+        letters(v.outgoing())
     } else if rel.dir < 0 {
-        Khid::display_all(v.incoming())
+        letters(v.incoming())
     } else {
-        let mut both = Khid::display_all(v.outgoing());
-        both.extend(Khid::display_all(v.incoming()));
+        let mut both = letters(v.outgoing());
+        both.extend(letters(v.incoming()));
         both
     };
     for eid in src.iter() {
         if let Some(ref tid) = rel.type_id {
-            match g.edge(eid).and_then(|e| e.type_id()) {
-                Some(et) if Some(et) == Khid::parse(tid) => {}
+            match of(eid).and_then(|k| g.edge(k)).and_then(|e| e.type_id()) {
+                Some(et) if Some(et) == of(tid) => {}
                 _ => continue,
             }
         }

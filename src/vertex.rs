@@ -17,13 +17,12 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn new(id: String, attrs: HashMap<String, String>) -> Vertex {
+    pub fn new(id: Khid, attrs: HashMap<String, String>) -> Vertex {
         let mut p = HashMap::new();
         for (k, v) in attrs.into_iter() {
             p.insert(k, Prop::from_str(&v));
         }
-        let kid = Khid::parse(&id).unwrap_or(Khid::nil());
-        Vertex::with_props(kid, p)
+        Vertex::with_props(id, p)
     }
 
     pub fn with_props(id: Khid, attrs: HashMap<String, Prop>) -> Vertex {
@@ -63,17 +62,6 @@ impl Vertex {
         } else {
             Some(self.types[0])
         }
-    }
-
-    pub fn has_type_name(&self, types: &HashMap<String, String>, name: &str) -> bool {
-        for tid in self.types.iter() {
-            if let Some(n) = types.get(&format!("{}", tid)) {
-                if n == name {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     pub fn out_degree(&self) -> usize {

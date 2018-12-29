@@ -4,6 +4,7 @@
 //! stack of depth at most 16.
 
 use crate::graph::Graph;
+use crate::khid::Khid;
 use crate::prop::Prop;
 use super::scan;
 use super::{Expr, Pattern, QueryResult};
@@ -322,14 +323,18 @@ fn expand_rel(g: &Graph,
         if scan::contains_id(&row.seen_e, eid) {
             continue;
         }
-        let e = match g.edge(eid) {
+        let e = match Khid::parse(eid).and_then(|k| g.edge(k)) {
             Some(e) => e,
+            None => continue,
+        };
+        let uk = match Khid::parse(u) {
+            Some(k) => k,
             None => continue,
         };
         let v = if rel.dir < 0 {
             format!("{}", e.source())
         } else if rel.dir == 0 {
-            if format!("{}", e.source()) == u {
+            if e.source() == uk {
                 format!("{}", e.target())
             } else {
                 format!("{}", e.source())
@@ -361,7 +366,7 @@ fn exec_shortest_rows(g: &Graph,
     let ends = scan::seeds(g, &pat.nodes[1]);
     let rel = &pat.rels[0];
     let tid = match rel.type_id {
-        Some(ref s) => Some(&s[..]),
+        Some(ref s) => Khid::parse(s),
         None => None,
     };
     let mut rows = Vec::new();
@@ -373,20 +378,28 @@ fn exec_shortest_rows(g: &Graph,
             if !scan::seed_ok(seed, &pat.nodes[1], t) {
                 continue;
             }
-            match crate::algo::path_on(g, s, t, tid, rel.dir, rel.min, rel.max) {
+            let sk = match Khid::parse(s) {
+                Some(k) => k,
+                None => continue,
+            };
+            let tk = match Khid::parse(t) {
+                Some(k) => k,
+                None => continue,
+            };
+            match crate::algo::path_on(g, sk, tk, tid, rel.dir, rel.min, rel.max) {
                 Some(path) => {
                     let mut bind = vec![None; pat.nodes.len()];
                     bind[0] = Some(s.clone());
                     bind[1] = Some(t.clone());
                     let mut rel_edges = vec![Vec::new(); pat.rels.len()];
                     let mut es = Vec::new();
-                    for k in super::Path::parse_all(&path).edges().iter() {
+                    for k in super::Path::new(path.clone()).edges().iter() {
                         es.push(format!("{}", k));
                     }
                     rel_edges[0] = es;
                     rows.push(Row {
                         bind: bind,
-                        trail: path,
+                        trail: Khid::display_all(&path),
                         rel_edges: rel_edges,
                         seen_v: Vec::new(),
                         seen_e: Vec::new(),
@@ -443,10 +456,10 @@ fn lookup_row(g: &Graph, pat: &Pattern, row: &Row, var: &str, key: &str) -> Opti
         };
         if hit {
             if let Some(ref id) = row.bind[i] {
-                if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key)).cloned() {
+                if let Some(p) = Khid::parse(id).and_then(|k| g.vertex(k)).and_then(|v| v.get_prop(key)).cloned() {
                     return Some(p);
                 }
-                return g.edge(id).and_then(|e| e.get_prop(key)).cloned();
+                return Khid::parse(id).and_then(|k| g.edge(k)).and_then(|e| e.get_prop(key)).cloned();
             }
             return None;
         }
@@ -461,10 +474,10 @@ fn lookup_row(g: &Graph, pat: &Pattern, row: &Row, var: &str, key: &str) -> Opti
         if hit {
             if r < row.rel_edges.len() && row.rel_edges[r].len() == 1 {
                 let id = &row.rel_edges[r][0];
-                if let Some(p) = g.edge(id).and_then(|e| e.get_prop(key)).cloned() {
+                if let Some(p) = Khid::parse(id).and_then(|k| g.edge(k)).and_then(|e| e.get_prop(key)).cloned() {
                     return Some(p);
                 }
-                return g.vertex(id).and_then(|v| v.get_prop(key)).cloned();
+                return Khid::parse(id).and_then(|k| g.vertex(k)).and_then(|v| v.get_prop(key)).cloned();
             }
             return None;
         }
