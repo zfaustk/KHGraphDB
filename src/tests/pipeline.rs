@@ -2,7 +2,12 @@
 //! A checkout of 3.6 cargo tests this file.
 
 use crate::query;
+use crate::query::Val;
 use super::common::social;
+
+fn name_of(v: &Option<Val>) -> Option<&str> {
+    v.as_ref().and_then(|x| x.as_prop()).and_then(|p| p.as_str())
+}
 
 #[test]
 fn explain_names_the_operators() {
@@ -11,16 +16,16 @@ fn explain_names_the_operators() {
     assert!(r.ok);
     let mut kinds = Vec::new();
     for row in r.rows.iter() {
-        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
-            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        if name_of(&row[0]) == Some("op") {
+            kinds.push(name_of(&row[1]).unwrap().to_string());
         }
     }
     assert_eq!(kinds, vec!["Seed".to_string(), "Expand".to_string()]);
     let mut saw_plan = false;
     for row in r.rows.iter() {
-        if row[0].as_ref().and_then(|v| v.as_id()) == Some("plan") {
+        if name_of(&row[0]) == Some("plan") {
             saw_plan = true;
-            let d = row[2].as_ref().and_then(|v| v.as_id()).unwrap();
+            let d = name_of(&row[2]).unwrap();
             assert!(d.contains("Expand"));
         }
     }
@@ -34,8 +39,8 @@ fn explain_optional() {
     assert!(r.ok);
     let mut kinds = Vec::new();
     for row in r.rows.iter() {
-        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
-            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        if name_of(&row[0]) == Some("op") {
+            kinds.push(name_of(&row[1]).unwrap().to_string());
         }
     }
     assert_eq!(kinds,
@@ -50,8 +55,8 @@ fn explain_shortest() {
     assert!(r.ok);
     let mut saw = false;
     for row in r.rows.iter() {
-        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
-            if row[1].as_ref().and_then(|v| v.as_id()) == Some("Shortest") {
+        if name_of(&row[0]) == Some("op") {
+            if name_of(&row[1]) == Some("Shortest") {
                 saw = true;
             }
         }
@@ -82,8 +87,8 @@ fn explain_filter() {
     assert!(r.ok);
     let mut kinds = Vec::new();
     for row in r.rows.iter() {
-        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
-            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        if name_of(&row[0]) == Some("op") {
+            kinds.push(name_of(&row[1]).unwrap().to_string());
         }
     }
     assert_eq!(kinds,
@@ -105,8 +110,8 @@ fn explain_project_limit() {
     assert!(r.ok);
     let mut kinds = Vec::new();
     for row in r.rows.iter() {
-        if row[0].as_ref().and_then(|v| v.as_id()) == Some("op") {
-            kinds.push(row[1].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        if name_of(&row[0]) == Some("op") {
+            kinds.push(name_of(&row[1]).unwrap().to_string());
         }
     }
     assert_eq!(kinds,

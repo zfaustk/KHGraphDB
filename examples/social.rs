@@ -2,7 +2,7 @@
 //! The C# sample in csharp/Samples/Social, in Rust.
 
 use std::collections::HashMap;
-use khgraphdb::{Graph, Khid};
+use khgraphdb::Graph;
 use khgraphdb::query;
 
 fn attrs(name: &str) -> HashMap<String, String> {
@@ -29,10 +29,10 @@ fn main() {
     println!("{}", r.message);
     for row in r.rows.iter() {
         let id = match row.get(0).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-            Some(s) => s,
+            Some(k) => k,
             None => continue,
         };
-        match Khid::parse(id).and_then(|k| g.vertex(k)).and_then(|v| v.get("name")).map(|s| s.to_string()) {
+        match g.vertex(id).and_then(|v| v.get("name")).map(|s| s.to_string()) {
             Some(n) => println!("  {}", n),
             None => println!("  {}", id),
         }

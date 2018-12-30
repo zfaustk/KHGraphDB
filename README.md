@@ -8,8 +8,9 @@ Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
 and types live in a slot Vec. Slot 0 is nil.
 An edge stores Khid ends. A vertex wears Type as Khid.
-The arena returns a Khid. MATCH compiles to Seed, Expand, Filter.
-EXPLAIN prints the tree.
+The arena returns a Khid. MATCH binds that serial.
+Val::Id is a Khid. A name or a count is a Prop.
+MATCH compiles to Seed, Expand, Filter. EXPLAIN prints the tree.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 

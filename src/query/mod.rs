@@ -13,7 +13,7 @@ mod scan;
 struct NodePat {
     var: Option<String>,
     type_name: Option<String>,
-    type_id: Option<String>,
+    type_id: Option<Khid>,
     props: Vec<(String, Prop)>,
 }
 
@@ -22,7 +22,7 @@ struct NodePat {
 struct RelPat {
     var: Option<String>,
     type_name: Option<String>,
-    type_id: Option<String>,
+    type_id: Option<Khid>,
     dir: i32, // 1 out, -1 in, 0 both
     min: usize,
     max: usize,
@@ -131,19 +131,20 @@ impl Index<usize> for Path {
 
 /// A bound value. An id is a KHID. A path is
 /// node, edge, node, ... The vertices stay put.
-/// A list holds other values.
+/// A list holds other values. A name or a count
+/// is a Prop, not an id.
 #[derive(Clone, PartialEq)]
 pub enum Val {
-    Id(String),
+    Id(Khid),
     Path(Path),
     List(Vec<Val>),
     Prop(Prop),
 }
 
 impl Val {
-    pub fn as_id(&self) -> Option<&str> {
+    pub fn as_id(&self) -> Option<Khid> {
         match *self {
-            Val::Id(ref s) => Some(&s[..]),
+            Val::Id(k) => Some(k),
             Val::Path(_) | Val::List(_) | Val::Prop(_) => None,
         }
     }

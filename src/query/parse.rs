@@ -1016,7 +1016,7 @@ impl Parser {
             while self.kind() != TokenKind::RBrack && self.kind() != TokenKind::Eof {
                 match self.kind() {
                     TokenKind::String | TokenKind::Number | TokenKind::Ident => {
-                        lits.push(Val::Id(self.text()));
+                        lits.push(unwind_lit(&self.text(), self.kind())?);
                         self.next();
                     }
                     _ => return Err(self.err_here("bad UNWIND value")),
@@ -1076,6 +1076,36 @@ impl Parser {
             names.push(self.expect_ident()?);
         }
         Ok(names)
+    }
+}
+
+/// UNWIND literals are values, not identities.
+fn unwind_lit(text: &str, kind: TokenKind) -> Result<Val> {
+    match kind {
+        TokenKind::String => Ok(Val::Prop(Prop::from_str(text))),
+        TokenKind::Number => {
+            if text.contains('.') {
+                match text.parse::<f64>() {
+                    Ok(n) => Ok(Val::Prop(Prop::from_float(n))),
+                    Err(_) => Ok(Val::Prop(Prop::from_str(text))),
+                }
+            } else {
+                match text.parse::<i64>() {
+                    Ok(n) => Ok(Val::Prop(Prop::from_int(n))),
+                    Err(_) => Ok(Val::Prop(Prop::from_str(text))),
+                }
+            }
+        }
+        TokenKind::Ident => {
+            if text == "true" {
+                Ok(Val::Prop(Prop::from_bool(true)))
+            } else if text == "false" {
+                Ok(Val::Prop(Prop::from_bool(false)))
+            } else {
+                Ok(Val::Prop(Prop::from_str(text)))
+            }
+        }
+        _ => Ok(Val::Prop(Prop::from_str(text))),
     }
 }
 
