@@ -1,6 +1,9 @@
 //! Writes and the row operators. MATCH itself compiles
 //! in op.rs. CREATE, SET, DELETE, MERGE, WHERE, RETURN
 //! still live here: they take a table of rows.
+//! A bound id is a Khid. A name or a count is a Prop.
+
+use std::collections::HashMap;
 
 use crate::error::{Error, Result};
 use crate::graph::Graph;
@@ -10,8 +13,12 @@ use super::{Expr, NodePat, Path, Pattern, QueryResult, RetItem, Val};
 use super::scan;
 use super::op;
 
+fn name_val(s: &str) -> Option<Val> {
+    Some(Val::Prop(Prop::from_str(s)))
+}
+
 pub(crate) fn exec_pattern(g: &Graph, pat: &Pattern) -> QueryResult {
-    exec_pattern_on(g, pat, &std::collections::HashMap::new())
+    exec_pattern_on(g, pat, &HashMap::new())
 }
 
 pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
@@ -27,34 +34,32 @@ pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
     for (i, n) in pat.nodes.iter().enumerate() {
         let slot = n.var.clone().unwrap_or(format!("n{}", i));
         let name = n.type_name.clone().unwrap_or(String::new());
-        let khid = n.type_id.clone().unwrap_or(String::new());
         r.rows.push(vec![
-            Some(Val::Id(slot)),
-            Some(Val::Id(name)),
-            Some(Val::Id(khid)),
+            name_val(&slot),
+            name_val(&name),
+            n.type_id.map(Val::Id),
         ]);
     }
     for (i, rel) in pat.rels.iter().enumerate() {
         let slot = rel.var.clone().unwrap_or(format!("e{}", i));
         let name = rel.type_name.clone().unwrap_or(String::new());
-        let khid = rel.type_id.clone().unwrap_or(String::new());
         r.rows.push(vec![
-            Some(Val::Id(slot)),
-            Some(Val::Id(name)),
-            Some(Val::Id(khid)),
+            name_val(&slot),
+            name_val(&name),
+            rel.type_id.map(Val::Id),
         ]);
     }
     let op = super::op::compile(&pat);
     r.rows.push(vec![
-        Some(Val::Id("plan".to_string())),
-        Some(Val::Id(op.kind().to_string())),
-        Some(Val::Id(op.describe())),
+        name_val("plan"),
+        name_val(op.kind()),
+        name_val(&op.describe()),
     ]);
     for k in op.kinds().iter() {
         r.rows.push(vec![
-            Some(Val::Id("op".to_string())),
-            Some(Val::Id((*k).to_string())),
-            Some(Val::Id(String::new())),
+            name_val("op"),
+            name_val(*k),
+            None,
         ]);
     }
     Ok(r)
@@ -71,11 +76,11 @@ pub(crate) fn exec_match(g: &Graph, pat: &Pattern, prev: Option<QueryResult>) ->
             let mut new_cols: Vec<String> = Vec::new();
             let mut first = true;
             for row in src.rows.iter() {
-                let mut seed = std::collections::HashMap::new();
+                let mut seed = HashMap::new();
                 let mut i = 0;
                 while i < src.columns.len() {
                     if let Some(id) = row.get(i).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                        seed.insert(src.columns[i].clone(), id.to_string());
+                        seed.insert(src.columns[i].clone(), id);
                     }
                     i += 1;
                 }
@@ -119,7 +124,7 @@ fn contains_str(cols: &Vec<String>, s: &str) -> bool {
     false
 }
 
-fn exec_pattern_on(g: &Graph, pat: &Pattern, seed: &std::collections::HashMap<String, String>) -> QueryResult {
+fn exec_pattern_on(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> QueryResult {
     op::run(g, pat, seed)
 }
 
@@ -179,14 +184,10 @@ fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str,
         Some(id) => id,
         None => return None,
     };
-    let k = match Khid::parse(id) {
-        Some(k) => k,
-        None => return None,
-    };
-    if let Some(p) = g.vertex(k).and_then(|v| v.get_prop(key).cloned()) {
+    if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key).cloned()) {
         return Some(p);
     }
-    g.edge(k).and_then(|e| e.get_prop(key).cloned())
+    g.edge(id).and_then(|e| e.get_prop(key).cloned())
 }
 
 fn cmp_prop(got: &Prop, val: &Prop, op: i32) -> bool {
@@ -210,13 +211,9 @@ pub(crate) fn exec_set(g: &mut Graph, src: QueryResult, items: &Vec<(String, Str
                 Some(i) => i,
                 None => return Err(Error::new("SET unknown name")),
             };
-            let id = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                Some(id) => id.to_string(),
-                None => return Err(Error::new("SET needs a node")),
-            };
-            let k = match Khid::parse(&id) {
+            let k = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
                 Some(k) => k,
-                None => return Err(Error::new("SET missing")),
+                None => return Err(Error::new("SET needs a node")),
             };
             if g.vertex(k).is_some() {
                 g.set_prop(k, key, val.clone())?;
@@ -241,11 +238,7 @@ pub(crate) fn exec_remove(g: &mut Graph, src: QueryResult, items: &Vec<(String, 
                 Some(i) => i,
                 None => return Err(Error::new("REMOVE unknown name")),
             };
-            let id = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                Some(id) => id.to_string(),
-                None => return Err(Error::new("REMOVE needs a node")),
-            };
-            let k = match Khid::parse(&id) {
+            let k = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
                 Some(k) => k,
                 None => return Err(Error::new("REMOVE needs a node")),
             };
@@ -269,11 +262,7 @@ pub(crate) fn exec_delete(g: &mut Graph,
                 Some(i) => i,
                 None => return Err(Error::new("DELETE unknown name")),
             };
-            let id = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                Some(id) => id.to_string(),
-                None => continue,
-            };
-            let k = match Khid::parse(&id) {
+            let k = match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
                 Some(k) => k,
                 None => continue,
             };
@@ -310,19 +299,19 @@ fn path_fn(path: Option<&Path>, kind: i32) -> Option<Val> {
         None => return None,
     };
     if kind == 3 {
-        return Some(Val::Id(format!("{}", p.hops())));
+        return Some(Val::Prop(Prop::from_int(p.hops() as i64)));
     }
     if kind == 4 {
         let mut ids = Vec::new();
         for n in p.nodes().iter() {
-            ids.push(Val::Id(format!("{}", n)));
+            ids.push(Val::Id(*n));
         }
         return Some(Val::List(ids));
     }
     if kind == 5 {
         let mut ids = Vec::new();
         for n in p.edges().iter() {
-            ids.push(Val::Id(format!("{}", n)));
+            ids.push(Val::Id(*n));
         }
         return Some(Val::List(ids));
     }
@@ -456,7 +445,7 @@ pub(crate) fn project(g: &Graph, src: &QueryResult, cols: &Vec<RetItem>) -> Quer
                 nr.push(Some(Val::List(list)));
                 bi += 1;
             } else {
-                nr.push(Some(Val::Id(format!("{}", n))));
+                nr.push(Some(Val::Prop(Prop::from_int(n as i64))));
             }
         }
         r.rows.push(nr);
@@ -469,7 +458,7 @@ pub(crate) fn project(g: &Graph, src: &QueryResult, cols: &Vec<RetItem>) -> Quer
             } else if c.kind == 2 {
                 nr.push(Some(Val::List(Vec::new())));
             } else {
-                nr.push(Some(Val::Id("0".to_string())));
+                nr.push(Some(Val::Prop(Prop::from_int(0))));
             }
         }
         r.rows.push(nr);
@@ -594,7 +583,7 @@ fn order_cell(g: &Graph,
                 None => return Prop::from_str(""),
             };
             match row.get(col).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                Some(id) => Prop::from_str(id),
+                Some(id) => Prop::from_str(&format!("{}", id)),
                 None => Prop::from_str(""),
             }
         }
@@ -617,19 +606,19 @@ pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResul
         None => create_columns(pat),
     };
     for seed in binds.iter() {
-        let mut bound: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut bound: HashMap<String, Khid> = HashMap::new();
         for (k, v) in seed.iter() {
-            bound.insert(k.clone(), v.clone());
+            bound.insert(k.clone(), *v);
         }
         let mut created = 0;
-        let mut node_ids: Vec<String> = Vec::new();
+        let mut node_ids: Vec<Khid> = Vec::new();
         for (i, n) in pat.nodes.iter().enumerate() {
             let key = n.var.clone().unwrap_or(format!("n{}", i));
-            let id = if let Some(existing) = bound.get(&key).cloned() {
+            let id = if let Some(&existing) = bound.get(&key) {
                 existing
             } else {
                 let id = create_node(g, n)?;
-                bound.insert(key, id.clone());
+                bound.insert(key, id);
                 created += 1;
                 id
             };
@@ -637,28 +626,20 @@ pub(crate) fn exec_create(g: &mut Graph, pat: &Pattern, prev: Option<&QueryResul
         }
         let mut i = 0;
         while i < pat.rels.len() {
-            let a = &node_ids[i];
-            let b = &node_ids[i + 1];
+            let a = node_ids[i];
+            let b = node_ids[i + 1];
             let tn = pat.rels[i].type_name.as_ref().map(|s| &s[..]);
-            let ak = match Khid::parse(a) {
-                Some(k) => k,
-                None => return Err(Error::new("missing vertex")),
-            };
-            let bk = match Khid::parse(b) {
-                Some(k) => k,
-                None => return Err(Error::new("missing vertex")),
-            };
-            let eid = g.add_edge(ak, bk, tn)?;
+            let eid = g.add_edge(a, b, tn)?;
             created += 1;
             if let Some(ref v) = pat.rels[i].var {
-                bound.insert(v.clone(), format!("{}", eid));
+                bound.insert(v.clone(), eid);
             }
             i += 1;
         }
         let mut row = Vec::new();
         for c in r.columns.iter() {
             match bound.get(c) {
-                Some(id) => row.push(Some(Val::Id(id.clone()))),
+                Some(&id) => row.push(Some(Val::Id(id))),
                 None => row.push(None),
             }
         }
@@ -682,22 +663,22 @@ fn create_columns(pat: &Pattern) -> Vec<String> {
     cols
 }
 
-fn create_binds(prev: Option<&QueryResult>) -> Vec<std::collections::HashMap<String, String>> {
+fn create_binds(prev: Option<&QueryResult>) -> Vec<HashMap<String, Khid>> {
     let mut out = Vec::new();
     match prev {
         None => {
-            out.push(std::collections::HashMap::new());
+            out.push(HashMap::new());
         }
         Some(p) => {
             if p.rows.is_empty() {
                 return out;
             }
             for row in p.rows.iter() {
-                let mut m = std::collections::HashMap::new();
+                let mut m = HashMap::new();
                 let mut i = 0;
                 while i < p.columns.len() {
                     if let Some(id) = row.get(i).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-                        m.insert(p.columns[i].clone(), id.to_string());
+                        m.insert(p.columns[i].clone(), id);
                     }
                     i += 1;
                 }
@@ -708,13 +689,12 @@ fn create_binds(prev: Option<&QueryResult>) -> Vec<std::collections::HashMap<Str
     out
 }
 
-fn create_node(g: &mut Graph, n: &NodePat) -> Result<String> {
-    let mut attrs = std::collections::HashMap::new();
+fn create_node(g: &mut Graph, n: &NodePat) -> Result<Khid> {
+    let mut attrs = HashMap::new();
     for &(ref k, ref v) in n.props.iter() {
         attrs.insert(k.clone(), v.clone());
     }
-    let id = g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
-    Ok(format!("{}", id))
+    g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))
 }
 
 pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
@@ -740,23 +720,15 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     let left = merge_node(g, &pat.nodes[0])?;
     let right = merge_node(g, &pat.nodes[1])?;
     let a = match left.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-        Some(id) => id.to_string(),
+        Some(id) => id,
         None => return Err(Error::new("MERGE nodes")),
     };
     let b = match right.rows.get(0).and_then(|r| r.get(0)).and_then(|x| x.as_ref()).and_then(|v| v.as_id()) {
-        Some(id) => id.to_string(),
+        Some(id) => id,
         None => return Err(Error::new("MERGE nodes")),
     };
     let rel = &pat.rels[0];
-    let ak = match Khid::parse(&a) {
-        Some(k) => k,
-        None => return Err(Error::new("MERGE nodes")),
-    };
-    let bk = match Khid::parse(&b) {
-        Some(k) => k,
-        None => return Err(Error::new("MERGE nodes")),
-    };
-    let eids: Vec<Khid> = match g.vertex(ak) {
+    let eids: Vec<Khid> = match g.vertex(a) {
         Some(v) => v.outgoing().iter().cloned().collect(),
         None => Vec::new(),
     };
@@ -768,19 +740,19 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
     cols.push(pat.nodes[1].var.clone().unwrap_or("b".to_string()));
     for eid in eids.iter() {
         if let Some(e) = g.edge(*eid) {
-            if e.target() == bk {
+            if e.target() == b {
                 let ok_t = match rel.type_id {
-                    Some(ref tid) => e.type_id() == Khid::parse(tid),
+                    Some(tid) => e.type_id() == Some(tid),
                     None => true,
                 };
                 if ok_t {
                     let mut r = QueryResult::ok_msg("exists");
                     r.columns = cols;
-                    let mut row = vec![Some(Val::Id(a.clone()))];
+                    let mut row = vec![Some(Val::Id(a))];
                     if rel.var.is_some() {
-                        row.push(Some(Val::Id(format!("{}", eid))));
+                        row.push(Some(Val::Id(*eid)));
                     }
-                    row.push(Some(Val::Id(b.clone())));
+                    row.push(Some(Val::Id(b)));
                     r.rows.push(row);
                     r = exec_set(g, r, &pat.on_match)?;
                     r.message = "exists".to_string();
@@ -789,12 +761,12 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
             }
         }
     }
-    let eid = g.add_edge(ak, bk, rel.type_name.as_ref().map(|s| &s[..]))?;
+    let eid = g.add_edge(a, b, rel.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.columns = cols;
     let mut row = vec![Some(Val::Id(a))];
     if rel.var.is_some() {
-        row.push(Some(Val::Id(format!("{}", eid))));
+        row.push(Some(Val::Id(eid)));
     }
     row.push(Some(Val::Id(b)));
     r.rows.push(row);
@@ -809,17 +781,17 @@ fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
         let mut r = QueryResult::ok_msg("exists");
         r.columns.push(n.var.clone().unwrap_or("n".to_string()));
         for id in found.iter() {
-            r.rows.push(vec![Some(Val::Id(id.clone()))]);
+            r.rows.push(vec![Some(Val::Id(*id))]);
         }
         return Ok(r);
     }
-    let mut attrs = std::collections::HashMap::new();
+    let mut attrs = HashMap::new();
     for &(ref k, ref v) in n.props.iter() {
         attrs.insert(k.clone(), v.clone());
     }
     let id = g.add_vertex_props(attrs, n.type_name.as_ref().map(|s| &s[..]))?;
     let mut r = QueryResult::ok_msg("created");
     r.columns.push(n.var.clone().unwrap_or("n".to_string()));
-    r.rows.push(vec![Some(Val::Id(format!("{}", id)))]);
+    r.rows.push(vec![Some(Val::Id(id))]);
     Ok(r)
 }

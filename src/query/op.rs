@@ -1,7 +1,9 @@
 //! Pull operators. An enum, not a trait object.
-//! rustc 1.18 has no dyn to miss. MATCH compiles
-//! to a tree of these; hop DFS for `*` stays a
-//! stack of depth at most 16.
+//! MATCH compiles to a tree of these; hop DFS for
+//! `*` stays a stack of depth at most 16.
+//! A row binds Khid. The print form does not live here.
+
+use std::collections::HashMap;
 
 use crate::graph::Graph;
 use crate::khid::Khid;
@@ -138,18 +140,15 @@ pub fn compile(pat: &Pattern) -> Op {
 
 #[derive(Clone)]
 struct Row {
-    bind: Vec<Option<String>>,
-    trail: Vec<String>,
-    rel_edges: Vec<Vec<String>>,
-    seen_v: Vec<String>,
-    seen_e: Vec<String>,
+    bind: Vec<Option<Khid>>,
+    trail: Vec<Khid>,
+    rel_edges: Vec<Vec<Khid>>,
+    seen_v: Vec<Khid>,
+    seen_e: Vec<Khid>,
 }
 
 /// Run MATCH. Same rows as the old recursive walk.
-pub fn run(g: &Graph,
-           pat: &Pattern,
-           seed: &std::collections::HashMap<String, String>)
-           -> QueryResult {
+pub fn run(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> QueryResult {
     let mut pat = pat.clone();
     if let Some(msg) = scan::resolve_types(g, &mut pat, true) {
         return QueryResult::fail(&msg);
@@ -177,8 +176,6 @@ pub fn run(g: &Graph,
         r = scan::unflip_result(r, &orig_cols);
     }
     if walk_pat.optional && r.rows.is_empty() {
-        // compile already wrapped Optional; exec_op should have
-        // produced the empty row. Keep the old belt.
         if r.columns.is_empty() {
             r.columns.push("n".to_string());
         }
@@ -199,7 +196,7 @@ pub fn run(g: &Graph,
 fn exec_op(g: &Graph,
            pat: &Pattern,
            op: &Op,
-           seed: &std::collections::HashMap<String, String>)
+           seed: &HashMap<String, Khid>)
            -> Vec<Row> {
     match *op {
         Op::Seed { node, .. } => exec_seed(g, pat, node, seed),
@@ -254,7 +251,7 @@ fn empty_row(pat: &Pattern) -> Row {
 fn exec_seed(g: &Graph,
              pat: &Pattern,
              node: usize,
-             seed: &std::collections::HashMap<String, String>)
+             seed: &HashMap<String, Khid>)
              -> Vec<Row> {
     let n = &pat.nodes[node];
     let found = if node == 0 {
@@ -264,11 +261,11 @@ fn exec_seed(g: &Graph,
     };
     let mut rows = Vec::new();
     for id in found.iter() {
-        if !scan::seed_ok(seed, n, id) {
+        if !scan::seed_ok(seed, n, *id) {
             continue;
         }
         let mut bind = vec![None; pat.nodes.len()];
-        bind[node] = Some(id.clone());
+        bind[node] = Some(*id);
         let mut rel_edges = Vec::new();
         let mut k = 0;
         while k < pat.rels.len() {
@@ -277,9 +274,9 @@ fn exec_seed(g: &Graph,
         }
         rows.push(Row {
             bind: bind,
-            trail: vec![id.clone()],
+            trail: vec![*id],
             rel_edges: rel_edges,
-            seen_v: vec![id.clone()],
+            seen_v: vec![*id],
             seen_e: Vec::new(),
         });
     }
@@ -290,29 +287,29 @@ fn expand_from(g: &Graph,
                pat: &Pattern,
                rel_i: usize,
                row: &Row,
-               seed: &std::collections::HashMap<String, String>,
+               seed: &HashMap<String, Khid>,
                out: &mut Vec<Row>) {
     let from = match row.bind[rel_i] {
-        Some(ref id) => id.clone(),
+        Some(id) => id,
         None => return,
     };
-    expand_rel(g, pat, rel_i, &from, 0, row, seed, out);
+    expand_rel(g, pat, rel_i, from, 0, row, seed, out);
 }
 
 fn expand_rel(g: &Graph,
               pat: &Pattern,
               rel_i: usize,
-              u: &str,
+              u: Khid,
               hops: usize,
               row: &Row,
-              seed: &std::collections::HashMap<String, String>,
+              seed: &HashMap<String, Khid>,
               out: &mut Vec<Row>) {
     let rel = &pat.rels[rel_i];
     let next = &pat.nodes[rel_i + 1];
     if hops >= rel.min && hops <= rel.max && scan::node_ok(g, u, next) &&
        scan::seed_ok(seed, next, u) {
         let mut emit = row.clone();
-        emit.bind[rel_i + 1] = Some(u.to_string());
+        emit.bind[rel_i + 1] = Some(u);
         out.push(emit);
     }
     if hops >= rel.max {
@@ -320,44 +317,40 @@ fn expand_rel(g: &Graph,
     }
     let eids = scan::edges_of(g, u, rel);
     for eid in eids.iter() {
-        if scan::contains_id(&row.seen_e, eid) {
+        if scan::contains_id(&row.seen_e, *eid) {
             continue;
         }
-        let e = match Khid::parse(eid).and_then(|k| g.edge(k)) {
+        let e = match g.edge(*eid) {
             Some(e) => e,
             None => continue,
         };
-        let uk = match Khid::parse(u) {
-            Some(k) => k,
-            None => continue,
-        };
         let v = if rel.dir < 0 {
-            format!("{}", e.source())
+            e.source()
         } else if rel.dir == 0 {
-            if e.source() == uk {
-                format!("{}", e.target())
+            if e.source() == u {
+                e.target()
             } else {
-                format!("{}", e.source())
+                e.source()
             }
         } else {
-            format!("{}", e.target())
+            e.target()
         };
-        if scan::contains_id(&row.seen_v, &v) {
+        if scan::contains_id(&row.seen_v, v) {
             continue;
         }
         let mut nxt = row.clone();
-        nxt.seen_e.push(eid.clone());
-        nxt.seen_v.push(v.clone());
-        nxt.trail.push(eid.clone());
-        nxt.trail.push(v.clone());
-        nxt.rel_edges[rel_i].push(eid.clone());
-        expand_rel(g, pat, rel_i, &v, hops + 1, &nxt, seed, out);
+        nxt.seen_e.push(*eid);
+        nxt.seen_v.push(v);
+        nxt.trail.push(*eid);
+        nxt.trail.push(v);
+        nxt.rel_edges[rel_i].push(*eid);
+        expand_rel(g, pat, rel_i, v, hops + 1, &nxt, seed, out);
     }
 }
 
 fn exec_shortest_rows(g: &Graph,
                       pat: &Pattern,
-                      seed: &std::collections::HashMap<String, String>)
+                      seed: &HashMap<String, Khid>)
                       -> Vec<Row> {
     if pat.rels.len() != 1 {
         return Vec::new();
@@ -365,41 +358,26 @@ fn exec_shortest_rows(g: &Graph,
     let starts = scan::start_seeds(g, pat);
     let ends = scan::seeds(g, &pat.nodes[1]);
     let rel = &pat.rels[0];
-    let tid = match rel.type_id {
-        Some(ref s) => Khid::parse(s),
-        None => None,
-    };
+    let tid = rel.type_id;
     let mut rows = Vec::new();
     for s in starts.iter() {
-        if !scan::seed_ok(seed, &pat.nodes[0], s) {
+        if !scan::seed_ok(seed, &pat.nodes[0], *s) {
             continue;
         }
         for t in ends.iter() {
-            if !scan::seed_ok(seed, &pat.nodes[1], t) {
+            if !scan::seed_ok(seed, &pat.nodes[1], *t) {
                 continue;
             }
-            let sk = match Khid::parse(s) {
-                Some(k) => k,
-                None => continue,
-            };
-            let tk = match Khid::parse(t) {
-                Some(k) => k,
-                None => continue,
-            };
-            match crate::algo::path_on(g, sk, tk, tid, rel.dir, rel.min, rel.max) {
+            match crate::algo::path_on(g, *s, *t, tid, rel.dir, rel.min, rel.max) {
                 Some(path) => {
                     let mut bind = vec![None; pat.nodes.len()];
-                    bind[0] = Some(s.clone());
-                    bind[1] = Some(t.clone());
+                    bind[0] = Some(*s);
+                    bind[1] = Some(*t);
                     let mut rel_edges = vec![Vec::new(); pat.rels.len()];
-                    let mut es = Vec::new();
-                    for k in super::Path::new(path.clone()).edges().iter() {
-                        es.push(format!("{}", k));
-                    }
-                    rel_edges[0] = es;
+                    rel_edges[0] = super::Path::new(path.clone()).edges();
                     rows.push(Row {
                         bind: bind,
-                        trail: Khid::display_all(&path),
+                        trail: path,
                         rel_edges: rel_edges,
                         seen_v: Vec::new(),
                         seen_e: Vec::new(),
@@ -455,11 +433,11 @@ fn lookup_row(g: &Graph, pat: &Pattern, row: &Row, var: &str, key: &str) -> Opti
             _ => false,
         };
         if hit {
-            if let Some(ref id) = row.bind[i] {
-                if let Some(p) = Khid::parse(id).and_then(|k| g.vertex(k)).and_then(|v| v.get_prop(key)).cloned() {
+            if let Some(id) = row.bind[i] {
+                if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key)).cloned() {
                     return Some(p);
                 }
-                return Khid::parse(id).and_then(|k| g.edge(k)).and_then(|e| e.get_prop(key)).cloned();
+                return g.edge(id).and_then(|e| e.get_prop(key)).cloned();
             }
             return None;
         }
@@ -473,11 +451,11 @@ fn lookup_row(g: &Graph, pat: &Pattern, row: &Row, var: &str, key: &str) -> Opti
         };
         if hit {
             if r < row.rel_edges.len() && row.rel_edges[r].len() == 1 {
-                let id = &row.rel_edges[r][0];
-                if let Some(p) = Khid::parse(id).and_then(|k| g.edge(k)).and_then(|e| e.get_prop(key)).cloned() {
+                let id = row.rel_edges[r][0];
+                if let Some(p) = g.edge(id).and_then(|e| e.get_prop(key)).cloned() {
                     return Some(p);
                 }
-                return Khid::parse(id).and_then(|k| g.vertex(k)).and_then(|v| v.get_prop(key)).cloned();
+                return g.vertex(id).and_then(|v| v.get_prop(key)).cloned();
             }
             return None;
         }

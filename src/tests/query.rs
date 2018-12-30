@@ -3,8 +3,6 @@
 use crate::{Graph, Khid};
 use super::common::{attrs, social};
 
-fn vk(s: &str) -> Khid { Khid::parse(s).unwrap() }
-
 #[test]
 fn collect_neighbors() {
     let mut g = social();
@@ -26,7 +24,7 @@ fn count_star() {
     let r = crate::query::run(&mut g, "MATCH (a:Person) RETURN count(a)");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
-    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_id()), Some("3"));
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_int()), Some(3));
     let r2 = crate::query::run(&mut g,
         "MATCH (a:Person)-[:KNOWS]->(b) RETURN a, count(b)");
     assert_eq!(r2.rows.len(), 2);
@@ -109,11 +107,11 @@ fn explain_types() {
     assert!(r.ok);
     assert_eq!(r.columns, vec!["slot".to_string(), "name".to_string(), "khid".to_string()]);
     assert!(r.rows.len() >= 2);
-    let person = g.type_by_name("Person").unwrap().khid().to_string();
+    let person = g.type_by_name("Person").unwrap().khid();
     let mut saw = false;
     for row in r.rows.iter() {
-        if row[1].as_ref().and_then(|v| v.as_id()) == Some("Person") {
-            assert_eq!(row[2].as_ref().and_then(|v| v.as_id()), Some(person.as_str()));
+        if row[1].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()) == Some("Person") {
+            assert_eq!(row[2].as_ref().and_then(|v| v.as_id()), Some(person));
             saw = true;
         }
     }
@@ -129,9 +127,9 @@ fn match_keyed_end() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns, vec!["a".to_string(), "b".to_string()]);
     let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(vk(a)).unwrap().get("name"), Some("Alice"));
+    assert_eq!(g.vertex(a).unwrap().get("name"), Some("Alice"));
     let b = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(vk(b)).unwrap().get("name"), Some("Bob"));
+    assert_eq!(g.vertex(b).unwrap().get("name"), Some("Bob"));
 }
 
 #[test]
@@ -161,7 +159,7 @@ fn match_keyed_end_scan() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     let a = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(vk(a), alice);
+    assert_eq!(a, alice);
 }
 
 #[test]
@@ -203,7 +201,7 @@ fn match_rel_bind() {
     assert_eq!(r.columns, vec!["a".to_string(), "e".to_string(), "b".to_string()]);
     let e = r.rows[0][1].as_ref().and_then(|v| v.as_id()).unwrap();
     let alice = g.vertex_by_name("Alice").unwrap().khid();
-    assert_eq!(g.edge(vk(e)).unwrap().source(), alice);
+    assert_eq!(g.edge(e).unwrap().source(), alice);
 }
 
 #[test]
@@ -378,7 +376,7 @@ fn order_by_name() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 3);
     let first = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(vk(first)).unwrap().get("name"), Some("Carol"));
+    assert_eq!(g.vertex(first).unwrap().get("name"), Some("Carol"));
 }
 
 #[test]
@@ -407,10 +405,10 @@ fn path_functions() {
     assert_eq!(r.rows.len(), 2);
     let mut hops = Vec::new();
     for row in r.rows.iter() {
-        hops.push(row[0].as_ref().and_then(|v| v.as_id()).unwrap().to_string());
+        hops.push(row[0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_int()).unwrap());
     }
     hops.sort();
-    assert_eq!(hops, vec!["1".to_string(), "2".to_string()]);
+    assert_eq!(hops, vec![1, 2]);
 }
 
 #[test]
@@ -443,7 +441,7 @@ fn second_match() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.columns.len(), 3);
     let c = r.rows[0][2].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(vk(c)).unwrap().get("name"), Some("Carol"));
+    assert_eq!(g.vertex(c).unwrap().get("name"), Some("Carol"));
 }
 
 #[test]
@@ -479,7 +477,7 @@ fn skip_limit() {
         "MATCH (a:Person) RETURN a ORDER BY a.name SKIP 1 LIMIT 1");
     assert_eq!(r.rows.len(), 1);
     let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(vk(id)).unwrap().get("name"), Some("Bob"));
+    assert_eq!(g.vertex(id).unwrap().get("name"), Some("Bob"));
 }
 
 #[test]
@@ -488,7 +486,7 @@ fn unwind_list() {
     let r = crate::query::run(&mut g, "UNWIND ['Ada', 'Bob'] AS n RETURN n");
     assert!(r.ok);
     assert_eq!(r.rows.len(), 2);
-    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_id()), Some("Ada"));
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()), Some("Ada"));
 }
 
 #[test]
@@ -503,8 +501,8 @@ fn unwind_star() {
 #[test]
 fn val_list() {
     let v = crate::Val::List(vec![
-        crate::Val::Id("k1".to_string()),
-        crate::Val::Id("k2".to_string()),
+        crate::Val::Id(Khid::from_raw(1)),
+        crate::Val::Id(Khid::from_raw(2)),
     ]);
     assert_eq!(v.as_list().unwrap().len(), 2);
     assert!(v.as_id().is_none());
@@ -652,7 +650,7 @@ fn param_str() {
     assert!(r.ok);
     assert_eq!(r.rows.len(), 1);
     let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
-    assert_eq!(g.vertex(vk(id)).unwrap().get("name"), Some("Alice"));
+    assert_eq!(g.vertex(id).unwrap().get("name"), Some("Alice"));
 }
 
 #[test]
@@ -686,5 +684,34 @@ fn merge_on_match_set_prop() {
     assert_eq!(r.rows.len(), 1);
     assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()),
                Some("Paris"));
+}
+
+#[test]
+fn a_bound_id_is_the_serial() {
+    let mut g = Graph::new();
+    let alice = g.add_vertex(attrs("Alice"), Some("Person")).unwrap();
+    let r = crate::query::run(&mut g, "MATCH (a:Person {name:'Alice'})");
+    assert!(r.ok);
+    let id = r.rows[0][0].as_ref().and_then(|v| v.as_id()).unwrap();
+    assert_eq!(id, alice);
+    assert_eq!(g.vertex(id).unwrap().khid(), alice);
+}
+
+#[test]
+fn count_is_a_prop() {
+    let mut g = social();
+    let r = crate::query::run(&mut g, "MATCH (a:Person) RETURN count(a)");
+    assert!(r.rows[0][0].as_ref().and_then(|v| v.as_id()).is_none());
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_int()),
+               Some(3));
+}
+
+#[test]
+fn unwind_string_is_a_prop() {
+    let mut g = Graph::new();
+    let r = crate::query::run(&mut g, "UNWIND ['Ada'] AS n RETURN n");
+    assert!(r.rows[0][0].as_ref().and_then(|v| v.as_id()).is_none());
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()),
+               Some("Ada"));
 }
 

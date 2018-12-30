@@ -9,6 +9,8 @@
 - Unique backfill refuses a duplicate.
 - Graph lookups take Khid. Writes return Khid.
   vertex_k is gone: vertex is that lookup.
+- Val::Id is a Khid. COUNT and UNWIND strings are Prop.
+  EXPLAIN names too. The walk binds the serial.
 
 ## 3.6.0 - 2018-08-05
 

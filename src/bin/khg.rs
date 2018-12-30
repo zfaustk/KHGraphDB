@@ -254,7 +254,7 @@ fn parse_prop_text(raw: &str) -> Prop {
 fn fmt_cell(v: &Option<Val>) -> String {
     match *v {
         None => String::new(),
-        Some(Val::Id(ref s)) => s.clone(),
+        Some(Val::Id(k)) => format!("{}", k),
         Some(Val::Path(ref p)) => {
             let ids = p.ids();
             let mut s = String::new();
@@ -404,17 +404,18 @@ fn main() {
 mod tests {
     use super::{fmt_cell, Shell};
     use khgraphdb::query::Val;
+    use khgraphdb::Khid;
 
     #[test]
     fn fmt_id() {
-        assert_eq!(fmt_cell(&Some(Val::Id("k1".to_string()))), "k1");
+        assert_eq!(fmt_cell(&Some(Val::Id(Khid::from_raw(1)))), "k1");
         assert_eq!(fmt_cell(&None), "");
     }
 
     #[test]
     fn fmt_list() {
-        let v = Val::List(vec![Val::Id("a".to_string()), Val::Id("b".to_string())]);
-        assert_eq!(fmt_cell(&Some(v)), "[a, b]");
+        let v = Val::List(vec![Val::Id(Khid::from_raw(1)), Val::Id(Khid::from_raw(2))]);
+        assert_eq!(fmt_cell(&Some(v)), "[k1, k2]");
     }
 
     #[test]

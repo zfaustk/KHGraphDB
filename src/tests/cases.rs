@@ -197,13 +197,10 @@ fn load_graph(text: &str) -> Graph {
 fn cell_text(g: &Graph, v: &Option<Val>) -> String {
     match *v {
         None => String::new(),
-        Some(Val::Id(ref id)) => {
-            match crate::Khid::parse(id)
-                .and_then(|k| g.vertex(k))
-                .and_then(|x| x.get("name"))
-                .map(|s| s.to_string()) {
+        Some(Val::Id(id)) => {
+            match g.vertex(id).and_then(|x| x.get("name")).map(|s| s.to_string()) {
                 Some(n) => n,
-                None => id.clone(),
+                None => format!("{}", id),
             }
         }
         Some(Val::Path(ref p)) => format!("path:{}", p.hops()),

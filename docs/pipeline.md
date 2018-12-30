@@ -19,6 +19,11 @@ Seed → Expand → Expand → Filter
 - **Optional** wraps. Empty inner yields a null row.
 - **Shortest** is hop-count BFS.
 
+A row binds Khid. The pattern holds the Type's KHID
+after resolve. Val::Id is that serial. A name, a
+count, an UNWIND string: those are Prop. EXPLAIN
+prints slot and Type name as Prop, Type KHID as Id.
+
 EXPLAIN MATCH prints the tree: slot, Type name, Type
 KHID, then plan and op rows.
 
