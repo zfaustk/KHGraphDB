@@ -6,6 +6,7 @@ mod algo;
 mod query;
 mod prop;
 mod khid;
+mod addr;
 mod index;
 mod cases;
 mod pipeline;

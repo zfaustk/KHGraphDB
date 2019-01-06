@@ -1,5 +1,6 @@
 //! KHGraphDB. A directed property graph.
-//! Type is a first-class object. KHID is identity.
+//! Type is a first-class object. KHID is identity
+//! on a shard. Addr is identity off this box.
 
 pub use error::{Error, Result};
 pub use graph::Graph;
@@ -9,11 +10,13 @@ pub use edge::Edge;
 pub use ty::Type;
 pub use prop::Prop;
 pub use khid::Khid;
+pub use addr::Addr;
 pub use query::{run as run_query, QueryResult, Val, Path};
 pub use tx::Tx;
 
 pub mod error;
 pub mod khid;
+pub mod addr;
 pub mod prop;
 pub mod graph;
 pub mod catalog;
