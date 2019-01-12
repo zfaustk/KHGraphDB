@@ -7,13 +7,15 @@ use super::ty::Type;
 use super::index::SchemaIndex;
 use super::prop::Prop;
 use super::khid::Khid;
+use super::addr::Addr;
 
 /// Directed property graph. Vertices live in a slot Vec.
-/// The index is the KHID. KHID is identity.
+/// The index is the KHID. KHID is identity on this shard.
 /// Lookups take Khid. Names stay strings.
 #[derive(Clone)]
 pub struct Graph {
     id: String,
+    shard: u32,
     serial: u64,
     vertices: Vec<Option<Vertex>>,
     edges: Vec<Option<Edge>>,
@@ -30,8 +32,14 @@ impl Graph {
     }
 
     pub fn named(id: &str) -> Graph {
+        Graph::on(id, 1)
+    }
+
+    /// A graph that already knows its shard.
+    pub fn on(id: &str, shard: u32) -> Graph {
         Graph {
             id: id.to_string(),
+            shard: shard,
             serial: 0,
             vertices: {
                 let mut v = Vec::new();
@@ -58,6 +66,20 @@ impl Graph {
     /// Catalog name. Not a serial KHID.
     pub fn khid(&self) -> &str {
         &self.id
+    }
+
+    /// Home of every vertex in this arena.
+    pub fn shard(&self) -> u32 {
+        self.shard
+    }
+
+    pub fn set_shard(&mut self, shard: u32) {
+        self.shard = shard;
+    }
+
+    /// Address of a local serial. Far edges store this.
+    pub fn addr(&self, id: Khid) -> Addr {
+        Addr::new(self.shard, id)
     }
 
     /// A copy of the arena. Writes on the copy do not
