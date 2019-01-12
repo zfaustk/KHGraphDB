@@ -9,7 +9,8 @@ KHGraphDB 4.0 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 - One idea per commit. A body that says why.
 - Type is an object. KHID is the pointer. The walk compares KHID.
 - Khid is a u64. The letters are Display.
-- Catalog names graphs. It is not a query language.
+- A graph is a shard. Addr is `(shard, khid)`. Shard 0 is here.
+- Catalog names graphs and assigns shards. It is not a query language.
 - A transaction clones the arena. Drop rolls back.
 - `cargo test` is the gate.
 

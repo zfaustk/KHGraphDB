@@ -21,6 +21,24 @@ fn add_and_lookup() {
 }
 
 #[test]
+fn a_graph_is_a_shard() {
+    let g = Graph::new();
+    assert_eq!(g.shard(), 1);
+    let a = g.addr(crate::Khid::from_raw(1));
+    assert_eq!(format!("{}", a), "s1/k1");
+    assert!(a.on(g.shard()));
+}
+
+#[test]
+fn catalog_assigns_shards() {
+    let mut c = crate::Catalog::new();
+    c.create("a").unwrap();
+    c.create("b").unwrap();
+    assert_eq!(c.graph("a").unwrap().shard(), 1);
+    assert_eq!(c.graph("b").unwrap().shard(), 2);
+}
+
+#[test]
 fn add_edge_with_attrs() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("A"), Some("City")).unwrap();
