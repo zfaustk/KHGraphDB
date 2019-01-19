@@ -28,6 +28,7 @@ pub mod io;
 pub mod algo;
 pub mod query;
 pub mod tx;
+pub mod wal;
 
 #[cfg(test)]
 mod tests;
