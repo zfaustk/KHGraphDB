@@ -18,5 +18,8 @@ An edge's source, target, and type are Khid. A vertex
 wears Type as Khid. Graph lookups take Khid. add_vertex
 returns the serial. The print form is Display.
 
+Type may mark a property as content. The index
+refuses that key. The page stays on the vertex.
+
 This is the DNA. Do not flatten Type into a string to
 look more like Cypher.

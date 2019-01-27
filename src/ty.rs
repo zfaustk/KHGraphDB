@@ -9,6 +9,7 @@ pub struct Type {
     name: String,
     vertices: HashSet<Khid>,
     edges: HashSet<Khid>,
+    content: HashSet<String>,
 }
 
 impl Type {
@@ -22,6 +23,7 @@ impl Type {
             name: name,
             vertices: HashSet::new(),
             edges: HashSet::new(),
+            content: HashSet::new(),
         }
     }
 
@@ -63,5 +65,21 @@ impl Type {
 
     pub fn remove_edge(&mut self, eid: Khid) -> bool {
         self.edges.remove(&eid)
+    }
+
+    /// A content key is payload. The index refuses it.
+    pub fn mark_content(&mut self, key: &str) -> bool {
+        if key.is_empty() {
+            return false;
+        }
+        self.content.insert(key.to_string())
+    }
+
+    pub fn is_content(&self, key: &str) -> bool {
+        self.content.contains(key)
+    }
+
+    pub fn content_keys(&self) -> &HashSet<String> {
+        &self.content
     }
 }
