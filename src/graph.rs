@@ -322,10 +322,7 @@ impl Graph {
                 .map(|(k, val)| (k.clone(), val.clone()))
                 .collect();
             for (k, val) in keys.iter() {
-                let iid = SchemaIndex::id(tn, k);
-                if let Some(idx) = self.indexes.get_mut(&iid) {
-                    idx.add(kid, val);
-                }
+                self.post_vertex(tn, kid, k, val);
             }
         }
         self.vput(kid, v);
@@ -509,6 +506,9 @@ impl Graph {
         if type_name.is_empty() || key.is_empty() {
             return false;
         }
+        if self.ty_content(type_name, key) {
+            return false;
+        }
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.indexes.get_mut(&id) {
             if unique {
@@ -534,6 +534,9 @@ impl Graph {
 
     pub fn create_edge_index(&mut self, type_name: &str, key: &str) -> bool {
         if type_name.is_empty() || key.is_empty() {
+            return false;
+        }
+        if self.ty_content(type_name, key) {
             return false;
         }
         let id = SchemaIndex::id(type_name, key);
@@ -596,6 +599,44 @@ impl Graph {
         self.indexes.contains_key(&SchemaIndex::id(type_name, key))
     }
 
+    fn ty_content(&self, type_name: &str, key: &str) -> bool {
+        match self.type_by_name(type_name) {
+            Some(t) => t.is_content(key),
+            None => false,
+        }
+    }
+
+    /// Mark a property as payload. Drops a posting list
+    /// if one already sat on that key.
+    pub fn mark_content(&mut self, type_name: &str, key: &str) -> bool {
+        if type_name.is_empty() || key.is_empty() {
+            return false;
+        }
+        let tid = match self.add_type(type_name) {
+            Ok(id) => id,
+            Err(_) => return false,
+        };
+        match self.tget_mut(tid) {
+            Some(t) => {
+                t.mark_content(key);
+            }
+            None => return false,
+        }
+        self.indexes.remove(&SchemaIndex::id(type_name, key));
+        self.edge_indexes.remove(&SchemaIndex::id(type_name, key));
+        true
+    }
+
+    fn post_vertex(&mut self, type_name: &str, vid: Khid, key: &str, val: &Prop) {
+        if self.ty_content(type_name, key) {
+            return;
+        }
+        let iid = SchemaIndex::id(type_name, key);
+        if let Some(idx) = self.indexes.get_mut(&iid) {
+            idx.add(vid, val);
+        }
+    }
+
     pub fn set_attr(&mut self, vid: Khid, key: &str, value: &str) -> Result<()> {
         self.set_prop(vid, key, Prop::from_str(value))
     }
@@ -642,6 +683,9 @@ impl Graph {
                 None => continue,
             };
             let iid = SchemaIndex::id(&tname, key);
+            if self.ty_content(&tname, key) {
+                continue;
+            }
             if let Some(idx) = self.indexes.get_mut(&iid) {
                 if let Some(ref o) = old_prop {
                     idx.remove(vk, o);

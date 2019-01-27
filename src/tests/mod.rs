@@ -8,6 +8,7 @@ mod prop;
 mod khid;
 mod addr;
 mod index;
+mod content;
 mod cases;
 mod pipeline;
 mod tx;

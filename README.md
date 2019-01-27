@@ -80,7 +80,7 @@ $param
 ```
 
 See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
-`docs/tx.md`, and `docs/home.md`. Type is still not a string. MATCH binds
+`docs/tx.md`, `docs/home.md`, and `docs/content.md`. Type is still not a string. MATCH binds
 it by KHID. Path is a value. A graph can be named, cloned,
 or cut down to a subgraph. A Catalog holds several graphs;
 the query still takes one. A transaction clones the arena.
