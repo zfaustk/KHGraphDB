@@ -381,6 +381,37 @@ impl Graph {
         Ok(kid)
     }
 
+    /// Cite an address that may not live here.
+    /// Same-shard Addr becomes a local edge.
+    pub fn add_far_edge(&mut self,
+                        src: Khid,
+                        dst: Addr,
+                        type_name: Option<&str>)
+                        -> Result<Khid> {
+        if dst.on(self.shard) && self.vhas(dst.khid()) {
+            return self.add_edge(src, dst.khid(), type_name);
+        }
+        if !self.vhas(src) {
+            return Err(Error::new("missing vertex"));
+        }
+        let kid = self.next_khid();
+        let mut e = Edge::with_props(kid, src, Khid::nil(), HashMap::new());
+        e.set_far(dst);
+        if let Some(tn) = type_name {
+            let tid = self.add_type(tn)?;
+            e.set_type(tid);
+            if let Some(t) = self.tget_mut(tid) {
+                t.add_edge(kid);
+            }
+        }
+        {
+            let srcv = self.at_mut(src).unwrap();
+            srcv.add_out(kid);
+        }
+        self.eput(kid, e);
+        Ok(kid)
+    }
+
     pub fn remove_edge(&mut self, ek: Khid) -> bool {
         let (src, dst, tid) = match self.eget(ek) {
             Some(e) => (e.source(), e.target(), e.type_id()),
@@ -806,6 +837,39 @@ impl Graph {
         {
             let dstv = self.at_mut(dst).unwrap();
             dstv.add_in(kid);
+        }
+        self.eput(kid, e);
+        Ok(kid)
+    }
+
+    pub fn restore_far_edge(&mut self,
+                            kid: Khid,
+                            src: Khid,
+                            dst: Addr,
+                            type_name: Option<String>,
+                            attrs: HashMap<String, Prop>)
+                            -> Result<Khid> {
+        if dst.on(self.shard) && self.vhas(dst.khid()) {
+            return self.restore_edge(kid, src, dst.khid(), type_name, attrs);
+        }
+        if !self.vhas(src) {
+            return Err(Error::new("missing vertex"));
+        }
+        self.note_khid(kid);
+        let mut e = Edge::with_props(kid, src, Khid::nil(), attrs);
+        e.set_far(dst);
+        if let Some(ref tn) = type_name {
+            if !tn.is_empty() {
+                let tid = self.add_type(tn)?;
+                e.set_type(tid);
+                if let Some(t) = self.tget_mut(tid) {
+                    t.add_edge(kid);
+                }
+            }
+        }
+        {
+            let srcv = self.at_mut(src).unwrap();
+            srcv.add_out(kid);
         }
         self.eput(kid, e);
         Ok(kid)

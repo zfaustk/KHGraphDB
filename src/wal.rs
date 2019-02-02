@@ -9,6 +9,7 @@ use std::io::{Read, Write, Result, Error, ErrorKind};
 use super::graph::Graph;
 use super::khid::Khid;
 use super::prop::Prop;
+use super::addr::Addr;
 
 const MAGIC: &'static [u8] = b"KHL1";
 
@@ -16,6 +17,7 @@ const TAG_BEGIN: u8 = 1;
 const TAG_COMMIT: u8 = 2;
 const TAG_VERTEX: u8 = 3;
 const TAG_EDGE: u8 = 4;
+const TAG_FAR: u8 = 5;
 
 /// One record. A tx is Begin, puts, Commit.
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +42,14 @@ pub enum Rec {
         ty: String,
         attrs: HashMap<String, Prop>,
     },
+    FarEdge {
+        tx: u64,
+        id: Khid,
+        src: Khid,
+        dst: Addr,
+        ty: String,
+        attrs: HashMap<String, Prop>,
+    },
 }
 
 impl Rec {
@@ -48,7 +58,8 @@ impl Rec {
             Rec::Begin { tx } |
             Rec::Commit { tx } |
             Rec::Vertex { tx, .. } |
-            Rec::Edge { tx, .. } => tx,
+            Rec::Edge { tx, .. } |
+            Rec::FarEdge { tx, .. } => tx,
         }
     }
 }
@@ -208,6 +219,16 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             write_str(w, ty)?;
             write_attrs(w, attrs)
         }
+        Rec::FarEdge { tx, id, src, dst, ref ty, ref attrs } => {
+            w.write_all(&[TAG_FAR])?;
+            write_u64(w, tx)?;
+            write_khid(w, id)?;
+            write_khid(w, src)?;
+            write_u32(w, dst.shard())?;
+            write_khid(w, dst.khid())?;
+            write_str(w, ty)?;
+            write_attrs(w, attrs)
+        }
     }
 }
 
@@ -246,6 +267,22 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
                 id: id,
                 src: src,
                 dst: dst,
+                ty: ty,
+                attrs: attrs,
+            })
+        }
+        TAG_FAR => {
+            let id = read_khid(r)?;
+            let src = read_khid(r)?;
+            let shard = read_u32(r)?;
+            let khid = read_khid(r)?;
+            let ty = read_str(r)?;
+            let attrs = read_attrs(r)?;
+            Ok(Rec::FarEdge {
+                tx: tx,
+                id: id,
+                src: src,
+                dst: Addr::new(shard, khid),
                 ty: ty,
                 attrs: attrs,
             })
@@ -308,6 +345,14 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
                     Some(ty.clone())
                 };
                 g.restore_edge(id, src, dst, tno, attrs.clone())?;
+            }
+            Rec::FarEdge { id, src, dst, ref ty, ref attrs, .. } => {
+                let tno = if ty.is_empty() {
+                    None
+                } else {
+                    Some(ty.clone())
+                };
+                g.restore_far_edge(id, src, dst, tno, attrs.clone())?;
             }
         }
     }
