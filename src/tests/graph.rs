@@ -39,6 +39,31 @@ fn catalog_assigns_shards() {
 }
 
 #[test]
+fn a_far_edge_stores_an_addr() {
+    let mut g = Graph::new();
+    let ada = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let far = crate::Addr::new(2, crate::Khid::from_raw(9));
+    let e = g.add_far_edge(ada, far, Some("CITES")).unwrap();
+    let edge = g.edge(e).unwrap();
+    assert!(edge.is_far());
+    assert!(edge.target().is_nil());
+    assert_eq!(edge.far(), Some(far));
+    assert_eq!(edge.target_addr(g.shard()), far);
+    assert_eq!(g.vertex(ada).unwrap().out_degree(), 1);
+}
+
+#[test]
+fn far_on_this_shard_is_local() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("A"), Some("Doc")).unwrap();
+    let b = g.add_vertex(attrs("B"), Some("Doc")).unwrap();
+    let e = g.add_far_edge(a, g.addr(b), Some("CITES")).unwrap();
+    let edge = g.edge(e).unwrap();
+    assert!(!edge.is_far());
+    assert_eq!(edge.target(), b);
+}
+
+#[test]
 fn add_edge_with_attrs() {
     let mut g = Graph::new();
     let a = g.add_vertex(attrs("A"), Some("City")).unwrap();

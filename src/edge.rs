@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::khid::Khid;
 use super::prop::Prop;
+use super::addr::Addr;
 
 #[derive(Clone)]
 pub struct Edge {
@@ -9,6 +10,7 @@ pub struct Edge {
     source: Khid,
     target: Khid,
     type_id: Option<Khid>,
+    far: Option<Addr>,
     attrs: HashMap<String, Prop>,
 }
 
@@ -31,6 +33,7 @@ impl Edge {
             source: source,
             target: target,
             type_id: None,
+            far: None,
             attrs: attrs,
         }
     }
@@ -45,6 +48,29 @@ impl Edge {
 
     pub fn target(&self) -> Khid {
         self.target
+    }
+
+    /// The other end when it is not on this shard.
+    pub fn far(&self) -> Option<Addr> {
+        self.far
+    }
+
+    pub fn is_far(&self) -> bool {
+        self.far.is_some()
+    }
+
+    pub fn set_far(&mut self, dst: Addr) {
+        self.far = Some(dst);
+        self.target = Khid::nil();
+    }
+
+    /// Home is this graph's shard. A local edge
+    /// becomes an address here; a far edge keeps it.
+    pub fn target_addr(&self, home: u32) -> Addr {
+        match self.far {
+            Some(a) => a,
+            None => Addr::new(home, self.target),
+        }
     }
 
     pub fn type_id(&self) -> Option<Khid> {

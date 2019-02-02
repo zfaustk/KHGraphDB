@@ -110,6 +110,31 @@ fn edge_after_ends() {
 }
 
 #[test]
+fn far_edge_replays() {
+    let recs = vec![
+        Rec::Begin { tx: 1 },
+        Rec::Vertex {
+            tx: 1,
+            id: Khid::from_raw(1),
+            types: vec!["Doc".to_string()],
+            attrs: name("Ada"),
+        },
+        Rec::FarEdge {
+            tx: 1,
+            id: Khid::from_raw(2),
+            src: Khid::from_raw(1),
+            dst: crate::Addr::new(2, Khid::from_raw(9)),
+            ty: "CITES".to_string(),
+            attrs: HashMap::new(),
+        },
+        Rec::Commit { tx: 1 },
+    ];
+    let g = wal::replay(1, &recs).unwrap();
+    let e = g.edge(Khid::from_raw(2)).unwrap();
+    assert_eq!(e.far(), Some(crate::Addr::new(2, Khid::from_raw(9))));
+}
+
+#[test]
 fn bad_magic() {
     let err = wal::read(&mut Cursor::new(b"KHG4xxxx")).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
