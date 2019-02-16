@@ -77,6 +77,26 @@ fn uncommitted_does_not_replay() {
 }
 
 #[test]
+fn body_is_on_the_log() {
+    let mut attrs = HashMap::new();
+    attrs.insert("title".to_string(), Prop::from_str("Ada"));
+    attrs.insert("body".to_string(), Prop::from_str("a page that is not a posting"));
+    let recs = vec![
+        Rec::Begin { tx: 1 },
+        Rec::Vertex {
+            tx: 1,
+            id: Khid::from_raw(1),
+            types: vec!["Doc".to_string()],
+            attrs: attrs,
+        },
+        Rec::Commit { tx: 1 },
+    ];
+    let g = wal::replay(1, &recs).unwrap();
+    assert_eq!(g.vertex(Khid::from_raw(1)).unwrap().get("body"),
+               Some("a page that is not a posting"));
+}
+
+#[test]
 fn edge_after_ends() {
     let recs = vec![
         Rec::Begin { tx: 1 },

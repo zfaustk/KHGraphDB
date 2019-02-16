@@ -34,6 +34,7 @@ needs a framework, the model is wrong.
 ```
 cargo test
 cargo run --example social
+cargo run --example notes
 cargo run --bin khg
 ```
 
