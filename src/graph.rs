@@ -8,6 +8,7 @@ use super::index::SchemaIndex;
 use super::prop::Prop;
 use super::khid::Khid;
 use super::addr::Addr;
+use super::stub::Stub;
 
 /// Directed property graph. Vertices live in a slot Vec.
 /// The index is the KHID. KHID is identity on this shard.
@@ -24,6 +25,7 @@ pub struct Graph {
     vertices_by_name: HashMap<String, Khid>,
     indexes: HashMap<String, SchemaIndex>,
     edge_indexes: HashMap<String, SchemaIndex>,
+    stubs: HashMap<Addr, Stub>,
 }
 
 impl Graph {
@@ -60,6 +62,7 @@ impl Graph {
             vertices_by_name: HashMap::new(),
             indexes: HashMap::new(),
             edge_indexes: HashMap::new(),
+            stubs: HashMap::new(),
         }
     }
 
@@ -77,9 +80,55 @@ impl Graph {
         self.shard = shard;
     }
 
+    pub fn set_id(&mut self, id: &str) {
+        self.id = id.to_string();
+    }
+
     /// Address of a local serial. Far edges store this.
     pub fn addr(&self, id: Khid) -> Addr {
         Addr::new(self.shard, id)
+    }
+
+    /// A far title. Not the page.
+    pub fn put_stub(&mut self, addr: Addr, title: &str, ver: u64) {
+        self.stubs.insert(addr, Stub::new(title, ver));
+    }
+
+    pub fn stub(&self, addr: Addr) -> Option<&Stub> {
+        self.stubs.get(&addr)
+    }
+
+    pub fn drop_stub(&mut self, addr: Addr) -> bool {
+        self.stubs.remove(&addr).is_some()
+    }
+
+    /// Rebuild posting lists from the arena. Content
+    /// keys stay off. Derived: drop and run again.
+    pub fn rebuild_index(&mut self) {
+        let mut specs: Vec<(String, String, bool)> = Vec::new();
+        for idx in self.indexes.values() {
+            specs.push((idx.type_name().to_string(), idx.key().to_string(), idx.unique()));
+        }
+        self.indexes.clear();
+        for &(ref tn, ref k, u) in specs.iter() {
+            self.create_index_inner(tn, k, u);
+        }
+        let mut edge_specs: Vec<(String, String)> = Vec::new();
+        for idx in self.edge_indexes.values() {
+            edge_specs.push((idx.type_name().to_string(), idx.key().to_string()));
+        }
+        self.edge_indexes.clear();
+        for &(ref tn, ref k) in edge_specs.iter() {
+            self.create_edge_index(tn, k);
+        }
+    }
+
+    pub fn index_specs(&self) -> Vec<(String, String, bool)> {
+        let mut v = Vec::new();
+        for idx in self.indexes.values() {
+            v.push((idx.type_name().to_string(), idx.key().to_string(), idx.unique()));
+        }
+        v
     }
 
     /// A copy of the arena. Writes on the copy do not
@@ -100,6 +149,7 @@ impl Graph {
         self.vertices_by_name.clear();
         self.indexes.clear();
         self.edge_indexes.clear();
+        self.stubs.clear();
     }
 
     pub fn subgraph(&self, vids: &[Khid]) -> Graph {

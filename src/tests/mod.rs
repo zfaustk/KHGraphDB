@@ -9,6 +9,7 @@ mod khid;
 mod addr;
 mod index;
 mod content;
+mod stub;
 mod cases;
 mod pipeline;
 mod tx;

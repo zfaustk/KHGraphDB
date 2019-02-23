@@ -11,12 +11,14 @@ pub use ty::Type;
 pub use prop::Prop;
 pub use khid::Khid;
 pub use addr::Addr;
+pub use stub::Stub;
 pub use query::{run as run_query, QueryResult, Val, Path};
 pub use tx::Tx;
 
 pub mod error;
 pub mod khid;
 pub mod addr;
+pub mod stub;
 pub mod prop;
 pub mod graph;
 pub mod catalog;
