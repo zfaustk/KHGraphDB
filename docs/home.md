@@ -31,10 +31,10 @@ The primary appends, `sync_data` on commit, a
 copy tails. Wrong primary: last un-acked append
 may vanish. That is the deal.
 
-This process is one shard. The types already
-name addresses. The log is written so a copy
-could replay it. Replica, router, far fill:
-not this year.
+This process may hold several shards. Hydrate
+fills a stub from home in one round. Replica,
+router across processes, far fill across a
+network: not this year.
 
 The arena still clones for rollback. The log
 is what a copy would replay. Tying Drop to the

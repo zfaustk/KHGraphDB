@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use super::error::{Error, Result};
 use super::graph::Graph;
+use super::addr::Addr;
+use super::stub::Stub;
 
 /// Several arenas. MATCH still takes one Graph.
 /// Each graph is a shard. This process may hold
@@ -73,5 +75,55 @@ impl Catalog {
         }
         self.graphs.insert(name.clone(), g);
         name
+    }
+
+    pub fn by_shard(&self, shard: u32) -> Option<&Graph> {
+        for g in self.graphs.values() {
+            if g.shard() == shard {
+                return Some(g);
+            }
+        }
+        None
+    }
+
+    pub fn by_shard_mut(&mut self, shard: u32) -> Option<&mut Graph> {
+        for g in self.graphs.values_mut() {
+            if g.shard() == shard {
+                return Some(g);
+            }
+        }
+        None
+    }
+
+    /// Title at home. The page stays there.
+    pub fn hydrate(&self, addr: Addr) -> Option<Stub> {
+        let g = match self.by_shard(addr.shard()) {
+            Some(g) => g,
+            None => return None,
+        };
+        let v = match g.vertex(addr.khid()) {
+            Some(v) => v,
+            None => return None,
+        };
+        let title = match v.get("title").or(v.get("name")) {
+            Some(s) => s,
+            None => "",
+        };
+        Some(Stub::new(title, 1))
+    }
+
+    /// Copy a far title onto `home`. One round, this process.
+    pub fn fill_stub(&mut self, home: u32, addr: Addr) -> bool {
+        let title = match self.hydrate(addr) {
+            Some(s) => s.title().to_string(),
+            None => return false,
+        };
+        match self.by_shard_mut(home) {
+            Some(g) => {
+                g.put_stub(addr, &title, 1);
+                true
+            }
+            None => false,
+        }
     }
 }
