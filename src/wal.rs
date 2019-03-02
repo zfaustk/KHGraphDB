@@ -18,6 +18,8 @@ const TAG_COMMIT: u8 = 2;
 const TAG_VERTEX: u8 = 3;
 const TAG_EDGE: u8 = 4;
 const TAG_FAR: u8 = 5;
+const TAG_INDEX: u8 = 6;
+const TAG_CONTENT: u8 = 7;
 
 /// One record. A tx is Begin, puts, Commit.
 #[derive(Clone, Debug, PartialEq)]
@@ -50,6 +52,17 @@ pub enum Rec {
         ty: String,
         attrs: HashMap<String, Prop>,
     },
+    Index {
+        tx: u64,
+        type_name: String,
+        key: String,
+        unique: bool,
+    },
+    Content {
+        tx: u64,
+        type_name: String,
+        key: String,
+    },
 }
 
 impl Rec {
@@ -59,7 +72,9 @@ impl Rec {
             Rec::Commit { tx } |
             Rec::Vertex { tx, .. } |
             Rec::Edge { tx, .. } |
-            Rec::FarEdge { tx, .. } => tx,
+            Rec::FarEdge { tx, .. } |
+            Rec::Index { tx, .. } |
+            Rec::Content { tx, .. } => tx,
         }
     }
 }
@@ -229,6 +244,19 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             write_str(w, ty)?;
             write_attrs(w, attrs)
         }
+        Rec::Index { tx, ref type_name, ref key, unique } => {
+            w.write_all(&[TAG_INDEX])?;
+            write_u64(w, tx)?;
+            write_str(w, type_name)?;
+            write_str(w, key)?;
+            w.write_all(&[if unique { 1 } else { 0 }])
+        }
+        Rec::Content { tx, ref type_name, ref key } => {
+            w.write_all(&[TAG_CONTENT])?;
+            write_u64(w, tx)?;
+            write_str(w, type_name)?;
+            write_str(w, key)
+        }
     }
 }
 
@@ -287,14 +315,43 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
                 attrs: attrs,
             })
         }
+        TAG_INDEX => {
+            let type_name = read_str(r)?;
+            let key = read_str(r)?;
+            let mut u = [0u8; 1];
+            read_exact(r, &mut u)?;
+            Ok(Rec::Index {
+                tx: tx,
+                type_name: type_name,
+                key: key,
+                unique: u[0] != 0,
+            })
+        }
+        TAG_CONTENT => {
+            let type_name = read_str(r)?;
+            let key = read_str(r)?;
+            Ok(Rec::Content {
+                tx: tx,
+                type_name: type_name,
+                key: key,
+            })
+        }
         _ => Err(Error::new(ErrorKind::InvalidData, "rec tag")),
     }
 }
 
 /// Write a shard header and records. Caller fsyncs.
 pub fn write<W: Write>(shard: u32, recs: &[Rec], w: &mut W) -> Result<()> {
+    write_header(shard, w)?;
+    append(recs, w)
+}
+
+pub fn write_header<W: Write>(shard: u32, w: &mut W) -> Result<()> {
     w.write_all(MAGIC)?;
-    write_u32(w, shard)?;
+    write_u32(w, shard)
+}
+
+pub fn append<W: Write>(recs: &[Rec], w: &mut W) -> Result<()> {
     for rec in recs.iter() {
         write_rec(w, rec)?;
     }
@@ -353,6 +410,16 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
                     Some(ty.clone())
                 };
                 g.restore_far_edge(id, src, dst, tno, attrs.clone())?;
+            }
+            Rec::Content { ref type_name, ref key, .. } => {
+                g.mark_content(type_name, key);
+            }
+            Rec::Index { ref type_name, ref key, unique, .. } => {
+                if unique {
+                    let _ = g.create_unique(type_name, key);
+                } else {
+                    let _ = g.create_index(type_name, key);
+                }
             }
         }
     }
