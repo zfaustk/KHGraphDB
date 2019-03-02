@@ -10,6 +10,7 @@ mod addr;
 mod index;
 mod content;
 mod stub;
+mod store;
 mod cases;
 mod pipeline;
 mod tx;
