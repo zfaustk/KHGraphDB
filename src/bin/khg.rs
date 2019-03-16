@@ -5,7 +5,7 @@ use std::env;
 use std::fs::File;
 use std::io::{self, Write, BufRead};
 use std::collections::HashMap;
-use khgraphdb::{Catalog, Graph, query, io as khio, Prop};
+use khgraphdb::{Catalog, Graph, query, io as khio, Prop, Store};
 use khgraphdb::query::{QueryResult, Val};
 
 extern "C" {
@@ -58,6 +58,22 @@ impl Shell {
         let mut f = File::create(path).map_err(|e| e.to_string())?;
         khio::write_graph(g, &mut f).map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    fn open_log(&mut self, path: &str) -> Result<String, String> {
+        if self.snap.is_some() {
+            return Err("in a transaction".to_string());
+        }
+        let dir = std::path::Path::new(path);
+        let name = dir.file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("g1")
+            .to_string();
+        let s = Store::open(dir, &name, 1).map_err(|e| e.to_string())?;
+        let g = s.graph().clone();
+        let name = self.cat.put(g);
+        self.cur = name.clone();
+        Ok(name)
     }
 
     fn one(&mut self, line: &str) -> bool {
@@ -122,6 +138,13 @@ impl Shell {
         if line.starts_with(".save ") {
             match self.save(line[6..].trim()) {
                 Ok(()) => {}
+                Err(e) => println!("{}", e),
+            }
+            return true;
+        }
+        if line.starts_with(".open ") {
+            match self.open_log(line[6..].trim()) {
+                Ok(n) => println!("opened {}", n),
                 Err(e) => println!("{}", e),
             }
             return true;
@@ -202,7 +225,7 @@ impl Shell {
 }
 
 fn print_help() {
-    println!(".load FILE   .save FILE");
+    println!(".load FILE   .save FILE   .open DIR");
     println!(".graphs      .use NAME      .create NAME   .drop NAME");
     println!(":param NAME VALUE    :params");
     println!(":begin :commit :rollback");

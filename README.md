@@ -14,7 +14,9 @@ MATCH compiles to Seed, Expand, Filter. EXPLAIN prints the tree.
 
 A vertex lives on one shard. That shard is trusted for it.
 Off this box the name is an address: `(shard, khid)`.
-This process is one shard. See `docs/home.md`.
+Content is not topology. A far cite is an Addr.
+Store opens a directory; the log is truth.
+See `docs/home.md`.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 
@@ -35,6 +37,7 @@ needs a framework, the model is wrong.
 cargo test
 cargo run --example social
 cargo run --example notes
+cargo run --example shards
 cargo run --bin khg
 ```
 
@@ -47,7 +50,7 @@ cargo run --bin khg
 cargo run --bin khg -- graph.khg
 ```
 
-Dot commands: `.load` `.save` `.graphs` `.use` `.create` `.drop`.
+Dot commands: `.load` `.save` `.open` `.graphs` `.use` `.create` `.drop`.
 `:param` `:params` `:begin` `:commit` `:rollback`.
 A line that is not a dot is MATCH (or CREATE, MERGE, …) on
 the current graph. Catalog holds the rest.
@@ -81,7 +84,7 @@ $param
 ```
 
 See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
-`docs/tx.md`, `docs/home.md`, and `docs/content.md`. Type is still not a string. MATCH binds
+`docs/tx.md`, `docs/home.md`, `docs/content.md`, and `docs/store.md`. Type is still not a string. MATCH binds
 it by KHID. Path is a value. A graph can be named, cloned,
 or cut down to a subgraph. A Catalog holds several graphs;
 the query still takes one. A transaction clones the arena.
