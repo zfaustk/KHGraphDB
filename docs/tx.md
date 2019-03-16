@@ -25,3 +25,8 @@ CREATE (a:Person {name:'Ada'})
 
 `.use` is refused while a transaction is open.
 There is no lock. One process, one clone.
+
+Store is the durable tx: commit captures the
+arena onto KHL1 and `sync_data`. Rollback is
+not on the log. See `docs/store.md`.
+
