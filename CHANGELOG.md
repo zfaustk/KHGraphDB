@@ -1,3 +1,12 @@
+## 4.1.0 - 2019-03-23
+
+- A vertex lives on one shard. Addr is `(shard, khid)`.
+- Type marks content keys. The index refuses a page.
+- A far edge stores an Addr. MATCH still binds a Khid.
+- Stub: a far title, hydrated in this process.
+- Store: a directory, KHL1, commit captures and
+  `sync_data`. Reopen replays. khg `.open`.
+
 ## 4.0.0 - 2018-12-16
 
 - rustc 1.31, edition 2018, `crate::` paths.
