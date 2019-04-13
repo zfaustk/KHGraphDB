@@ -14,6 +14,9 @@ The page is never copied.
 let mut s = Store::open(dir, "notes", 1)?;
 s.graph_mut().add_vertex_props(...)?;
 s.commit()?;
+s.compact()?;
 ```
 
-khg: `.open DIR`. MATCH still takes one graph.
+khg: `.open DIR`. `:commit` writes the log.
+`.compact` rewrites it. MATCH still takes one graph.
+The page stays at home.

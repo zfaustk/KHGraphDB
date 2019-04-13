@@ -112,6 +112,37 @@ impl Store {
     pub fn in_tx(&self) -> bool {
         self.open_tx.is_some()
     }
+
+    pub fn name(&self) -> &str {
+        self.g.khid()
+    }
+
+    /// Rewrite the log as one capture. Same truth,
+    /// less tail. Caller is not in a tx.
+    pub fn compact(&mut self) -> io::Result<()> {
+        if self.open_tx.is_some() {
+            return Err(io::Error::new(io::ErrorKind::Other, "in a transaction"));
+        }
+        let shard = self.g.shard();
+        let tx = self.next_tx;
+        self.next_tx += 1;
+        let recs = capture(tx, &self.g);
+        let tmp = self.dir.join("log.tmp");
+        {
+            let mut f = File::create(&tmp)?;
+            wal::write(shard, &recs, &mut f)?;
+            f.sync_data()?;
+        }
+        let path = self.dir.join("log");
+        fs::rename(&tmp, &path)?;
+        let mut log = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)?;
+        log.seek(SeekFrom::End(0))?;
+        self.log = log;
+        Ok(())
+    }
 }
 
 fn capture(tx: u64, g: &Graph) -> Vec<Rec> {

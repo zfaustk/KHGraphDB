@@ -71,3 +71,23 @@ fn body_and_far_cite_roundtrip() {
     assert_eq!(e.far(), Some(far));
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn compact_is_one_capture() {
+    let dir = tmp("compact");
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        s.graph_mut().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        s.graph_mut().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        let before = fs::metadata(dir.join("log")).unwrap().len();
+        s.compact().unwrap();
+        let after = fs::metadata(dir.join("log")).unwrap().len();
+        assert!(after < before);
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().vertex_by_name("Ada").is_some());
+    assert!(s.graph().vertex_by_name("Bob").is_some());
+    let _ = fs::remove_dir_all(&dir);
+}
