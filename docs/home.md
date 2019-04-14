@@ -36,9 +36,10 @@ fills a stub from home in one round. Replica,
 router across processes, far fill across a
 network: not this year.
 
-The arena still clones for rollback. The log
-is what a copy would replay. Tying Drop to the
-log is later. Index still sits on the Graph.
-It is already a posting list. Rebuild it from
+The arena still clones for rollback. Store
+commit is the durable write. khg `:commit`
+on an opened dir appends the log. compact
+rewrites one capture. Replica is not this year.
+Index still sits on the Graph. Rebuild it from
 the arena after replay; do not treat it as a
 second truth.
