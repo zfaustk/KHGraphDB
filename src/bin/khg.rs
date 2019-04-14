@@ -21,6 +21,7 @@ struct Shell {
     cur: String,
     params: HashMap<String, Prop>,
     snap: Option<Graph>,
+    store: Option<Store>,
 }
 
 impl Shell {
@@ -35,13 +36,26 @@ impl Shell {
             cur: "g1".to_string(),
             params: HashMap::new(),
             snap: None,
+            store: None,
         }
     }
 
     fn graph_mut(&mut self) -> Result<&mut Graph, String> {
+        if let Some(ref mut s) = self.store {
+            if s.name() == self.cur {
+                return Ok(s.graph_mut());
+            }
+        }
         match self.cat.graph_mut(&self.cur) {
             Some(g) => Ok(g),
             None => Err(format!("no graph {}", self.cur)),
+        }
+    }
+
+    fn on_store(&self) -> bool {
+        match self.store {
+            Some(ref s) => s.name() == self.cur,
+            None => false,
         }
     }
 
@@ -70,10 +84,9 @@ impl Shell {
             .unwrap_or("g1")
             .to_string();
         let s = Store::open(dir, &name, 1).map_err(|e| e.to_string())?;
-        let g = s.graph().clone();
-        let name = self.cat.put(g);
-        self.cur = name.clone();
-        Ok(name)
+        self.cur = s.name().to_string();
+        self.store = Some(s);
+        Ok(self.cur.clone())
     }
 
     fn one(&mut self, line: &str) -> bool {
@@ -86,6 +99,12 @@ impl Shell {
         }
         if line == ".graphs" {
             let mut names = self.cat.names();
+            if let Some(ref s) = self.store {
+                let n = s.name().to_string();
+                if !names.iter().any(|x| x == &n) {
+                    names.push(n);
+                }
+            }
             names.sort();
             for n in names.iter() {
                 if n == &self.cur {
@@ -97,12 +116,13 @@ impl Shell {
             return true;
         }
         if line.starts_with(".use ") {
-            if self.snap.is_some() {
+            if self.snap.is_some() || self.store.as_ref().map(|s| s.in_tx()).unwrap_or(false) {
                 println!("in a transaction");
                 return true;
             }
             let name = line[5..].trim();
-            if self.cat.graph(name).is_none() {
+            let in_store = self.store.as_ref().map(|s| s.name() == name).unwrap_or(false);
+            if !in_store && self.cat.graph(name).is_none() {
                 println!("no graph {}", name);
             } else {
                 self.cur = name.to_string();
@@ -149,6 +169,18 @@ impl Shell {
             }
             return true;
         }
+        if line == ".compact" {
+            match self.store {
+                Some(ref mut s) if s.name() == self.cur => {
+                    match s.compact() {
+                        Ok(()) => println!("compacted"),
+                        Err(e) => println!("{}", e),
+                    }
+                }
+                _ => println!("no log"),
+            }
+            return true;
+        }
         if line.starts_with(":param ") {
             let rest = line[7..].trim();
             match parse_param_line(rest) {
@@ -169,8 +201,13 @@ impl Shell {
             return true;
         }
         if line == ":begin" {
-            if self.snap.is_some() {
+            if self.snap.is_some() || self.store.as_ref().map(|s| s.in_tx()).unwrap_or(false) {
                 println!("already in a transaction");
+                return true;
+            }
+            if self.on_store() {
+                self.store.as_mut().unwrap().begin();
+                println!("begin");
                 return true;
             }
             match self.cat.graph_mut(&self.cur) {
@@ -183,6 +220,13 @@ impl Shell {
             return true;
         }
         if line == ":commit" {
+            if self.on_store() {
+                match self.store.as_mut().unwrap().commit() {
+                    Ok(()) => println!("commit"),
+                    Err(e) => println!("{}", e),
+                }
+                return true;
+            }
             if self.snap.is_none() {
                 println!("no transaction");
             } else {
@@ -192,6 +236,11 @@ impl Shell {
             return true;
         }
         if line == ":rollback" {
+            if self.on_store() {
+                self.store.as_mut().unwrap().rollback();
+                println!("rollback");
+                return true;
+            }
             match self.snap.take() {
                 Some(s) => {
                     match self.cat.graph_mut(&self.cur) {
@@ -225,7 +274,7 @@ impl Shell {
 }
 
 fn print_help() {
-    println!(".load FILE   .save FILE   .open DIR");
+    println!(".load FILE   .save FILE   .open DIR   .compact");
     println!(".graphs      .use NAME      .create NAME   .drop NAME");
     println!(":param NAME VALUE    :params");
     println!(":begin :commit :rollback");
