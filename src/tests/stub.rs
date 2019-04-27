@@ -50,3 +50,15 @@ fn catalog_hydrates_a_stub() {
     assert!(cat.fill_stub(home, addr));
     assert_eq!(cat.graph("notes").unwrap().stub(addr).unwrap().title(), "Ada");
 }
+
+#[test]
+fn cite_title_is_the_stub() {
+    let mut g = Graph::new();
+    let ada = g.add_vertex(attrs("Notes"), Some("Doc")).unwrap();
+    let far = Addr::new(2, Khid::from_raw(9));
+    let e = g.add_far_edge(ada, far, Some("CITES")).unwrap();
+    assert_eq!(g.cite(e), Some(far));
+    assert!(g.cite_title(e).is_none());
+    g.put_stub(far, "Ada", 1);
+    assert_eq!(g.cite_title(e), Some("Ada"));
+}

@@ -102,6 +102,19 @@ impl Graph {
         self.stubs.remove(&addr).is_some()
     }
 
+    /// Far end of an edge, if it left this box.
+    pub fn cite(&self, eid: Khid) -> Option<Addr> {
+        self.edge(eid).and_then(|e| e.far())
+    }
+
+    /// Stub title for a far cite. None if not hydrated.
+    pub fn cite_title(&self, eid: Khid) -> Option<&str> {
+        match self.cite(eid) {
+            Some(a) => self.stub(a).map(|s| s.title()),
+            None => None,
+        }
+    }
+
     /// Rebuild posting lists from the arena. Content
     /// keys stay off. Derived: drop and run again.
     pub fn rebuild_index(&mut self) {
