@@ -3,7 +3,7 @@
 //! Drop without commit keeps the last snapshot.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use super::error::Error;
@@ -21,6 +21,7 @@ pub struct Store {
     next_tx: u64,
     open_tx: Option<u64>,
     snap: Option<Graph>,
+    read_only: bool,
 }
 
 impl Store {
@@ -61,6 +62,7 @@ impl Store {
             next_tx: next_tx,
             open_tx: None,
             snap: None,
+            read_only: false,
         })
     }
 
@@ -87,6 +89,9 @@ impl Store {
 
     /// Capture the arena, append, fsync. The log is truth.
     pub fn commit(&mut self) -> io::Result<()> {
+        if self.read_only {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
+        }
         let tx = match self.open_tx {
             Some(t) => t,
             None => {
@@ -97,6 +102,7 @@ impl Store {
         let recs = capture(tx, &self.g);
         wal::append(&recs, &mut self.log)?;
         self.log.sync_data()?;
+        self.write_beat(tx)?;
         self.open_tx = None;
         self.snap = None;
         Ok(())
@@ -120,6 +126,9 @@ impl Store {
     /// Rewrite the log as one capture. Same truth,
     /// less tail. Caller is not in a tx.
     pub fn compact(&mut self) -> io::Result<()> {
+        if self.read_only {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
+        }
         if self.open_tx.is_some() {
             return Err(io::Error::new(io::ErrorKind::Other, "in a transaction"));
         }
@@ -142,6 +151,60 @@ impl Store {
         log.seek(SeekFrom::End(0))?;
         self.log = log;
         Ok(())
+    }
+
+    fn write_beat(&self, tx: u64) -> io::Result<()> {
+        let mut f = File::create(self.dir.join("beat"))?;
+        write!(f, "{}", tx)?;
+        f.sync_data()
+    }
+
+    /// Last committed tx on this directory. Missing beat is 0.
+    pub fn beat(dir: &Path) -> u64 {
+        match fs::read_to_string(dir.join("beat")) {
+            Ok(s) => s.trim().parse().unwrap_or(0),
+            Err(_) => 0,
+        }
+    }
+
+    pub fn is_replica(&self) -> bool {
+        self.read_only
+    }
+
+    /// A copy of the log. Read-only until promote.
+    pub fn tail(dir: &Path, from: &Path, name: &str) -> io::Result<Store> {
+        fs::create_dir_all(dir)?;
+        fs::copy(from.join("log"), dir.join("log"))?;
+        if from.join("beat").exists() {
+            let _ = fs::copy(from.join("beat"), dir.join("beat"));
+        }
+        let mut s = Store::open(dir, name, 0)?;
+        s.read_only = true;
+        Ok(s)
+    }
+
+    /// Copy the primary log again. Only a replica.
+    pub fn catch_up(&mut self, from: &Path) -> io::Result<()> {
+        if !self.read_only {
+            return Err(io::Error::new(io::ErrorKind::Other, "not a replica"));
+        }
+        if self.open_tx.is_some() {
+            return Err(io::Error::new(io::ErrorKind::Other, "in a transaction"));
+        }
+        fs::copy(from.join("log"), self.dir.join("log"))?;
+        if from.join("beat").exists() {
+            let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
+        }
+        let name = self.g.khid().to_string();
+        let mut s = Store::open(&self.dir, &name, 0)?;
+        s.read_only = true;
+        *self = s;
+        Ok(())
+    }
+
+    /// This copy is now home. Split brain is the deal.
+    pub fn promote(&mut self) {
+        self.read_only = false;
     }
 }
 
