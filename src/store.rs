@@ -22,6 +22,7 @@ pub struct Store {
     open_tx: Option<u64>,
     snap: Option<Graph>,
     read_only: bool,
+    term: u64,
 }
 
 impl Store {
@@ -34,10 +35,10 @@ impl Store {
             .create(true)
             .open(&path)?;
         let len = log.metadata()?.len();
-        let (g, next_tx) = if len == 0 {
+        let (g, next_tx, term) = if len == 0 {
             wal::write_header(shard, &mut log)?;
             log.sync_data()?;
-            (Graph::on(name, shard), 1)
+            (Graph::on(name, shard), 1, 0)
         } else {
             log.seek(SeekFrom::Start(0))?;
             let (sh, recs) = wal::read(&mut log)?;
@@ -47,13 +48,19 @@ impl Store {
             };
             g.set_id(name);
             let mut max = 0u64;
+            let mut term = 0u64;
             for rec in recs.iter() {
                 if rec.tx() > max {
                     max = rec.tx();
                 }
+                if let wal::Rec::Term { term: t, .. } = rec {
+                    if *t > term {
+                        term = *t;
+                    }
+                }
             }
             log.seek(SeekFrom::End(0))?;
-            (g, max + 1)
+            (g, max + 1, term)
         };
         Ok(Store {
             dir: dir.to_path_buf(),
@@ -63,6 +70,7 @@ impl Store {
             open_tx: None,
             snap: None,
             read_only: false,
+            term: term,
         })
     }
 
@@ -99,7 +107,7 @@ impl Store {
                 self.open_tx.unwrap()
             }
         };
-        let recs = capture(tx, &self.g);
+        let recs = capture(tx, self.term, &self.g);
         wal::append(&recs, &mut self.log)?;
         self.log.sync_data()?;
         self.write_beat(tx)?;
@@ -135,7 +143,7 @@ impl Store {
         let shard = self.g.shard();
         let tx = self.next_tx;
         self.next_tx += 1;
-        let recs = capture(tx, &self.g);
+        let recs = capture(tx, self.term, &self.g);
         let tmp = self.dir.join("log.tmp");
         {
             let mut f = File::create(&tmp)?;
@@ -206,11 +214,28 @@ impl Store {
     pub fn promote(&mut self) {
         self.read_only = false;
     }
+
+    pub fn term(&self) -> u64 {
+        self.term
+    }
+
+    /// Bump the term. A week of thinking a copy
+    /// needs an election.
+    pub fn elect(&mut self) -> io::Result<()> {
+        if self.read_only {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
+        }
+        self.term += 1;
+        Ok(())
+    }
 }
 
-fn capture(tx: u64, g: &Graph) -> Vec<Rec> {
+fn capture(tx: u64, term: u64, g: &Graph) -> Vec<Rec> {
     let mut recs = Vec::new();
     recs.push(Rec::Begin { tx: tx });
+    if term > 0 {
+        recs.push(Rec::Term { tx: tx, term: term });
+    }
     for &(tid, _) in g.all_types().iter() {
         if let Some(t) = g.ty(tid) {
             let name = t.name().to_string();
