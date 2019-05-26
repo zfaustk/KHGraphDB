@@ -1,7 +1,7 @@
 //! A copy of the log. Read-only until promote.
 
 use std::fs;
-use crate::Store;
+use crate::{Role, Store};
 use super::common::attrs;
 
 fn tmp(name: &str) -> std::path::PathBuf {
@@ -21,6 +21,7 @@ fn replica_is_read_only() {
     }
     let mut r = Store::tail(&copy, &prim, "notes").unwrap();
     assert!(r.is_replica());
+    assert_eq!(r.role(), Role::Replica);
     assert!(r.graph().vertex_by_name("Ada").is_some());
     assert!(r.commit().is_err());
     let _ = fs::remove_dir_all(&prim);
@@ -57,6 +58,7 @@ fn promote_can_write() {
     let mut r = Store::tail(&copy, &prim, "notes").unwrap();
     r.promote();
     assert!(!r.is_replica());
+    assert_eq!(r.role(), Role::Primary);
     r.graph_mut().add_vertex(attrs("Zed"), Some("Doc")).unwrap();
     r.commit().unwrap();
     assert!(r.graph().vertex_by_name("Zed").is_some());
