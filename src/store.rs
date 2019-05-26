@@ -13,6 +13,13 @@ use super::khid::Khid;
 use super::addr::Addr;
 use super::edge::Edge;
 
+/// Primary writes. Replica tails until promote.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Role {
+    Primary,
+    Replica,
+}
+
 /// Durable home of one shard.
 pub struct Store {
     dir: PathBuf,
@@ -177,6 +184,14 @@ impl Store {
 
     pub fn is_replica(&self) -> bool {
         self.read_only
+    }
+
+    pub fn role(&self) -> Role {
+        if self.read_only {
+            Role::Replica
+        } else {
+            Role::Primary
+        }
     }
 
     /// A copy of the log. Read-only until promote.
