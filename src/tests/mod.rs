@@ -12,6 +12,7 @@ mod content;
 mod stub;
 mod store;
 mod replica;
+mod sentinel;
 mod cases;
 mod pipeline;
 mod tx;

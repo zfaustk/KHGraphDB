@@ -13,6 +13,7 @@ pub use khid::Khid;
 pub use addr::Addr;
 pub use stub::Stub;
 pub use store::{Store, Role};
+pub use sentinel::Sentinel;
 pub use query::{run as run_query, QueryResult, Val, Path};
 pub use tx::Tx;
 
@@ -33,6 +34,7 @@ pub mod query;
 pub mod tx;
 pub mod wal;
 pub mod store;
+pub mod sentinel;
 
 #[cfg(test)]
 mod tests;
