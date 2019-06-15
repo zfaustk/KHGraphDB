@@ -1,6 +1,6 @@
 # Contributing
 
-KHGraphDB 4.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
+KHGraphDB 4.2 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 
 - rustc 1.31. `edition = "2018"`. `crate::` paths.
 - No `dyn` trait objects. The engine is an enum.
@@ -13,6 +13,7 @@ KHGraphDB 4.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 - Catalog names graphs and assigns shards. It is not a query language.
 - The log is KHL1. Uncommitted records do not replay.
 - Store commit captures the arena and `sync_data`.
+- A replica tails the log. A sentinel promotes on missed beats.
 - Type may mark a key as content. The index refuses it.
 - A stub is a far title. Hydrate from home in this process.
 - A transaction clones the arena. Drop rolls back.

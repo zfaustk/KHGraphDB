@@ -32,14 +32,15 @@ copy tails. Wrong primary: last un-acked append
 may vanish. That is the deal.
 
 This process may hold several shards. Hydrate
-fills a stub from home in one round. Replica,
-router across processes, far fill across a
-network: not this year.
+fills a stub from home in one round. A copy
+of the log can be promoted. A sentinel watches
+the beat. Router across processes, far fill
+across a network: not this year.
 
 The arena still clones for rollback. Store
 commit is the durable write. khg `:commit`
 on an opened dir appends the log. compact
-rewrites one capture. Replica is not this year.
-Index still sits on the Graph. Rebuild it from
-the arena after replay; do not treat it as a
-second truth.
+rewrites one capture. Replica is a second
+directory. Index still sits on the Graph.
+Rebuild it from the arena after replay; do
+not treat it as a second truth.

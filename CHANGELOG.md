@@ -1,3 +1,11 @@
+## 4.2.0 - 2019-06-15
+
+- cite_title: a far edge shows the stub, not the page.
+- Replica: tail / catch_up / promote. Read-only until
+  promote. Split brain is the deal.
+- Sentinel: missed beats promote. One watcher, no quorum.
+- compact rewrites one capture. khg `:commit` writes the log.
+
 ## 4.1.0 - 2019-03-23
 
 - A vertex lives on one shard. Addr is `(shard, khid)`.
