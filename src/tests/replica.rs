@@ -65,18 +65,3 @@ fn promote_can_write() {
     let _ = fs::remove_dir_all(&prim);
     let _ = fs::remove_dir_all(&copy);
 }
-
-#[test]
-fn elect_survives_reopen() {
-    let dir = tmp("term");
-    {
-        let mut s = Store::open(&dir, "notes", 1).unwrap();
-        s.graph_mut().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
-        s.elect().unwrap();
-        assert_eq!(s.term(), 1);
-        s.commit().unwrap();
-    }
-    let s = Store::open(&dir, "notes", 1).unwrap();
-    assert_eq!(s.term(), 1);
-    let _ = fs::remove_dir_all(&dir);
-}
