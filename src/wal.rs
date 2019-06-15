@@ -20,7 +20,6 @@ const TAG_EDGE: u8 = 4;
 const TAG_FAR: u8 = 5;
 const TAG_INDEX: u8 = 6;
 const TAG_CONTENT: u8 = 7;
-const TAG_TERM: u8 = 8;
 
 /// One record. A tx is Begin, puts, Commit.
 #[derive(Clone, Debug, PartialEq)]
@@ -64,10 +63,6 @@ pub enum Rec {
         type_name: String,
         key: String,
     },
-    Term {
-        tx: u64,
-        term: u64,
-    },
 }
 
 impl Rec {
@@ -79,8 +74,7 @@ impl Rec {
             Rec::Edge { tx, .. } |
             Rec::FarEdge { tx, .. } |
             Rec::Index { tx, .. } |
-            Rec::Content { tx, .. } |
-            Rec::Term { tx, .. } => tx,
+            Rec::Content { tx, .. } => tx,
         }
     }
 }
@@ -263,11 +257,6 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             write_str(w, type_name)?;
             write_str(w, key)
         }
-        Rec::Term { tx, term } => {
-            w.write_all(&[TAG_TERM])?;
-            write_u64(w, tx)?;
-            write_u64(w, term)
-        }
     }
 }
 
@@ -347,10 +336,6 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
                 key: key,
             })
         }
-        TAG_TERM => {
-            let term = read_u64(r)?;
-            Ok(Rec::Term { tx: tx, term: term })
-        }
         _ => Err(Error::new(ErrorKind::InvalidData, "rec tag")),
     }
 }
@@ -406,7 +391,7 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
             continue;
         }
         match *rec {
-            Rec::Begin { .. } | Rec::Commit { .. } | Rec::Term { .. } => {}
+            Rec::Begin { .. } | Rec::Commit { .. } => {}
             Rec::Vertex { id, ref types, ref attrs, .. } => {
                 g.restore_vertex(id, attrs.clone(), types.clone())?;
             }
