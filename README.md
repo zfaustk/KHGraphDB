@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**4.1.0** (2019). Rust 1.31, edition 2018. No crates.io dependencies.
+**4.2.0** (2019). Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -16,7 +16,8 @@ A vertex lives on one shard. That shard is trusted for it.
 Off this box the name is an address: `(shard, khid)`.
 Content is not topology. A far cite is an Addr.
 Store opens a directory; the log is truth.
-See `docs/home.md`.
+A copy of the log can be promoted. A sentinel
+watches the beat. See `docs/home.md`.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 
@@ -84,7 +85,8 @@ $param
 ```
 
 See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
-`docs/tx.md`, `docs/home.md`, `docs/content.md`, and `docs/store.md`. Type is still not a string. MATCH binds
+`docs/tx.md`, `docs/home.md`, `docs/content.md`, `docs/store.md`,
+and `docs/replica.md`. Type is still not a string. MATCH binds
 it by KHID. Path is a value. A graph can be named, cloned,
 or cut down to a subgraph. A Catalog holds several graphs;
 the query still takes one. A transaction clones the arena.
