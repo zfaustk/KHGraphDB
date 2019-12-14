@@ -12,7 +12,7 @@ The page is never copied.
 
 ```
 let mut s = Store::open(dir, "notes", 1)?;
-s.graph_mut().add_vertex_props(...)?;
+s.graph_mut()?.add_vertex_props(...)?;
 s.commit()?;
 s.compact()?;
 ```
