@@ -16,9 +16,9 @@ fn commit_survives_reopen() {
     let ada;
     {
         let mut s = Store::open(&dir, "notes", 1).unwrap();
-        ada = s.graph_mut().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
-        s.graph_mut().mark_content("Doc", "body");
-        s.graph_mut().create_index("Doc", "title");
+        ada = s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.graph_mut().unwrap().mark_content("Doc", "body");
+        s.graph_mut().unwrap().create_index("Doc", "title");
         s.commit().unwrap();
     }
     let s = Store::open(&dir, "notes", 1).unwrap();
@@ -32,10 +32,10 @@ fn rollback_is_not_on_the_log() {
     let dir = tmp("rollback");
     {
         let mut s = Store::open(&dir, "notes", 1).unwrap();
-        s.graph_mut().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
         s.commit().unwrap();
-        s.begin();
-        s.graph_mut().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+        s.begin().unwrap();
+        s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
         s.rollback();
         assert!(s.graph().vertex_by_name("Bob").is_none());
         assert!(s.graph().vertex_by_name("Ada").is_some());
@@ -52,13 +52,13 @@ fn body_and_far_cite_roundtrip() {
     let far = Addr::new(2, Khid::from_raw(9));
     {
         let mut s = Store::open(&dir, "notes", 1).unwrap();
-        s.graph_mut().mark_content("Doc", "body");
+        s.graph_mut().unwrap().mark_content("Doc", "body");
         let mut p = std::collections::HashMap::new();
         p.insert("title".to_string(), Prop::from_str("Ada"));
         p.insert("body".to_string(), Prop::from_str("the page"));
-        let id = s.graph_mut().add_vertex_props(p, Some("Doc")).unwrap();
-        s.graph_mut().create_index("Doc", "title");
-        s.graph_mut().add_far_edge(id, far, Some("CITES")).unwrap();
+        let id = s.graph_mut().unwrap().add_vertex_props(p, Some("Doc")).unwrap();
+        s.graph_mut().unwrap().create_index("Doc", "title");
+        s.graph_mut().unwrap().add_far_edge(id, far, Some("CITES")).unwrap();
         s.commit().unwrap();
     }
     let s = Store::open(&dir, "notes", 1).unwrap();
@@ -77,9 +77,9 @@ fn compact_is_one_capture() {
     let dir = tmp("compact");
     {
         let mut s = Store::open(&dir, "notes", 1).unwrap();
-        s.graph_mut().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
         s.commit().unwrap();
-        s.graph_mut().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+        s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
         s.commit().unwrap();
         let before = fs::metadata(dir.join("log")).unwrap().len();
         s.compact().unwrap();

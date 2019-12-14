@@ -81,17 +81,26 @@ impl Store {
         &self.g
     }
 
-    pub fn graph_mut(&mut self) -> &mut Graph {
-        &mut self.g
+    /// The arena, if this store may write. A replica
+    /// is refused here, not at commit.
+    pub fn graph_mut(&mut self) -> io::Result<&mut Graph> {
+        if self.read_only {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
+        }
+        Ok(&mut self.g)
     }
 
-    pub fn begin(&mut self) {
+    pub fn begin(&mut self) -> io::Result<()> {
+        if self.read_only {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
+        }
         if self.open_tx.is_some() {
-            return;
+            return Ok(());
         }
         self.snap = Some(self.g.snapshot());
         self.open_tx = Some(self.next_tx);
         self.next_tx += 1;
+        Ok(())
     }
 
     /// Capture the arena, append, fsync. The log is truth.
@@ -102,7 +111,7 @@ impl Store {
         let tx = match self.open_tx {
             Some(t) => t,
             None => {
-                self.begin();
+                self.begin()?;
                 self.open_tx.unwrap()
             }
         };
@@ -199,6 +208,8 @@ impl Store {
     }
 
     /// Copy the primary log again. Only a replica.
+    /// New bytes are appended. A shorter primary
+    /// (compact) replaces the file.
     pub fn catch_up(&mut self, from: &Path) -> io::Result<()> {
         if !self.read_only {
             return Err(io::Error::new(io::ErrorKind::Other, "not a replica"));
@@ -206,12 +217,36 @@ impl Store {
         if self.open_tx.is_some() {
             return Err(io::Error::new(io::ErrorKind::Other, "in a transaction"));
         }
-        fs::copy(from.join("log"), self.dir.join("log"))?;
+        let src = from.join("log");
+        let src_len = fs::metadata(&src)?.len();
+        let dst_len = self.log.metadata()?.len();
+        if src_len == dst_len {
+            if from.join("beat").exists() {
+                let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
+            }
+            return Ok(());
+        }
+        if src_len < dst_len {
+            let tmp = self.dir.join("log.new");
+            fs::copy(&src, &tmp)?;
+            fs::rename(&tmp, self.dir.join("log"))?;
+        } else if src_len > dst_len {
+            let mut f = File::open(&src)?;
+            f.seek(SeekFrom::Start(dst_len))?;
+            self.log.seek(SeekFrom::End(0))?;
+            io::copy(&mut f, &mut self.log)?;
+            self.log.sync_data()?;
+        }
         if from.join("beat").exists() {
             let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
         }
+        self.reopen_replica()
+    }
+
+    fn reopen_replica(&mut self) -> io::Result<()> {
         let name = self.g.khid().to_string();
-        let mut s = Store::open(&self.dir, &name, 0)?;
+        let dir = self.dir.clone();
+        let mut s = Store::open(&dir, &name, 0)?;
         s.read_only = true;
         *self = s;
         Ok(())
