@@ -43,7 +43,7 @@ impl Shell {
     fn graph_mut(&mut self) -> Result<&mut Graph, String> {
         if let Some(ref mut s) = self.store {
             if s.name() == self.cur {
-                return Ok(s.graph_mut());
+                return s.graph_mut().map_err(|e| e.to_string());
             }
         }
         match self.cat.graph_mut(&self.cur) {
@@ -84,6 +84,31 @@ impl Shell {
             .unwrap_or("g1")
             .to_string();
         let s = Store::open(dir, &name, 1).map_err(|e| e.to_string())?;
+        self.cur = s.name().to_string();
+        self.store = Some(s);
+        Ok(self.cur.clone())
+    }
+
+    fn tail_log(&mut self, rest: &str) -> Result<String, String> {
+        if self.snap.is_some() {
+            return Err("in a transaction".to_string());
+        }
+        let mut parts = rest.split_whitespace();
+        let dir = match parts.next() {
+            Some(p) => p,
+            None => return Err("usage: .tail DIR FROM".to_string()),
+        };
+        let from = match parts.next() {
+            Some(p) => p,
+            None => return Err("usage: .tail DIR FROM".to_string()),
+        };
+        let path = std::path::Path::new(dir);
+        let name = path.file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("g1")
+            .to_string();
+        let s = Store::tail(path, std::path::Path::new(from), &name)
+            .map_err(|e| e.to_string())?;
         self.cur = s.name().to_string();
         self.store = Some(s);
         Ok(self.cur.clone())
@@ -169,6 +194,23 @@ impl Shell {
             }
             return true;
         }
+        if line.starts_with(".tail ") {
+            match self.tail_log(line[6..].trim()) {
+                Ok(n) => println!("tail {}", n),
+                Err(e) => println!("{}", e),
+            }
+            return true;
+        }
+        if line == ".promote" {
+            match self.store {
+                Some(ref mut s) if s.name() == self.cur => {
+                    s.promote();
+                    println!("primary");
+                }
+                _ => println!("no replica"),
+            }
+            return true;
+        }
         if line == ".compact" {
             match self.store {
                 Some(ref mut s) if s.name() == self.cur => {
@@ -206,8 +248,10 @@ impl Shell {
                 return true;
             }
             if self.on_store() {
-                self.store.as_mut().unwrap().begin();
-                println!("begin");
+                match self.store.as_mut().unwrap().begin() {
+                    Ok(()) => println!("begin"),
+                    Err(e) => println!("{}", e),
+                }
                 return true;
             }
             match self.cat.graph_mut(&self.cur) {
@@ -275,6 +319,7 @@ impl Shell {
 
 fn print_help() {
     println!(".load FILE   .save FILE   .open DIR   .compact");
+    println!(".tail DIR FROM   .promote");
     println!(".graphs      .use NAME      .create NAME   .drop NAME");
     println!(":param NAME VALUE    :params");
     println!(":begin :commit :rollback");
