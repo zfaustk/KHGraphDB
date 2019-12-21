@@ -1,3 +1,12 @@
+## 4.3.0 - 2019-12-21
+
+- Replica `graph_mut` / `begin` fail. Writes stop
+  at the arena, not at commit.
+- catch_up appends new bytes. Compact on primary
+  replaces the replica file.
+- Sentinel catch_up before promote.
+- khg `.tail DIR FROM` / `.promote`.
+
 ## 4.2.0 - 2019-06-15
 
 - cite_title: a far edge shows the stub, not the page.
