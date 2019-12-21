@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**4.2.0** (2019). Rust 1.31, edition 2018. No crates.io dependencies.
+**4.3.0** (2019). Year-end standby. Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -51,7 +51,7 @@ cargo run --bin khg
 cargo run --bin khg -- graph.khg
 ```
 
-Dot commands: `.load` `.save` `.open` `.graphs` `.use` `.create` `.drop`.
+Dot commands: `.load` `.save` `.open` `.tail` `.promote` `.compact` `.graphs` `.use` `.create` `.drop`.
 `:param` `:params` `:begin` `:commit` `:rollback`.
 A line that is not a dot is MATCH (or CREATE, MERGE, …) on
 the current graph. Catalog holds the rest.

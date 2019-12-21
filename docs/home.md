@@ -44,3 +44,9 @@ rewrites one capture. Replica is a second
 directory. Index still sits on the Graph.
 Rebuild it from the arena after replay; do
 not treat it as a second truth.
+
+4.2 froze in June. 4.3 is the standby at
+year end: the copy cannot write, catch_up
+is a tail, the sentinel does not promote
+a stale log.
+
