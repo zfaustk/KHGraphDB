@@ -40,9 +40,13 @@ impl Sentinel {
             self.last = b;
         }
         if self.miss >= self.max_miss {
-            let _ = replica.catch_up(&self.primary);
-            replica.promote();
-            true
+            match replica.catch_up(&self.primary) {
+                Ok(()) => {
+                    replica.promote();
+                    true
+                }
+                Err(_) => false,
+            }
         } else {
             false
         }

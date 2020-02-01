@@ -46,3 +46,20 @@ fn a_beat_resets_miss() {
     let _ = fs::remove_dir_all(&prim);
     let _ = fs::remove_dir_all(&copy);
 }
+
+#[test]
+fn catch_up_fail_does_not_promote() {
+    let prim = tmp("p-fail");
+    let copy = tmp("r-fail");
+    {
+        let mut s = Store::open(&prim, "notes", 1).unwrap();
+        s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+    }
+    let mut r = Store::tail(&copy, &prim, "notes").unwrap();
+    let _ = fs::remove_dir_all(&prim);
+    let mut w = Sentinel::new(&prim, 1);
+    assert!(!w.poll(&mut r));
+    assert!(r.is_replica());
+    let _ = fs::remove_dir_all(&copy);
+}

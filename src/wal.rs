@@ -12,6 +12,7 @@ use super::prop::Prop;
 use super::addr::Addr;
 
 const MAGIC: &'static [u8] = b"KHL1";
+const MAGIC2: &'static [u8] = b"KHL2";
 
 const TAG_BEGIN: u8 = 1;
 const TAG_COMMIT: u8 = 2;
@@ -342,13 +343,33 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
 
 /// Write a shard header and records. Caller fsyncs.
 pub fn write<W: Write>(shard: u32, recs: &[Rec], w: &mut W) -> Result<()> {
-    write_header(shard, w)?;
+    write_at(shard, 1, recs, w)
+}
+
+pub fn write_at<W: Write>(shard: u32, gen: u32, recs: &[Rec], w: &mut W) -> Result<()> {
+    write_header(shard, gen, w)?;
     append(recs, w)
 }
 
-pub fn write_header<W: Write>(shard: u32, w: &mut W) -> Result<()> {
-    w.write_all(MAGIC)?;
-    write_u32(w, shard)
+pub fn write_header<W: Write>(shard: u32, gen: u32, w: &mut W) -> Result<()> {
+    w.write_all(MAGIC2)?;
+    write_u32(w, shard)?;
+    write_u32(w, gen)
+}
+
+/// Magic, shard, generation. Does not read records.
+pub fn head<R: Read>(r: &mut R) -> Result<Head> {
+    let mut magic = [0u8; 4];
+    read_exact(r, &mut magic)?;
+    let shard = read_u32(r)?;
+    let generation = if &magic == MAGIC2 {
+        read_u32(r)?
+    } else if &magic == MAGIC {
+        0
+    } else {
+        return Err(Error::new(ErrorKind::InvalidData, "not KHL1"));
+    };
+    Ok(Head { shard: shard, generation: generation })
 }
 
 pub fn append<W: Write>(recs: &[Rec], w: &mut W) -> Result<()> {
@@ -359,13 +380,30 @@ pub fn append<W: Write>(recs: &[Rec], w: &mut W) -> Result<()> {
 }
 
 /// Read header and records to EOF.
+/// KHL2 carries a generation. KHL1 is generation 0.
 pub fn read<R: Read>(r: &mut R) -> Result<(u32, Vec<Rec>)> {
+    let (h, recs) = read_at(r)?;
+    Ok((h.shard, recs))
+}
+
+/// Header of a log. generation 0 is a KHL1 file.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Head {
+    pub shard: u32,
+    pub generation: u32,
+}
+
+pub fn read_at<R: Read>(r: &mut R) -> Result<(Head, Vec<Rec>)> {
     let mut magic = [0u8; 4];
     read_exact(r, &mut magic)?;
-    if &magic != MAGIC {
-        return Err(Error::new(ErrorKind::InvalidData, "not KHL1"));
-    }
     let shard = read_u32(r)?;
+    let generation = if &magic == MAGIC2 {
+        read_u32(r)?
+    } else if &magic == MAGIC {
+        0
+    } else {
+        return Err(Error::new(ErrorKind::InvalidData, "not KHL1"));
+    };
     let mut recs = Vec::new();
     loop {
         match read_rec(r) {
@@ -374,7 +412,7 @@ pub fn read<R: Read>(r: &mut R) -> Result<(u32, Vec<Rec>)> {
             Err(e) => return Err(e),
         }
     }
-    Ok((shard, recs))
+    Ok((Head { shard: shard, generation: generation }, recs))
 }
 
 /// Replay committed records. Begin without Commit is dropped.
@@ -428,8 +466,8 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
 
 /// Read a log and replay it.
 pub fn recover<R: Read>(r: &mut R) -> Result<Graph> {
-    let (shard, recs) = read(r)?;
-    match replay(shard, &recs) {
+    let (h, recs) = read_at(r)?;
+    match replay(h.shard, &recs) {
         Ok(g) => Ok(g),
         Err(e) => Err(Error::new(ErrorKind::InvalidData, e.message())),
     }
