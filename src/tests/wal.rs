@@ -25,7 +25,7 @@ fn roundtrip_records() {
     ];
     let mut buf = Vec::new();
     wal::write(3, &recs, &mut buf).unwrap();
-    assert_eq!(&buf[0..4], b"KHL1");
+    assert_eq!(&buf[0..4], b"KHL2");
     let (shard, got) = wal::read(&mut Cursor::new(buf)).unwrap();
     assert_eq!(shard, 3);
     assert_eq!(got, recs);

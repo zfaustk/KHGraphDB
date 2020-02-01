@@ -91,3 +91,49 @@ fn compact_is_one_capture() {
     assert!(s.graph().vertex_by_name("Bob").is_some());
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_put_is_not_a_capture() {
+    let cap = tmp("cap");
+    let put = tmp("put");
+    let mut a = Store::open(&cap, "notes", 1).unwrap();
+    a.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    a.commit().unwrap();
+    a.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+    a.commit().unwrap();
+    let capture_delta = {
+        let mut s = Store::open(&cap, "notes", 1).unwrap();
+        let before = fs::metadata(cap.join("log")).unwrap().len();
+        s.graph_mut().unwrap().add_vertex(attrs("Cara"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        fs::metadata(cap.join("log")).unwrap().len() - before
+    };
+    let mut b = Store::open(&put, "notes", 1).unwrap();
+    let mut p = std::collections::HashMap::new();
+    p.insert("name".to_string(), Prop::from_str("Ada"));
+    b.put_vertex(p, Some("Doc")).unwrap();
+    b.commit().unwrap();
+    let before = fs::metadata(put.join("log")).unwrap().len();
+    let mut p = std::collections::HashMap::new();
+    p.insert("name".to_string(), Prop::from_str("Bob"));
+    b.put_vertex(p, Some("Doc")).unwrap();
+    b.commit().unwrap();
+    let put_delta = fs::metadata(put.join("log")).unwrap().len() - before;
+    assert!(put_delta < capture_delta);
+    let _ = fs::remove_dir_all(&cap);
+    let _ = fs::remove_dir_all(&put);
+}
+
+#[test]
+fn compact_bumps_generation() {
+    let dir = tmp("gen");
+    let mut s = Store::open(&dir, "notes", 1).unwrap();
+    assert_eq!(s.generation(), 1);
+    s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    s.compact().unwrap();
+    assert_eq!(s.generation(), 2);
+    let pos = s.pos().unwrap();
+    assert_eq!(pos.generation(), 2);
+    let _ = fs::remove_dir_all(&dir);
+}
