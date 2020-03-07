@@ -38,6 +38,7 @@ pub mod wal;
 pub mod pos;
 pub mod store;
 pub mod sentinel;
+pub mod wire;
 
 #[cfg(test)]
 mod tests;

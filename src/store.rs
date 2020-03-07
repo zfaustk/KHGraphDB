@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Seek, SeekFrom, Write};
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 use super::error::Error;
@@ -355,6 +356,22 @@ impl Store {
         s.read_only = true;
         *self = s;
         Ok(())
+    }
+
+    /// Pull from a primary over TCP. Same Pos rules
+    /// as catch_up. Does not wait on commit.
+    pub fn follow(&mut self, addr: SocketAddr) -> io::Result<Pos> {
+        if !self.read_only {
+            return Err(io::Error::new(io::ErrorKind::Other, "not a replica"));
+        }
+        if self.open_tx.is_some() {
+            return Err(io::Error::new(io::ErrorKind::Other, "in a transaction"));
+        }
+        let have = self.pos()?;
+        let dest = self.dir.join("log");
+        let p = super::wire::pull(addr, have, &dest)?;
+        self.reopen_replica()?;
+        Ok(p)
     }
 
     /// This copy is now home. Split brain is the deal.

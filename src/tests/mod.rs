@@ -13,6 +13,7 @@ mod stub;
 mod store;
 mod replica;
 mod sentinel;
+mod wire;
 mod cases;
 mod pipeline;
 mod tx;
