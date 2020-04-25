@@ -25,4 +25,6 @@ let mut w = Sentinel::new(prim, 2);
 w.poll(&mut r);
 ```
 
-Same process, two directories. Not a network.
+Same process, two directories, or a socket.
+Pull is a Pos. Commit does not wait.
+

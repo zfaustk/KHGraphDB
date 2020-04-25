@@ -215,7 +215,7 @@ impl Shell {
             match self.store {
                 Some(ref mut s) if s.name() == self.cur => {
                     match s.compact() {
-                        Ok(()) => println!("compacted"),
+                        Ok(_) => println!("compacted"),
                         Err(e) => println!("{}", e),
                     }
                 }
@@ -266,7 +266,7 @@ impl Shell {
         if line == ":commit" {
             if self.on_store() {
                 match self.store.as_mut().unwrap().commit() {
-                    Ok(()) => println!("commit"),
+                    Ok(_) => println!("commit"),
                     Err(e) => println!("{}", e),
                 }
                 return true;

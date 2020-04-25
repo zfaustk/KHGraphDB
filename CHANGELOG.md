@@ -1,3 +1,13 @@
+## 5.0.0 - 2020-04-25
+
+- Commit writes this tx. graph_mut still may capture.
+- KHL2: generation in the header. compact bumps it.
+- Pos `(generation, offset)` is a bookmark.
+- Pull over TCP: same epoch appends, new epoch replaces.
+- Hydrate is one round of Addr → Stub.
+- Sentinel does not promote when catch_up fails.
+- Commit does not wait on a replica.
+
 ## 4.3.0 - 2019-12-21
 
 - Replica `graph_mut` / `begin` fail. Writes stop
