@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**4.3.0** (2019). Year-end standby. Rust 1.31, edition 2018. No crates.io dependencies.
+**5.0.0** (2020). A Pos on a socket. Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges

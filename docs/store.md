@@ -17,6 +17,10 @@ s.commit()?;
 s.compact()?;
 ```
 
+`put_vertex` goes on the log as this tx.
+`graph_mut` with empty pending captures.
+compact bumps generation. Pos is a bookmark.
+
 khg: `.open DIR`. `:commit` writes the log.
 `.compact` rewrites it. MATCH still takes one graph.
 The page stays at home.

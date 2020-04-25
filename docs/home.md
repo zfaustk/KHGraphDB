@@ -32,10 +32,12 @@ copy tails. Wrong primary: last un-acked append
 may vanish. That is the deal.
 
 This process may hold several shards. Hydrate
-fills a stub from home in one round. A copy
-of the log can be promoted. A sentinel watches
-the beat. Router across processes, far fill
-across a network: not this year.
+fills a stub from home in one round, also
+over a socket. A copy of the log can be
+promoted. A sentinel watches the beat; a
+failed catch_up does not promote. Router
+across processes is a Pos on TCP. MATCH
+still binds a Khid on one graph.
 
 The arena still clones for rollback. Store
 commit is the durable write. khg `:commit`
@@ -45,8 +47,8 @@ directory. Index still sits on the Graph.
 Rebuild it from the arena after replay; do
 not treat it as a second truth.
 
-4.2 froze in June. 4.3 is the standby at
-year end: the copy cannot write, catch_up
-is a tail, the sentinel does not promote
-a stale log.
+4.3 is the standby at year end. 5.0 is a
+Pos on a socket: mutation log, generation,
+pull, one-round hydrate. Commit does not wait.
+
 
