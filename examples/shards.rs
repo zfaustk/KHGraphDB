@@ -34,9 +34,19 @@ fn main() {
     }
 
     let home = cat.graph("notes").unwrap().shard();
-    cat.fill_stub(home, far);
-    let notes = cat.graph("notes").unwrap();
-    println!("notes stub: {}", notes.stub(far).unwrap().title());
+    let addrs = cat.graph("notes").unwrap().far_cites();
+    cat.fill_round(home, &addrs);
+    {
+        let n = cat.graph_mut("notes").unwrap();
+        let r = khgraphdb::run_query(n,
+            "MATCH (a {title:'Notes'})-[e:CITES]->(b) RETURN e.title");
+        for row in r.rows.iter() {
+            match row[0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()) {
+                Some(t) => println!("cite {}", t),
+                None => {}
+            }
+        }
+    }
     println!("other body: {}",
              cat.graph("other").unwrap().vertex(ada).unwrap().get("body").unwrap_or(""));
 }

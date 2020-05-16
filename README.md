@@ -51,7 +51,7 @@ cargo run --bin khg
 cargo run --bin khg -- graph.khg
 ```
 
-Dot commands: `.load` `.save` `.open` `.tail` `.promote` `.compact` `.graphs` `.use` `.create` `.drop`.
+Dot commands: `.load` `.save` `.open` `.tail` `.promote` `.listen` `.follow` `.compact` `.graphs` `.use` `.create` `.drop`.
 `:param` `:params` `:begin` `:commit` `:rollback`.
 A line that is not a dot is MATCH (or CREATE, MERGE, …) on
 the current graph. Catalog holds the rest.

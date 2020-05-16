@@ -126,4 +126,24 @@ impl Catalog {
             None => false,
         }
     }
+
+    /// One round. Titles at home, stubs on `home`.
+    pub fn fill_round(&mut self, home: u32, addrs: &[Addr]) -> usize {
+        let mut got: Vec<(Addr, Stub)> = Vec::new();
+        for a in addrs.iter() {
+            if let Some(s) = self.hydrate(*a) {
+                got.push((*a, s));
+            }
+        }
+        let n = got.len();
+        match self.by_shard_mut(home) {
+            Some(g) => {
+                for &(a, ref s) in got.iter() {
+                    g.put_stub(a, s.title(), s.ver());
+                }
+            }
+            None => return 0,
+        }
+        n
+    }
 }

@@ -31,6 +31,48 @@ fn count_star() {
 }
 
 #[test]
+fn far_cite_title_is_the_stub() {
+    use crate::{Addr, Catalog};
+    let mut cat = Catalog::new();
+    cat.create("notes").unwrap();
+    cat.create("other").unwrap();
+    let ada = {
+        let o = cat.graph_mut("other").unwrap();
+        o.add_vertex(attrs("Ada"), Some("Doc")).unwrap()
+    };
+    let far = Addr::new(cat.graph("other").unwrap().shard(), ada);
+    {
+        let n = cat.graph_mut("notes").unwrap();
+        let src = n.add_vertex(attrs("Notes"), Some("Doc")).unwrap();
+        n.add_far_edge(src, far, Some("CITES")).unwrap();
+    }
+    let home = cat.graph("notes").unwrap().shard();
+    let addrs = cat.graph("notes").unwrap().far_cites();
+    cat.fill_round(home, &addrs);
+    let n = cat.graph_mut("notes").unwrap();
+    let r = crate::query::run(n,
+        "MATCH (a {name:'Notes'})-[e:CITES]->(b) RETURN e.title");
+    assert!(r.ok);
+    assert_eq!(r.rows.len(), 1);
+    assert_eq!(r.rows[0][0].as_ref().and_then(|v| v.as_prop()).and_then(|p| p.as_str()),
+               Some("Ada"));
+}
+
+#[test]
+fn two_far_cites_do_not_collapse() {
+    use crate::Addr;
+    let mut g = Graph::new();
+    let src = g.add_vertex(attrs("Notes"), Some("Doc")).unwrap();
+    let a = Addr::new(2, Khid::from_raw(1));
+    let b = Addr::new(2, Khid::from_raw(2));
+    g.add_far_edge(src, a, Some("CITES")).unwrap();
+    g.add_far_edge(src, b, Some("CITES")).unwrap();
+    let r = crate::query::run(&mut g,
+        "MATCH (n {name:'Notes'})-[e:CITES]->(x) RETURN e");
+    assert_eq!(r.rows.len(), 2);
+}
+
+#[test]
 fn create_comma() {
     let mut g = Graph::new();
     let r = crate::query::run(&mut g,

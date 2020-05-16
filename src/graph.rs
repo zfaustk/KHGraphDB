@@ -115,6 +115,39 @@ impl Graph {
         }
     }
 
+    /// Far ends on this graph. One round asks these.
+    pub fn far_cites(&self) -> Vec<Addr> {
+        let mut v = Vec::new();
+        for &(id, _, _, _) in self.all_edges().iter() {
+            if let Some(a) = self.cite(id) {
+                if !v.iter().any(|x| *x == a) {
+                    v.push(a);
+                }
+            }
+        }
+        v
+    }
+
+    /// Fill missing stubs from `get`. One pass.
+    pub fn fill_round<F>(&mut self, mut get: F) -> usize
+        where F: FnMut(Addr) -> Option<Stub>
+    {
+        let addrs = self.far_cites();
+        let mut n = 0;
+        for a in addrs.iter() {
+            if self.stub(*a).is_some() {
+                continue;
+            }
+            if let Some(s) = get(*a) {
+                let title = s.title().to_string();
+                let ver = s.ver();
+                self.put_stub(*a, &title, ver);
+                n += 1;
+            }
+        }
+        n
+    }
+
     /// Rebuild posting lists from the arena. Content
     /// keys stay off. Derived: drop and run again.
     pub fn rebuild_index(&mut self) {

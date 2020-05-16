@@ -187,7 +187,15 @@ fn lookup_attr(g: &Graph, cols: &Vec<String>, row: &Vec<Option<Val>>, var: &str,
     if let Some(p) = g.vertex(id).and_then(|v| v.get_prop(key).cloned()) {
         return Some(p);
     }
-    g.edge(id).and_then(|e| e.get_prop(key).cloned())
+    if let Some(e) = g.edge(id) {
+        if key == "title" {
+            if let Some(t) = g.cite_title(id) {
+                return Some(Prop::from_str(t));
+            }
+        }
+        return e.get_prop(key).cloned();
+    }
+    None
 }
 
 fn cmp_prop(got: &Prop, val: &Prop, op: i32) -> bool {
