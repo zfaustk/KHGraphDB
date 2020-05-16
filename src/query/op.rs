@@ -335,7 +335,8 @@ fn expand_rel(g: &Graph,
         } else {
             e.target()
         };
-        if scan::contains_id(&row.seen_v, v) {
+        // Far target is nil. Do not collapse every cite.
+        if !e.is_far() && scan::contains_id(&row.seen_v, v) {
             continue;
         }
         let mut nxt = row.clone();

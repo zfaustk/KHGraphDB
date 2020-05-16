@@ -4,8 +4,10 @@
 use std::env;
 use std::fs::File;
 use std::io::{self, Write, BufRead};
+use std::net::SocketAddr;
 use std::collections::HashMap;
-use khgraphdb::{Catalog, Graph, query, io as khio, Prop, Store};
+use std::thread;
+use khgraphdb::{Catalog, Graph, query, io as khio, Prop, Store, wire};
 use khgraphdb::query::{QueryResult, Val};
 
 extern "C" {
@@ -22,6 +24,7 @@ struct Shell {
     params: HashMap<String, Prop>,
     snap: Option<Graph>,
     store: Option<Store>,
+    peer: Option<SocketAddr>,
 }
 
 impl Shell {
@@ -37,6 +40,7 @@ impl Shell {
             params: HashMap::new(),
             snap: None,
             store: None,
+            peer: None,
         }
     }
 
@@ -112,6 +116,78 @@ impl Shell {
         self.cur = s.name().to_string();
         self.store = Some(s);
         Ok(self.cur.clone())
+    }
+
+    fn listen(&mut self, port: &str) -> Result<String, String> {
+        let port: u16 = match port.parse() {
+            Ok(p) => p,
+            Err(_) => return Err("usage: .listen PORT".to_string()),
+        };
+        let dir = match self.store {
+            Some(ref s) => s.dir().to_path_buf(),
+            None => return Err("open a log first".to_string()),
+        };
+        let name = self.store.as_ref().unwrap().name().to_string();
+        let shard = self.store.as_ref().unwrap().graph().shard();
+        let lis = wire::bind(("127.0.0.1", port)).map_err(|e| e.to_string())?;
+        let addr = lis.local_addr().map_err(|e| e.to_string())?;
+        thread::spawn(move || {
+            for inc in lis.incoming() {
+                if let Ok(st) = inc {
+                    if let Ok(snap) = Store::open(&dir, &name, shard) {
+                        let _ = wire::handle(&dir, snap.graph(), st);
+                    }
+                }
+            }
+        });
+        Ok(addr.to_string())
+    }
+
+    fn follow_peer(&mut self, spec: &str) -> Result<khgraphdb::Pos, String> {
+        let addr: SocketAddr = match spec.parse() {
+            Ok(a) => a,
+            Err(_) => return Err("usage: .follow HOST:PORT".to_string()),
+        };
+        match self.store {
+            Some(ref mut s) => {
+                let p = s.follow(addr).map_err(|e| e.to_string())?;
+                self.peer = Some(addr);
+                Ok(p)
+            }
+            None => Err("no replica".to_string()),
+        }
+    }
+
+    fn fill_before_query(&mut self) {
+        let (home, addrs) = match self.graph_mut() {
+            Ok(g) => (g.shard(), g.far_cites()),
+            Err(_) => return,
+        };
+        if addrs.is_empty() {
+            return;
+        }
+        self.cat.fill_round(home, &addrs);
+        let peer = self.peer;
+        if let Some(addr) = peer {
+            let missing: Vec<_> = match self.graph_mut() {
+                Ok(g) => addrs.into_iter().filter(|a| g.stub(*a).is_none()).collect(),
+                Err(_) => return,
+            };
+            if missing.is_empty() {
+                return;
+            }
+            if let Ok(stubs) = wire::get_stubs(addr, &missing) {
+                if let Ok(g) = self.graph_mut() {
+                    let mut i = 0;
+                    while i < missing.len() && i < stubs.len() {
+                        if let Some(ref st) = stubs[i] {
+                            g.put_stub(missing[i], st.title(), st.ver());
+                        }
+                        i += 1;
+                    }
+                }
+            }
+        }
     }
 
     fn one(&mut self, line: &str) -> bool {
@@ -211,6 +287,20 @@ impl Shell {
             }
             return true;
         }
+        if line.starts_with(".listen ") {
+            match self.listen(line[8..].trim()) {
+                Ok(a) => println!("listen {}", a),
+                Err(e) => println!("{}", e),
+            }
+            return true;
+        }
+        if line.starts_with(".follow ") {
+            match self.follow_peer(line[8..].trim()) {
+                Ok(p) => println!("follow {} gen {}", p.generation(), p.offset()),
+                Err(e) => println!("{}", e),
+            }
+            return true;
+        }
         if line == ".compact" {
             match self.store {
                 Some(ref mut s) if s.name() == self.cur => {
@@ -303,6 +393,7 @@ impl Shell {
             println!("unknown command");
             return true;
         }
+        self.fill_before_query();
         let params = self.params.clone();
         let g = match self.graph_mut() {
             Ok(g) => g,
@@ -319,7 +410,7 @@ impl Shell {
 
 fn print_help() {
     println!(".load FILE   .save FILE   .open DIR   .compact");
-    println!(".tail DIR FROM   .promote");
+    println!(".tail DIR FROM   .promote   .listen PORT   .follow HOST:PORT");
     println!(".graphs      .use NAME      .create NAME   .drop NAME");
     println!(":param NAME VALUE    :params");
     println!(":begin :commit :rollback");

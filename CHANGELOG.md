@@ -7,6 +7,9 @@
 - Hydrate is one round of Addr → Stub.
 - Sentinel does not promote when catch_up fails.
 - Commit does not wait on a replica.
+- RETURN e.title is the far stub after one fill
+  round. khg `.listen` / `.follow`. Far MATCH
+  does not collapse cites onto nil.
 
 ## 4.3.0 - 2019-12-21
 

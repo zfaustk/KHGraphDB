@@ -10,8 +10,10 @@ end of an edge are derived: drop them, replay the
 log, they come back.
 
 A query that starts at an address runs at home.
-A query that needs other homes asks a meta view
-for the id set, then one round to those shards.
+A query that needs other homes asks once for
+the far Addr set, then one round of stubs.
+RETURN e.title is that stub. MATCH still
+binds a Khid; the far end is not a hop.
 Fill a far cache and that round is skipped. Fill
 it everywhere and every shard holds the skeleton:
 the read path of a full replica.
