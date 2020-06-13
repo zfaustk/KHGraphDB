@@ -301,6 +301,54 @@ impl Shell {
             }
             return true;
         }
+        if line.starts_with(".find ") {
+            let rest = line[6..].trim();
+            let mut parts = rest.split_whitespace();
+            let tn = match parts.next() {
+                Some(s) => s,
+                None => {
+                    println!("usage: .find TYPE KEY VALUE");
+                    return true;
+                }
+            };
+            let key = match parts.next() {
+                Some(s) => s,
+                None => {
+                    println!("usage: .find TYPE KEY VALUE");
+                    return true;
+                }
+            };
+            let val = match parts.next() {
+                Some(s) => s.trim_matches('\''),
+                None => {
+                    println!("usage: .find TYPE KEY VALUE");
+                    return true;
+                }
+            };
+            for a in self.cat.locate(tn, key, val).iter() {
+                println!("{}", a);
+            }
+            if let Ok(g) = self.graph_mut() {
+                for a in g.index_addrs().iter() {
+                    if a.0 == tn && a.1 == key && a.2 == val {
+                        println!("{}", a.3);
+                    }
+                }
+            }
+            return true;
+        }
+        if line == ".meta" {
+            match self.store {
+                Some(ref s) => {
+                    match khgraphdb::Meta::open(s.dir()) {
+                        Ok(m) => println!("{} posting", m.len()),
+                        Err(e) => println!("{}", e),
+                    }
+                }
+                None => println!("no log"),
+            }
+            return true;
+        }
         if line == ".compact" {
             match self.store {
                 Some(ref mut s) if s.name() == self.cur => {
@@ -411,7 +459,7 @@ impl Shell {
 fn print_help() {
     println!(".load FILE   .save FILE   .open DIR   .compact");
     println!(".tail DIR FROM   .promote   .listen PORT   .follow HOST:PORT");
-    println!(".graphs      .use NAME      .create NAME   .drop NAME");
+    println!(".find TYPE KEY VALUE    .meta");
     println!(":param NAME VALUE    :params");
     println!(":begin :commit :rollback");
     println!(".help        .quit");

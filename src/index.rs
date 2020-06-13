@@ -67,6 +67,15 @@ impl SchemaIndex {
         }
     }
 
+    /// All postings. Meta rebuilds from this.
+    pub fn entries(&self) -> Vec<(Prop, Vec<Khid>)> {
+        let mut v = Vec::new();
+        for (p, set) in self.posting.iter() {
+            v.push((p.clone(), set.iter().cloned().collect()));
+        }
+        v
+    }
+
     /// True when some other KHID already posts this value.
     /// Pass nil on insert: any posting is a duplicate.
     pub fn contains_other(&self, value: &Prop, self_id: Khid) -> bool {

@@ -379,7 +379,37 @@ impl Parser {
         Ok(None)
     }
 
+    fn exec_find(&mut self, g: &Graph) -> Result<QueryResult> {
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("FIND expected type"));
+        }
+        let tn = self.text();
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("FIND expected key"));
+        }
+        let key = self.text();
+        self.next();
+        let val = self.parse_literal()?;
+        let s = match val.as_str() {
+            Some(s) => s.to_string(),
+            None => val.as_display(),
+        };
+        let ids = g.find(&tn, &key, &s);
+        let mut r = QueryResult::ok_msg("FIND");
+        r.columns.push("id".to_string());
+        for id in ids.iter() {
+            r.rows.push(vec![Some(Val::Id(*id))]);
+        }
+        r.message = format!("{} row", r.rows.len());
+        Ok(r)
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        if self.ident_is("FIND") {
+            return self.exec_find(g);
+        }
         let mut last: Option<QueryResult> = None;
         if self.ident_is("EXPLAIN") {
             self.next();
