@@ -146,4 +146,16 @@ impl Catalog {
         }
         n
     }
+
+    /// Cross-home locate. Derived from each shard's
+    /// index. Eventual: a missing graph is a miss.
+    pub fn locate(&self, type_name: &str, key: &str, value: &str) -> Vec<Addr> {
+        let mut out = Vec::new();
+        for g in self.graphs.values() {
+            for id in g.find(type_name, key, value).iter() {
+                out.push(Addr::new(g.shard(), *id));
+            }
+        }
+        out
+    }
 }

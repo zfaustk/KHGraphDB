@@ -177,6 +177,25 @@ impl Graph {
         v
     }
 
+    /// Postings as addresses. Meta is derived from this.
+    pub fn index_addrs(&self) -> Vec<(String, String, String, Addr)> {
+        let mut v = Vec::new();
+        for idx in self.indexes.values() {
+            let tn = idx.type_name().to_string();
+            let key = idx.key().to_string();
+            for (p, ids) in idx.entries().iter() {
+                let val = match p.as_str() {
+                    Some(s) => s.to_string(),
+                    None => continue,
+                };
+                for id in ids.iter() {
+                    v.push((tn.clone(), key.clone(), val.clone(), Addr::new(self.shard, *id)));
+                }
+            }
+        }
+        v
+    }
+
     /// A copy of the arena. Writes on the copy do not
     /// touch the original. Transactions start here.
     pub fn snapshot(&self) -> Graph {

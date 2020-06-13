@@ -30,4 +30,17 @@ impl Pos {
     pub fn prefix_of(&self, other: Pos) -> bool {
         self.generation == other.generation && self.offset <= other.offset
     }
+
+    /// This replica may serve a read that needs `need`.
+    /// Older generation cannot. Same generation needs
+    /// an offset at least `need`.
+    pub fn honors(self, need: Pos) -> bool {
+        if self.generation < need.generation {
+            false
+        } else if self.generation > need.generation {
+            true
+        } else {
+            self.offset >= need.offset
+        }
+    }
 }

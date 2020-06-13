@@ -225,6 +225,7 @@ impl Store {
         self.open_tx = None;
         self.snap = None;
         self.pending.clear();
+        let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
         self.pos()
     }
 
@@ -272,6 +273,7 @@ impl Store {
             .open(&path)?;
         log.seek(SeekFrom::End(0))?;
         self.log = log;
+        let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
         self.pos()
     }
 
@@ -308,6 +310,9 @@ impl Store {
         if from.join("beat").exists() {
             let _ = fs::copy(from.join("beat"), dir.join("beat"));
         }
+        if from.join("meta").exists() {
+            let _ = fs::copy(from.join("meta"), dir.join("meta"));
+        }
         let mut s = Store::open(dir, name, 0)?;
         s.read_only = true;
         Ok(s)
@@ -329,6 +334,7 @@ impl Store {
             if from.join("beat").exists() {
                 let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
             }
+            let _ = super::meta::catch_up(&self.dir, from);
             return Ok(());
         }
         if src_pos.generation() != dst_pos.generation()
@@ -346,7 +352,25 @@ impl Store {
         if from.join("beat").exists() {
             let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
         }
+        let _ = super::meta::catch_up(&self.dir, from);
         self.reopen_replica()
+    }
+
+    /// Replica: catch_up until `need` is honored.
+    /// Primary always honors. Fails if still behind.
+    pub fn honor(&mut self, from: &Path, need: Pos) -> io::Result<()> {
+        if !self.read_only {
+            return Ok(());
+        }
+        if self.pos()?.honors(need) {
+            return Ok(());
+        }
+        self.catch_up(from)?;
+        if self.pos()?.honors(need) {
+            Ok(())
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "bookmark not honored"))
+        }
     }
 
     fn reopen_replica(&mut self) -> io::Result<()> {

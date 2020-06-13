@@ -11,6 +11,8 @@ mod index;
 mod content;
 mod stub;
 mod store;
+mod bookmark;
+mod meta;
 mod replica;
 mod sentinel;
 mod wire;
