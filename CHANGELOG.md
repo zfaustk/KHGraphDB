@@ -1,3 +1,11 @@
+## 5.1.0 - 2020-08-29
+
+- A bookmark is a Pos. `honor` catch_up or fails.
+- KHM1: posting only. Rebuild from the arena.
+- FIND Type key value. Catalog `locate` is Addr.
+- Replica copies meta. Compact keeps FIND.
+- khg `.find` `.meta`. Commit still does not wait.
+
 ## 5.0.0 - 2020-04-25
 
 - Commit writes this tx. graph_mut still may capture.

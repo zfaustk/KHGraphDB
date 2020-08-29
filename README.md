@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**5.0.0** (2020). A Pos on a socket. Rust 1.31, edition 2018. No crates.io dependencies.
+**5.1.0** (2020). FIND is meta. A bookmark is a Pos. Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -17,7 +17,7 @@ Off this box the name is an address: `(shard, khid)`.
 Content is not topology. A far cite is an Addr.
 Store opens a directory; the log is truth.
 A copy of the log can be promoted. A sentinel
-watches the beat. See `docs/home.md`.
+watches the beat. FIND reads meta. See `docs/home.md`.
 
 The C# 2.2.1 kernel is frozen in `csharp/`.
 

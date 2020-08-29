@@ -10,10 +10,10 @@ end of an edge are derived: drop them, replay the
 log, they come back.
 
 A query that starts at an address runs at home.
-A query that needs other homes asks once for
-the far Addr set, then one round of stubs.
-RETURN e.title is that stub. MATCH still
-binds a Khid; the far end is not a hop.
+FIND asks meta for the Addr set, then one
+round. MATCH still binds a Khid on one graph.
+A bookmark is a Pos. A replica that cannot
+honor it does not answer.
 Fill a far cache and that round is skipped. Fill
 it everywhere and every shard holds the skeleton:
 the read path of a full replica.
@@ -50,7 +50,8 @@ Rebuild it from the arena after replay; do
 not treat it as a second truth.
 
 4.3 is the standby at year end. 5.0 is a
-Pos on a socket: mutation log, generation,
-pull, one-round hydrate. Commit does not wait.
+Pos on a socket. 5.1 is meta: FIND, a
+bookmark, KHM1. Commit does not wait.
+
 
 
