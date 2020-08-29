@@ -1,6 +1,6 @@
 # Contributing
 
-KHGraphDB 5.0 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
+KHGraphDB 5.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 
 - rustc 1.31. `edition = "2018"`. `crate::` paths.
 - No `dyn` trait objects. The engine is an enum.
@@ -16,6 +16,7 @@ KHGraphDB 5.0 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 - A replica tails the log. A sentinel promotes on missed beats.
 - Catch-up fails: do not promote.
 - Commit writes this tx. Pos is a bookmark. Pull is a Pos.
+- FIND reads meta. Honor a bookmark or do not answer.
 - Type may mark a key as content. The index refuses it.
 - A stub is a far title. Hydrate from home in this process.
 - A transaction clones the arena. Drop rolls back.
