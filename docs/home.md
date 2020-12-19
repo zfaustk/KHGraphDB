@@ -55,3 +55,6 @@ bookmark, KHM1. Commit does not wait.
 
 
 
+
+5.1 froze in December. Vectors are another
+index, not topology. Not this year.
