@@ -1,3 +1,12 @@
+## 6.0.0 - 2021-07-10
+
+- The log prefix is the database. `read_at(Pos)`
+  does not see later commits. Rollback replays.
+- KHL3: CRC on each record. A torn tail is dropped.
+- Keyed MATCH runs at the homes meta names.
+- A lease fences a writer. Drop releases it.
+  Crash holds until expiry. No quorum.
+
 ## 5.1.0 - 2020-08-29
 
 - A bookmark is a Pos. `honor` catch_up or fails.

@@ -101,6 +101,7 @@ fn a_put_is_not_a_capture() {
     a.commit().unwrap();
     a.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
     a.commit().unwrap();
+    drop(a);
     let capture_delta = {
         let mut s = Store::open(&cap, "notes", 1).unwrap();
         let before = fs::metadata(cap.join("log")).unwrap().len();
