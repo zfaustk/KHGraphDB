@@ -9,6 +9,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Seek, SeekFrom, Write};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::error::Error;
 use super::graph::Graph;
@@ -37,6 +38,7 @@ pub struct Store {
     read_only: bool,
     generation: u32,
     pending: Vec<Rec>,
+    token: u64,
 }
 
 impl Store {
@@ -71,7 +73,7 @@ impl Store {
             let gen = if h.generation == 0 { 1 } else { h.generation };
             (g, max + 1, gen)
         };
-        Ok(Store {
+        let s = Store {
             dir: dir.to_path_buf(),
             log: log,
             g: g,
@@ -81,7 +83,9 @@ impl Store {
             read_only: false,
             generation: generation,
             pending: Vec::new(),
-        })
+            token: new_token(),
+        };
+        Ok(s)
     }
 
     pub fn dir(&self) -> &Path {
@@ -90,6 +94,10 @@ impl Store {
 
     pub fn graph(&self) -> &Graph {
         &self.g
+    }
+
+    pub fn arena_mut(&mut self) -> &mut Graph {
+        &mut self.g
     }
 
     pub fn generation(&self) -> u32 {
@@ -106,12 +114,18 @@ impl Store {
         if self.read_only {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
         }
+        if !self.hold_lease() {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no lease"));
+        }
         Ok(&mut self.g)
     }
 
     pub fn begin(&mut self) -> io::Result<()> {
         if self.read_only {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
+        }
+        if !self.hold_lease() {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no lease"));
         }
         if self.open_tx.is_some() {
             return Ok(());
@@ -221,7 +235,9 @@ impl Store {
         };
         wal::append(&recs, &mut self.log)?;
         self.log.sync_data()?;
+        let _ = sync_dir(&self.dir);
         self.write_beat(tx)?;
+        let _ = self.take_lease();
         self.open_tx = None;
         self.snap = None;
         self.pending.clear();
@@ -230,11 +246,38 @@ impl Store {
     }
 
     pub fn rollback(&mut self) {
-        if let Some(s) = self.snap.take() {
-            self.g = s;
-        }
         self.open_tx = None;
         self.pending.clear();
+        self.snap = None;
+        let _ = self.replay_self();
+    }
+
+    fn replay_self(&mut self) -> io::Result<()> {
+        let ro = self.read_only;
+        let token = self.token;
+        let dir = self.dir.clone();
+        let name = self.g.khid().to_string();
+        let shard = self.g.shard();
+        let mut s = Store::open(&dir, &name, shard)?;
+        s.read_only = ro;
+        s.token = token;
+        *self = s;
+        Ok(())
+    }
+
+    /// Graph as of `at`. Same generation only.
+    pub fn read_at(&self, at: Pos) -> io::Result<Graph> {
+        if at.generation() != self.generation {
+            return Err(io::Error::new(io::ErrorKind::Other, "old generation"));
+        }
+        let mut f = File::open(self.dir.join("log"))?;
+        let (h, recs) = wal::read_prefix(&mut f, at.offset())?;
+        let mut g = match wal::replay(h.shard, &recs) {
+            Ok(g) => g,
+            Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e.message())),
+        };
+        g.set_id(self.g.khid());
+        Ok(g)
     }
 
     pub fn in_tx(&self) -> bool {
@@ -401,6 +444,46 @@ impl Store {
     /// This copy is now home. Split brain is the deal.
     pub fn promote(&mut self) {
         self.read_only = false;
+        let _ = self.take_lease();
+    }
+
+    fn take_lease(&self) -> io::Result<()> {
+        let until = unix() + 3600;
+        let mut f = File::create(self.dir.join("lease"))?;
+        write!(f, "{} {}\n", self.token, until)?;
+        f.sync_data()
+    }
+
+    fn hold_lease(&self) -> bool {
+        match read_lease(&self.dir) {
+            Some((tok, until)) => {
+                if tok == self.token {
+                    true
+                } else if unix() >= until {
+                    let _ = self.take_lease();
+                    true
+                } else {
+                    false
+                }
+            }
+            None => {
+                let _ = self.take_lease();
+                true
+            }
+        }
+    }
+}
+
+impl Drop for Store {
+    fn drop(&mut self) {
+        if self.read_only {
+            return;
+        }
+        if let Some((tok, _)) = read_lease(&self.dir) {
+            if tok == self.token {
+                let _ = fs::remove_file(self.dir.join("lease"));
+            }
+        }
     }
 }
 
@@ -410,6 +493,42 @@ fn pos_of(path: &Path) -> io::Result<Pos> {
     let h = wal::head(&mut f)?;
     let gen = if h.generation == 0 { 1 } else { h.generation };
     Ok(Pos::new(gen, len))
+}
+
+fn unix() -> u64 {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(d) => d.as_secs(),
+        Err(_) => 0,
+    }
+}
+
+fn new_token() -> u64 {
+    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+    static SEQ: AtomicUsize = ATOMIC_USIZE_INIT;
+    let n = SEQ.fetch_add(1, Ordering::SeqCst) as u64 + 1;
+    unix() ^ (n << 16) ^ ((std::process::id() as u64) << 32)
+}
+
+fn sync_dir(dir: &Path) -> io::Result<()> {
+    let f = File::open(dir)?;
+    f.sync_data()
+}
+
+fn read_lease(dir: &Path) -> Option<(u64, u64)> {
+    let s = match fs::read_to_string(dir.join("lease")) {
+        Ok(s) => s,
+        Err(_) => return None,
+    };
+    let mut it = s.split_whitespace();
+    let tok = match it.next().and_then(|x| x.parse().ok()) {
+        Some(n) => n,
+        None => return None,
+    };
+    let until = match it.next().and_then(|x| x.parse().ok()) {
+        Some(n) => n,
+        None => return None,
+    };
+    Some((tok, until))
 }
 
 fn capture(tx: u64, g: &Graph) -> Vec<Rec> {

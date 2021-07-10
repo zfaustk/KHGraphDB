@@ -50,8 +50,8 @@ Rebuild it from the arena after replay; do
 not treat it as a second truth.
 
 4.3 is the standby at year end. 5.0 is a
-Pos on a socket. 5.1 is meta: FIND, a
-bookmark, KHM1. Commit does not wait.
+Pos on a socket. 5.1 is meta. 6.0 is the
+prefix: `docs/six.md`.
 
 
 

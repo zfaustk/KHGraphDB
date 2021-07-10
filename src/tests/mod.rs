@@ -13,6 +13,7 @@ mod stub;
 mod store;
 mod bookmark;
 mod meta;
+mod six;
 mod replica;
 mod sentinel;
 mod wire;

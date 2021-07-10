@@ -255,6 +255,87 @@ fn parse_usize(s: &str) -> Result<usize> {
 
 const STAR_CAP: usize = 16;
 
+pub(crate) fn keyed_lookup(text: &str) -> Option<(String, String, String)> {
+    let mut lx = Lexer::new(text);
+    let mut toks = Vec::new();
+    loop {
+        let t = match lx.next() {
+            Ok(t) => t,
+            Err(_) => return None,
+        };
+        let eof = t.kind == TokenKind::Eof;
+        toks.push(t);
+        if eof {
+            break;
+        }
+    }
+    let mut i = 0;
+    while i < toks.len() {
+        if toks[i].kind == TokenKind::Ident && toks[i].text.eq_ignore_ascii_case("MATCH") {
+            i += 1;
+            if i < toks.len() && toks[i].kind == TokenKind::Ident && toks[i].text.eq_ignore_ascii_case("FIND") {
+                // skip
+            }
+            break;
+        }
+        if toks[i].kind == TokenKind::Ident && toks[i].text.eq_ignore_ascii_case("FIND") {
+            i += 1;
+            if i + 2 < toks.len() && toks[i].kind == TokenKind::Ident && toks[i + 1].kind == TokenKind::Ident {
+                let tn = toks[i].text.clone();
+                let key = toks[i + 1].text.clone();
+                let val = if toks[i + 2].kind == TokenKind::String || toks[i + 2].kind == TokenKind::Ident {
+                    toks[i + 2].text.clone()
+                } else {
+                    return None;
+                };
+                return Some((tn, key, val));
+            }
+            return None;
+        }
+        i += 1;
+    }
+    // MATCH ( var? : Type { key : value
+    while i < toks.len() && toks[i].kind != TokenKind::LParen {
+        i += 1;
+    }
+    if i >= toks.len() {
+        return None;
+    }
+    i += 1;
+    if i < toks.len() && toks[i].kind == TokenKind::Ident {
+        i += 1;
+    }
+    if i >= toks.len() || toks[i].kind != TokenKind::Colon {
+        return None;
+    }
+    i += 1;
+    if i >= toks.len() || toks[i].kind != TokenKind::Ident {
+        return None;
+    }
+    let tn = toks[i].text.clone();
+    i += 1;
+    if i >= toks.len() || toks[i].kind != TokenKind::LBrace {
+        return None;
+    }
+    i += 1;
+    if i >= toks.len() || toks[i].kind != TokenKind::Ident {
+        return None;
+    }
+    let key = toks[i].text.clone();
+    i += 1;
+    if i >= toks.len() || toks[i].kind != TokenKind::Colon {
+        return None;
+    }
+    i += 1;
+    if i >= toks.len() {
+        return None;
+    }
+    if toks[i].kind == TokenKind::String || toks[i].kind == TokenKind::Ident || toks[i].kind == TokenKind::Number {
+        return Some((tn, key, toks[i].text.clone()));
+    }
+    None
+}
+
 pub(crate) fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
     run_inner_params(g, text, &HashMap::new())
 }

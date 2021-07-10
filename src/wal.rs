@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io::{Read, Write, Result, Error, ErrorKind};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write, Result, Error, ErrorKind};
 
 use super::graph::Graph;
 use super::khid::Khid;
@@ -13,6 +13,7 @@ use super::addr::Addr;
 
 const MAGIC: &'static [u8] = b"KHL1";
 const MAGIC2: &'static [u8] = b"KHL2";
+const MAGIC3: &'static [u8] = b"KHL3";
 
 const TAG_BEGIN: u8 = 1;
 const TAG_COMMIT: u8 = 2;
@@ -206,6 +207,55 @@ fn read_khid<R: Read>(r: &mut R) -> Result<Khid> {
     Ok(Khid::from_raw(read_u64(r)?))
 }
 
+fn crc32(data: &[u8]) -> u32 {
+    let mut c = 0xffffffffu32;
+    for &b in data.iter() {
+        c ^= b as u32;
+        let mut i = 0;
+        while i < 8 {
+            if c & 1 != 0 {
+                c = (c >> 1) ^ 0xedb88320;
+            } else {
+                c >>= 1;
+            }
+            i += 1;
+        }
+    }
+    !c
+}
+
+fn write_framed<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
+    let mut buf = Vec::new();
+    write_rec(&mut buf, rec)?;
+    write_u32(w, buf.len() as u32)?;
+    write_u32(w, crc32(&buf))?;
+    w.write_all(&buf)
+}
+
+fn read_framed<R: Read>(r: &mut R) -> Result<Option<Rec>> {
+    let len = match read_u32(r) {
+        Ok(n) => n as usize,
+        Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let want = match read_u32(r) {
+        Ok(n) => n,
+        Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let mut buf = vec![0u8; len];
+    match read_exact(r, &mut buf) {
+        Ok(()) => {}
+        Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    }
+    if crc32(&buf) != want {
+        return Ok(None);
+    }
+    let rec = read_rec(&mut Cursor::new(buf))?;
+    Ok(Some(rec))
+}
+
 fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
     match *rec {
         Rec::Begin { tx } => {
@@ -352,7 +402,7 @@ pub fn write_at<W: Write>(shard: u32, gen: u32, recs: &[Rec], w: &mut W) -> Resu
 }
 
 pub fn write_header<W: Write>(shard: u32, gen: u32, w: &mut W) -> Result<()> {
-    w.write_all(MAGIC2)?;
+    w.write_all(MAGIC3)?;
     write_u32(w, shard)?;
     write_u32(w, gen)
 }
@@ -362,7 +412,7 @@ pub fn head<R: Read>(r: &mut R) -> Result<Head> {
     let mut magic = [0u8; 4];
     read_exact(r, &mut magic)?;
     let shard = read_u32(r)?;
-    let generation = if &magic == MAGIC2 {
+    let generation = if &magic == MAGIC2 || &magic == MAGIC3 {
         read_u32(r)?
     } else if &magic == MAGIC {
         0
@@ -374,13 +424,14 @@ pub fn head<R: Read>(r: &mut R) -> Result<Head> {
 
 pub fn append<W: Write>(recs: &[Rec], w: &mut W) -> Result<()> {
     for rec in recs.iter() {
-        write_rec(w, rec)?;
+        write_framed(w, rec)?;
     }
     Ok(())
 }
 
 /// Read header and records to EOF.
-/// KHL2 carries a generation. KHL1 is generation 0.
+/// KHL3 frames with CRC. A bad frame is a torn tail
+/// and is dropped. KHL2 / KHL1 have no CRC.
 pub fn read<R: Read>(r: &mut R) -> Result<(u32, Vec<Rec>)> {
     let (h, recs) = read_at(r)?;
     Ok((h.shard, recs))
@@ -397,19 +448,64 @@ pub fn read_at<R: Read>(r: &mut R) -> Result<(Head, Vec<Rec>)> {
     let mut magic = [0u8; 4];
     read_exact(r, &mut magic)?;
     let shard = read_u32(r)?;
-    let generation = if &magic == MAGIC2 {
+    let generation = if &magic == MAGIC2 || &magic == MAGIC3 {
         read_u32(r)?
     } else if &magic == MAGIC {
         0
     } else {
         return Err(Error::new(ErrorKind::InvalidData, "not KHL1"));
     };
+    let framed = &magic == MAGIC3;
     let mut recs = Vec::new();
     loop {
-        match read_rec(r) {
-            Ok(rec) => recs.push(rec),
-            Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(e),
+        if framed {
+            match read_framed(r) {
+                Ok(Some(rec)) => recs.push(rec),
+                Ok(None) => break,
+                Err(e) => return Err(e),
+            }
+        } else {
+            match read_rec(r) {
+                Ok(rec) => recs.push(rec),
+                Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    Ok((Head { shard: shard, generation: generation }, recs))
+}
+
+/// Records whose bytes lie at or before `end`.
+pub fn read_prefix<R: Read + Seek>(r: &mut R, end: u64) -> Result<(Head, Vec<Rec>)> {
+    let mut magic = [0u8; 4];
+    read_exact(r, &mut magic)?;
+    let shard = read_u32(r)?;
+    let generation = if &magic == MAGIC2 || &magic == MAGIC3 {
+        read_u32(r)?
+    } else if &magic == MAGIC {
+        0
+    } else {
+        return Err(Error::new(ErrorKind::InvalidData, "not KHL1"));
+    };
+    let framed = &magic == MAGIC3;
+    let mut recs = Vec::new();
+    loop {
+        let pos = r.seek(SeekFrom::Current(0))?;
+        if pos >= end {
+            break;
+        }
+        if framed {
+            match read_framed(r) {
+                Ok(Some(rec)) => recs.push(rec),
+                Ok(None) => break,
+                Err(e) => return Err(e),
+            }
+        } else {
+            match read_rec(r) {
+                Ok(rec) => recs.push(rec),
+                Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(e),
+            }
         }
     }
     Ok((Head { shard: shard, generation: generation }, recs))

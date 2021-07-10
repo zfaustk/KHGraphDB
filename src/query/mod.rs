@@ -217,3 +217,72 @@ pub fn run_with(g: &mut Graph, text: &str, params: std::collections::HashMap<Str
         Err(e) => QueryResult::fail(e.message()),
     }
 }
+
+/// Type, key, value of the first keyed MATCH, if any.
+pub fn keyed_lookup(text: &str) -> Option<(String, String, String)> {
+    parse::keyed_lookup(text)
+}
+
+fn merge_query(a: Option<QueryResult>, b: QueryResult) -> QueryResult {
+    let mut a = match a {
+        Some(a) => a,
+        None => return b,
+    };
+    if !a.ok {
+        return a;
+    }
+    if !b.ok {
+        return b;
+    }
+    if a.columns.is_empty() {
+        a.columns = b.columns.clone();
+    }
+    for row in b.rows {
+        a.rows.push(row);
+    }
+    a.message = format!("{} row", a.rows.len());
+    a.created += b.created;
+    a.deleted += b.deleted;
+    a
+}
+
+/// Keyed MATCH runs at the homes meta names.
+pub fn run_located(cat: &mut super::catalog::Catalog,
+                   home: &str,
+                   text: &str)
+                   -> QueryResult {
+    run_located_params(cat, home, text, std::collections::HashMap::new())
+}
+
+pub fn run_located_params(cat: &mut super::catalog::Catalog,
+                          home: &str,
+                          text: &str,
+                          params: std::collections::HashMap<String, Prop>)
+                          -> QueryResult {
+    let addrs = match keyed_lookup(text) {
+        Some((ref tn, ref k, ref v)) => cat.locate(tn, k, v),
+        None => Vec::new(),
+    };
+    if addrs.is_empty() {
+        return match cat.graph_mut(home) {
+            Some(g) => run_with(g, text, params),
+            None => QueryResult::fail("no graph"),
+        };
+    }
+    let mut shards: Vec<u32> = Vec::new();
+    for a in addrs.iter() {
+        if !shards.iter().any(|s| *s == a.shard()) {
+            shards.push(a.shard());
+        }
+    }
+    let mut acc: Option<QueryResult> = None;
+    for sh in shards.iter() {
+        let g = match cat.by_shard_mut(*sh) {
+            Some(g) => g,
+            None => continue,
+        };
+        let r = run_with(g, text, params.clone());
+        acc = Some(merge_query(acc, r));
+    }
+    acc.unwrap_or_else(|| QueryResult::fail("no shard"))
+}

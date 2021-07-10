@@ -443,14 +443,13 @@ impl Shell {
         }
         self.fill_before_query();
         let params = self.params.clone();
-        let g = match self.graph_mut() {
-            Ok(g) => g,
-            Err(e) => {
-                println!("{}", e);
-                return true;
-            }
+        let cur = self.cur.clone();
+        let r = if self.on_store() {
+            let g = self.store.as_mut().unwrap().arena_mut();
+            query::run_with(g, line, params)
+        } else {
+            query::run_located_params(&mut self.cat, &cur, line, params)
         };
-        let r = query::run_with(g, line, params);
         print_result(&r);
         true
     }
