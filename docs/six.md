@@ -50,6 +50,8 @@ Do not copy the page in order to search
 it.
 
 Raft was a week in 2019 and then gone.
+FIND on a socket is the catalog leaving
+the process. One round, then those homes.
 This file is that choice kept: fencing
 by lease, isolation by prefix, query by
 directory. The kernel was pointed here
