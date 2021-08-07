@@ -41,7 +41,9 @@ failed catch_up does not promote. Router
 across processes is a Pos on TCP. MATCH
 still binds a Khid on one graph.
 
-The arena still clones for rollback. Store
+The arena still clones when there is no store.
+Store rollback replays the log. A lease fences
+the writer. FIND on a socket is one round.
 commit is the durable write. khg `:commit`
 on an opened dir appends the log. compact
 rewrites one capture. Replica is a second

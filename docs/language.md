@@ -47,7 +47,8 @@ the table.
 a dot is Float. `$name` is a parameter. MERGE ON MATCH
 SET can RETURN the tagged property.
 
-A transaction clones the arena. Drop restores the clone
+A transaction clones the arena when there is
+no store. On a store, rollback replays.
 unless commit forgot it. khg `:begin` `:commit` `:rollback`.
 
 See `docs/pipeline.md`.

@@ -1,33 +1,17 @@
 # Transaction
 
-The arena copies. Writes hit the live graph. Drop
-puts the clone back unless commit dropped the
-snapshot.
+Memory `Tx` still clones the arena. khg without
+`.open` lives there. Drop restores the clone.
+
+Store does not. `rollback` replays the log.
+A reader pins a `Pos` and does not see later
+commits. One writer holds the lease. There is
+no lock manager.
 
 ```
-let mut g = Graph::new();
-{
-    let mut tx = Tx::begin(&mut g);
-    query::run(tx.graph(), "CREATE (n:Person {name:'Ada'})");
-    tx.commit();
-}
-```
-
-Leaving the block without commit rolls back.
-
-khg:
-
-```
-:begin
-CREATE (a:Person {name:'Ada'})
-:rollback
+let bm = store.commit()?;
+let old = store.read_at(bm)?;
 ```
 
 `.use` is refused while a transaction is open.
-There is no lock. One process, one clone.
-
-Store is the durable tx: commit captures the
-arena onto KHL1 and `sync_data`. compact
-rewrites one capture. khg `:commit` on an
-opened dir writes the log. See `docs/store.md`.
-
+See `docs/store.md` and `docs/six.md`.
