@@ -421,6 +421,7 @@ impl Store {
         let dir = self.dir.clone();
         let mut s = Store::open(&dir, &name, 0)?;
         s.read_only = true;
+        let _ = super::meta::Meta::rebuild(&s.dir, &s.g);
         *self = s;
         Ok(())
     }

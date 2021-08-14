@@ -6,8 +6,8 @@ use super::addr::Addr;
 use super::stub::Stub;
 
 /// Several arenas. MATCH still takes one Graph.
-/// Each graph is a shard. This process may hold
-/// several; they do not talk yet.
+/// Each graph is a shard. FIND on a socket
+/// asks homes in one round. See `Route`.
 pub struct Catalog {
     graphs: HashMap<String, Graph>,
     next_shard: u32,
