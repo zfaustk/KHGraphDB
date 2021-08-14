@@ -17,6 +17,7 @@ pub use pos::Pos;
 pub use meta::Meta;
 pub use wal::Head;
 pub use sentinel::Sentinel;
+pub use route::Route;
 pub use query::{run as run_query, QueryResult, Val, Path};
 pub use tx::Tx;
 
@@ -41,6 +42,7 @@ pub mod meta;
 pub mod store;
 pub mod sentinel;
 pub mod wire;
+pub mod route;
 
 #[cfg(test)]
 mod tests;

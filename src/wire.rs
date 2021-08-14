@@ -16,6 +16,7 @@ use super::wal;
 
 const TAG_PULL: u8 = 1;
 const TAG_HYDRATE: u8 = 2;
+const TAG_FIND: u8 = 3;
 const KIND_TAIL: u8 = 0;
 const KIND_SNAP: u8 = 1;
 
@@ -68,6 +69,7 @@ pub fn handle(dir: &Path, g: &Graph, mut s: TcpStream) -> io::Result<()> {
     match tag[0] {
         TAG_PULL => reply_pull(dir, &mut s),
         TAG_HYDRATE => reply_hydrate(g, &mut s),
+        TAG_FIND => reply_find(g, &mut s),
         _ => Err(io::Error::new(io::ErrorKind::InvalidData, "wire tag")),
     }
 }
@@ -120,6 +122,19 @@ fn reply_hydrate(g: &Graph, s: &mut TcpStream) -> io::Result<()> {
                 s.write_all(&[0])?;
             }
         }
+    }
+    Ok(())
+}
+
+fn reply_find(g: &Graph, s: &mut TcpStream) -> io::Result<()> {
+    let tn = read_str(s)?;
+    let key = read_str(s)?;
+    let val = read_str(s)?;
+    let ids = g.find(&tn, &key, &val);
+    write_u32(s, ids.len() as u32)?;
+    for id in ids.iter() {
+        write_u32(s, g.shard())?;
+        write_u64(s, id.raw())?;
     }
     Ok(())
 }
@@ -200,6 +215,26 @@ pub fn get_stubs(addr: SocketAddr, addrs: &[Addr]) -> io::Result<Vec<Option<Stub
             let ver = read_u64(&mut s)?;
             out.push(Some(Stub::new(&title, ver)));
         }
+        i += 1;
+    }
+    Ok(out)
+}
+
+/// Locate on one home. Meta is that home's posting.
+pub fn find(addr: SocketAddr, type_name: &str, key: &str, value: &str)
+            -> io::Result<Vec<Addr>> {
+    let mut s = TcpStream::connect(addr)?;
+    s.write_all(&[TAG_FIND])?;
+    write_str(&mut s, type_name)?;
+    write_str(&mut s, key)?;
+    write_str(&mut s, value)?;
+    let n = read_u32(&mut s)? as usize;
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < n {
+        let shard = read_u32(&mut s)?;
+        let raw = read_u64(&mut s)?;
+        out.push(Addr::new(shard, Khid::from_raw(raw)));
         i += 1;
     }
     Ok(out)
