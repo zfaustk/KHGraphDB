@@ -1,6 +1,6 @@
 # Contributing
 
-KHGraphDB 6.0 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
+KHGraphDB 6.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 
 - rustc 1.31. `edition = "2018"`. `crate::` paths.
 - No `dyn` trait objects. The engine is an enum.
