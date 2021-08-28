@@ -1,3 +1,8 @@
+## 6.1.0 - 2021-08-28
+
+- FIND on a socket. Route fans out once.
+- Docs: clone is only the memory tx.
+
 ## 6.0.0 - 2021-07-10
 
 - The log prefix is the database. `read_at(Pos)`
