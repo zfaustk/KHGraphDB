@@ -102,13 +102,14 @@ fn a_put_is_not_a_capture() {
     a.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
     a.commit().unwrap();
     drop(a);
-    let capture_delta = {
-        let mut s = Store::open(&cap, "notes", 1).unwrap();
-        let before = fs::metadata(cap.join("log")).unwrap().len();
-        s.graph_mut().unwrap().add_vertex(attrs("Cara"), Some("Doc")).unwrap();
-        s.commit().unwrap();
-        fs::metadata(cap.join("log")).unwrap().len() - before
-    };
+    let mut s = Store::open(&cap, "notes", 1).unwrap();
+    let before = fs::metadata(cap.join("log")).unwrap().len();
+    s.graph_mut().unwrap().add_vertex(attrs("Cara"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    let delta = fs::metadata(cap.join("log")).unwrap().len() - before;
+    s.compact().unwrap();
+    let full = fs::metadata(cap.join("log")).unwrap().len();
+    assert!(delta < full);
     let mut b = Store::open(&put, "notes", 1).unwrap();
     let mut p = std::collections::HashMap::new();
     p.insert("name".to_string(), Prop::from_str("Ada"));
@@ -120,7 +121,8 @@ fn a_put_is_not_a_capture() {
     b.put_vertex(p, Some("Doc")).unwrap();
     b.commit().unwrap();
     let put_delta = fs::metadata(put.join("log")).unwrap().len() - before;
-    assert!(put_delta < capture_delta);
+    assert!(put_delta < full);
+    assert!(s.graph().vertex_by_name("Cara").is_some());
     let _ = fs::remove_dir_all(&cap);
     let _ = fs::remove_dir_all(&put);
 }

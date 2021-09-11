@@ -68,6 +68,51 @@ fn second_writer_has_no_lease() {
 }
 
 #[test]
+fn delta_commit_survives_reopen() {
+    let dir = tmp("six-delta");
+    let mut s = Store::open(&dir, "notes", 1).unwrap();
+    s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    drop(s);
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().vertex_by_name("Ada").is_some());
+    assert!(s.graph().vertex_by_name("Bob").is_some());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn replica_follow_then_find() {
+    use std::thread;
+    use crate::wire;
+    let prim = tmp("p-ff");
+    let copy = tmp("r-ff");
+    let mut s = Store::open(&prim, "notes", 1).unwrap();
+    s.graph_mut().unwrap().create_index("Doc", "name");
+    s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    let mut r = Store::tail(&copy, &prim, "notes").unwrap();
+    s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+    let bm = s.commit().unwrap();
+    let listener = wire::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let dir = prim.clone();
+    let g = s.graph().clone();
+    thread::spawn(move || {
+        let (st, _) = listener.accept().unwrap();
+        let _ = wire::handle(&dir, &g, st);
+    });
+    r.follow(addr).unwrap();
+    r.honor(&prim, bm).unwrap();
+    assert!(r.graph().vertex_by_name("Bob").is_some());
+    let m = crate::Meta::open(&copy).unwrap();
+    assert_eq!(m.find("Doc", "name", "Bob").len(), 1);
+    let _ = fs::remove_dir_all(&prim);
+    let _ = fs::remove_dir_all(&copy);
+}
+
+#[test]
 fn match_runs_at_the_home_meta_names() {
     let mut cat = Catalog::new();
     cat.create("notes").unwrap();

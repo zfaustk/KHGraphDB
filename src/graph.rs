@@ -783,6 +783,19 @@ impl Graph {
         }
     }
 
+    fn post_restored(&mut self, vid: Khid) {
+        let names = self.type_names_of_vertex(vid);
+        let attrs = match self.vertex(vid) {
+            Some(v) => v.attrs().clone(),
+            None => return,
+        };
+        for tn in names.iter() {
+            for (k, val) in attrs.iter() {
+                self.post_vertex(tn, vid, k, val);
+            }
+        }
+    }
+
     pub fn set_attr(&mut self, vid: Khid, key: &str, value: &str) -> Result<()> {
         self.set_prop(vid, key, Prop::from_str(value))
     }
@@ -921,6 +934,7 @@ impl Graph {
             }
         }
         self.vput(kid, v);
+        self.post_restored(kid);
         Ok(kid)
     }
 
