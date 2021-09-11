@@ -117,6 +117,9 @@ impl Store {
         if !self.hold_lease() {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no lease"));
         }
+        if self.open_tx.is_none() {
+            self.begin()?;
+        }
         Ok(&mut self.g)
     }
 
@@ -217,21 +220,23 @@ impl Store {
     }
 
     /// Append this tx. Pending puts go as they are.
-    /// graph_mut with an empty pending falls back to
-    /// a capture. Returns the new Pos (a bookmark).
+    /// graph_mut with empty pending writes the
+    /// delta against the snapshot, not the arena.
     pub fn commit(&mut self) -> io::Result<Pos> {
         if self.read_only {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
         }
         let tx = self.tx_id()?;
-        let recs = if self.pending.is_empty() {
-            capture(tx, &self.g)
-        } else {
+        let recs = if !self.pending.is_empty() {
             let mut recs = Vec::new();
             recs.push(Rec::Begin { tx: tx });
             recs.append(&mut self.pending);
             recs.push(Rec::Commit { tx: tx });
             recs
+        } else if let Some(ref snap) = self.snap {
+            capture_delta(tx, snap, &self.g)
+        } else {
+            capture(tx, &self.g)
         };
         wal::append(&recs, &mut self.log)?;
         self.log.sync_data()?;
@@ -588,6 +593,104 @@ fn capture(tx: u64, g: &Graph) -> Vec<Rec> {
         }
     }
     for &(ref tn, ref k, u) in g.index_specs().iter() {
+        recs.push(Rec::Index {
+            tx: tx,
+            type_name: tn.clone(),
+            key: k.clone(),
+            unique: u,
+        });
+    }
+    recs.push(Rec::Commit { tx: tx });
+    recs
+}
+
+fn vertex_same(a: &Graph, b: &Graph, id: Khid) -> bool {
+    match (a.vertex(id), b.vertex(id)) {
+        (Some(x), Some(y)) => {
+            x.attrs() == y.attrs() && a.type_names_of_vertex(id) == b.type_names_of_vertex(id)
+        }
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+fn capture_delta(tx: u64, before: &Graph, after: &Graph) -> Vec<Rec> {
+    let mut recs = Vec::new();
+    recs.push(Rec::Begin { tx: tx });
+    for &(tid, _) in after.all_types().iter() {
+        if let Some(t) = after.ty(tid) {
+            let name = t.name().to_string();
+            let old = before.type_by_name(&name);
+            for k in t.content_keys().iter() {
+                let already = match old {
+                    Some(o) => o.is_content(k),
+                    None => false,
+                };
+                if already {
+                    continue;
+                }
+                recs.push(Rec::Content {
+                    tx: tx,
+                    type_name: name.clone(),
+                    key: k.clone(),
+                });
+            }
+        }
+    }
+    for id in after.vertex_ids().iter() {
+        if vertex_same(before, after, *id) {
+            continue;
+        }
+        let types = after.type_names_of_vertex(*id);
+        let attrs = match after.vertex(*id) {
+            Some(v) => v.attrs().clone(),
+            None => continue,
+        };
+        recs.push(Rec::Vertex {
+            tx: tx,
+            id: *id,
+            types: types,
+            attrs: attrs,
+        });
+    }
+    let mut old_edges: HashMap<Khid, ()> = HashMap::new();
+    for &(id, _, _, _) in before.all_edges().iter() {
+        old_edges.insert(id, ());
+    }
+    for &(id, src, dst, _) in after.all_edges().iter() {
+        if old_edges.contains_key(&id) {
+            continue;
+        }
+        let e: &Edge = match after.edge(id) {
+            Some(e) => e,
+            None => continue,
+        };
+        let ty = after.edge_type_name(id).unwrap_or(String::new());
+        let attrs = e.attrs().clone();
+        if e.is_far() {
+            recs.push(Rec::FarEdge {
+                tx: tx,
+                id: id,
+                src: src,
+                dst: e.far().unwrap_or(Addr::here(Khid::nil())),
+                ty: ty,
+                attrs: attrs,
+            });
+        } else {
+            recs.push(Rec::Edge {
+                tx: tx,
+                id: id,
+                src: src,
+                dst: dst,
+                ty: ty,
+                attrs: attrs,
+            });
+        }
+    }
+    for &(ref tn, ref k, u) in after.index_specs().iter() {
+        if before.has_index(tn, k) {
+            continue;
+        }
         recs.push(Rec::Index {
             tx: tx,
             type_name: tn.clone(),
