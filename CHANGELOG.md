@@ -1,3 +1,8 @@
+## 6.2.0 - 2021-09-18
+
+- Commit writes the delta, not the arena.
+- Restore posts the index. Follow then FIND.
+
 ## 6.1.0 - 2021-08-28
 
 - FIND on a socket. Route fans out once.
