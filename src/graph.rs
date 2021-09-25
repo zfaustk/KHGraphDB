@@ -543,6 +543,7 @@ impl Graph {
                 ty.remove_edge(ek);
             }
         }
+        self.unpost_edge(ek);
         self.etake(ek)
     }
 
@@ -575,6 +576,7 @@ impl Graph {
                 }
             }
         }
+        self.unpost_vertex(vk);
         self.vtake(vk)
     }
 
@@ -792,6 +794,41 @@ impl Graph {
         for tn in names.iter() {
             for (k, val) in attrs.iter() {
                 self.post_vertex(tn, vid, k, val);
+            }
+        }
+    }
+
+    fn unpost_vertex(&mut self, vid: Khid) {
+        let names = self.type_names_of_vertex(vid);
+        let attrs = match self.vertex(vid) {
+            Some(v) => v.attrs().clone(),
+            None => return,
+        };
+        for tn in names.iter() {
+            for (k, val) in attrs.iter() {
+                let iid = SchemaIndex::id(tn, k);
+                if let Some(idx) = self.indexes.get_mut(&iid) {
+                    idx.remove(vid, val);
+                }
+            }
+        }
+    }
+
+    fn unpost_edge(&mut self, eid: Khid) {
+        let (tn, attrs) = match self.edge(eid) {
+            Some(e) => {
+                let tn = match e.type_id().and_then(|t| self.type_name_of(t).map(|s| s.to_string())) {
+                    Some(s) => s,
+                    None => return,
+                };
+                (tn, e.attrs().clone())
+            }
+            None => return,
+        };
+        for (k, val) in attrs.iter() {
+            let iid = SchemaIndex::id(&tn, k);
+            if let Some(idx) = self.edge_indexes.get_mut(&iid) {
+                idx.remove(eid, val);
             }
         }
     }
