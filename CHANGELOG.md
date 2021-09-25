@@ -1,3 +1,9 @@
+## 6.3.0 - 2021-09-25
+
+- Remove unposts the index.
+- Delete is a log record. Replay does not resurrect.
+- Open truncates a torn tail before the next append.
+
 ## 6.2.0 - 2021-09-18
 
 - Commit writes the delta, not the arena.

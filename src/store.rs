@@ -57,7 +57,7 @@ impl Store {
             (Graph::on(name, shard), 1, 1)
         } else {
             log.seek(SeekFrom::Start(0))?;
-            let (h, recs) = wal::read_at(&mut log)?;
+            let (h, recs, end) = wal::read_valid(&mut log)?;
             let mut g = match wal::replay(h.shard, &recs) {
                 Ok(g) => g,
                 Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e.message())),
@@ -68,6 +68,9 @@ impl Store {
                 if rec.tx() > max {
                     max = rec.tx();
                 }
+            }
+            if end < len {
+                log.set_len(end)?;
             }
             log.seek(SeekFrom::End(0))?;
             let gen = if h.generation == 0 { 1 } else { h.generation };
@@ -653,6 +656,14 @@ fn capture_delta(tx: u64, before: &Graph, after: &Graph) -> Vec<Rec> {
             attrs: attrs,
         });
     }
+    for id in before.vertex_ids().iter() {
+        if after.vertex(*id).is_none() {
+            recs.push(Rec::DropVertex {
+                tx: tx,
+                id: *id,
+            });
+        }
+    }
     let mut old_edges: HashMap<Khid, ()> = HashMap::new();
     for &(id, _, _, _) in before.all_edges().iter() {
         old_edges.insert(id, ());
@@ -684,6 +695,14 @@ fn capture_delta(tx: u64, before: &Graph, after: &Graph) -> Vec<Rec> {
                 dst: dst,
                 ty: ty,
                 attrs: attrs,
+            });
+        }
+    }
+    for &(id, _, _, _) in before.all_edges().iter() {
+        if after.edge(id).is_none() {
+            recs.push(Rec::DropEdge {
+                tx: tx,
+                id: id,
             });
         }
     }

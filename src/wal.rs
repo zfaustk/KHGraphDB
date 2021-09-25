@@ -22,6 +22,8 @@ const TAG_EDGE: u8 = 4;
 const TAG_FAR: u8 = 5;
 const TAG_INDEX: u8 = 6;
 const TAG_CONTENT: u8 = 7;
+const TAG_DROP_V: u8 = 8;
+const TAG_DROP_E: u8 = 9;
 
 /// One record. A tx is Begin, puts, Commit.
 #[derive(Clone, Debug, PartialEq)]
@@ -65,6 +67,14 @@ pub enum Rec {
         type_name: String,
         key: String,
     },
+    DropVertex {
+        tx: u64,
+        id: Khid,
+    },
+    DropEdge {
+        tx: u64,
+        id: Khid,
+    },
 }
 
 impl Rec {
@@ -76,7 +86,9 @@ impl Rec {
             Rec::Edge { tx, .. } |
             Rec::FarEdge { tx, .. } |
             Rec::Index { tx, .. } |
-            Rec::Content { tx, .. } => tx,
+            Rec::Content { tx, .. } |
+            Rec::DropVertex { tx, .. } |
+            Rec::DropEdge { tx, .. } => tx,
         }
     }
 }
@@ -308,6 +320,16 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             write_str(w, type_name)?;
             write_str(w, key)
         }
+        Rec::DropVertex { tx, id } => {
+            w.write_all(&[TAG_DROP_V])?;
+            write_u64(w, tx)?;
+            write_khid(w, id)
+        }
+        Rec::DropEdge { tx, id } => {
+            w.write_all(&[TAG_DROP_E])?;
+            write_u64(w, tx)?;
+            write_khid(w, id)
+        }
     }
 }
 
@@ -387,6 +409,14 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
                 key: key,
             })
         }
+        TAG_DROP_V => Ok(Rec::DropVertex {
+            tx: tx,
+            id: read_khid(r)?,
+        }),
+        TAG_DROP_E => Ok(Rec::DropEdge {
+            tx: tx,
+            id: read_khid(r)?,
+        }),
         _ => Err(Error::new(ErrorKind::InvalidData, "rec tag")),
     }
 }
@@ -475,6 +505,53 @@ pub fn read_at<R: Read>(r: &mut R) -> Result<(Head, Vec<Rec>)> {
     Ok((Head { shard: shard, generation: generation }, recs))
 }
 
+/// Like `read_at`, plus the byte offset of the last
+/// good record. A torn frame is not part of `end`.
+pub fn read_valid<R: Read + Seek>(r: &mut R) -> Result<(Head, Vec<Rec>, u64)> {
+    let mut magic = [0u8; 4];
+    read_exact(r, &mut magic)?;
+    let shard = read_u32(r)?;
+    let generation = if &magic == MAGIC2 || &magic == MAGIC3 {
+        read_u32(r)?
+    } else if &magic == MAGIC {
+        0
+    } else {
+        return Err(Error::new(ErrorKind::InvalidData, "not KHL1"));
+    };
+    let framed = &magic == MAGIC3;
+    let mut recs = Vec::new();
+    let mut end = r.seek(SeekFrom::Current(0))?;
+    loop {
+        let pos = r.seek(SeekFrom::Current(0))?;
+        if framed {
+            match read_framed(r) {
+                Ok(Some(rec)) => {
+                    recs.push(rec);
+                    end = r.seek(SeekFrom::Current(0))?;
+                }
+                Ok(None) => {
+                    r.seek(SeekFrom::Start(pos))?;
+                    break;
+                }
+                Err(e) => return Err(e),
+            }
+        } else {
+            match read_rec(r) {
+                Ok(rec) => {
+                    recs.push(rec);
+                    end = r.seek(SeekFrom::Current(0))?;
+                }
+                Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    r.seek(SeekFrom::Start(pos))?;
+                    break;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    Ok((Head { shard: shard, generation: generation }, recs, end))
+}
+
 /// Records whose bytes lie at or before `end`.
 pub fn read_prefix<R: Read + Seek>(r: &mut R, end: u64) -> Result<(Head, Vec<Rec>)> {
     let mut magic = [0u8; 4];
@@ -554,6 +631,12 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
                 } else {
                     let _ = g.create_index(type_name, key);
                 }
+            }
+            Rec::DropVertex { id, .. } => {
+                g.remove_vertex(id);
+            }
+            Rec::DropEdge { id, .. } => {
+                g.remove_edge(id);
             }
         }
     }
