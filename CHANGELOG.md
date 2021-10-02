@@ -1,3 +1,9 @@
+## 6.4.0 - 2021-10-02
+
+- Commit prefers the delta over pending.
+- Restore of a Vertex is a replace.
+- Attach type posts the index.
+
 ## 6.3.0 - 2021-09-25
 
 - Remove unposts the index.

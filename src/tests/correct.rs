@@ -60,3 +60,35 @@ fn torn_tail_is_truncated_then_writes_survive() {
     assert!(s.graph().vertex_by_name("Bob").is_some());
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn rename_does_not_leave_the_old_name() {
+    let dir = tmp("rename");
+    let mut s = Store::open(&dir, "notes", 1).unwrap();
+    s.graph_mut().unwrap().create_index("Doc", "name");
+    let id = s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    s.graph_mut().unwrap().set_attr(id, "name", "Bob").unwrap();
+    s.commit().unwrap();
+    drop(s);
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().find("Doc", "name", "Ada").is_empty());
+    assert_eq!(s.graph().find("Doc", "name", "Bob").len(), 1);
+    assert!(s.graph().vertex_by_name("Ada").is_none());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn put_then_remove_in_one_tx_does_not_revive() {
+    let dir = tmp("put-rm");
+    let mut s = Store::open(&dir, "notes", 1).unwrap();
+    let mut p = std::collections::HashMap::new();
+    p.insert("name".to_string(), crate::Prop::from_str("Ada"));
+    let id = s.put_vertex(p, Some("Doc")).unwrap();
+    s.graph_mut().unwrap().remove_vertex(id);
+    s.commit().unwrap();
+    drop(s);
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().vertex_by_name("Ada").is_none());
+    let _ = fs::remove_dir_all(&dir);
+}

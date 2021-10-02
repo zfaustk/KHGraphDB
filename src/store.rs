@@ -230,14 +230,14 @@ impl Store {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
         }
         let tx = self.tx_id()?;
-        let recs = if !self.pending.is_empty() {
+        let recs = if let Some(ref snap) = self.snap {
+            capture_delta(tx, snap, &self.g)
+        } else if !self.pending.is_empty() {
             let mut recs = Vec::new();
             recs.push(Rec::Begin { tx: tx });
             recs.append(&mut self.pending);
             recs.push(Rec::Commit { tx: tx });
             recs
-        } else if let Some(ref snap) = self.snap {
-            capture_delta(tx, snap, &self.g)
         } else {
             capture(tx, &self.g)
         };
