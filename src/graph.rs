@@ -594,6 +594,13 @@ impl Graph {
         if let Some(t) = self.tget_mut(tid) {
             t.add_vertex(vk);
         }
+        let attrs = match self.vertex(vk) {
+            Some(v) => v.attrs().clone(),
+            None => return Ok(true),
+        };
+        for (k, val) in attrs.iter() {
+            self.post_vertex(type_name, vk, k, val);
+        }
         Ok(true)
     }
 
@@ -956,6 +963,25 @@ impl Graph {
                           attrs: HashMap<String, Prop>,
                           type_names: Vec<String>)
                           -> Result<Khid> {
+        if self.vhas(kid) {
+            self.unpost_vertex(kid);
+            let old_types: Vec<Khid> = match self.at(kid) {
+                Some(v) => v.types().iter().cloned().collect(),
+                None => Vec::new(),
+            };
+            if let Some(n) = self.at(kid).and_then(|v| v.get("name")).map(|s| s.to_string()) {
+                if let Some(owned) = self.vertices_by_name.get(&n).cloned() {
+                    if owned == kid {
+                        self.vertices_by_name.remove(&n);
+                    }
+                }
+            }
+            for tid in old_types.iter() {
+                if let Some(t) = self.tget_mut(*tid) {
+                    t.remove_vertex(kid);
+                }
+            }
+        }
         self.note_khid(kid);
         let mut v = Vertex::with_props(kid, attrs);
         if let Some(name) = v.get("name") {

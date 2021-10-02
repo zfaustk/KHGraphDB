@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**6.3.0** (2021). Delete is on the log. The prefix is the database. Rust 1.31, edition 2018. No crates.io dependencies.
+**6.4.0** (2021). Restore replaces. The prefix is the database. Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
