@@ -1,8 +1,5 @@
 //! A shard on disk. The log is truth. Commit
-//! appends this tx, sync_data. Empty pending
-//! falls back to a capture. compact bumps
-//! generation. Drop without commit keeps
-//! the last snapshot.
+//! writes the delta against the snapshot.
 
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
@@ -37,7 +34,6 @@ pub struct Store {
     snap: Option<Graph>,
     read_only: bool,
     generation: u32,
-    pending: Vec<Rec>,
     token: u64,
 }
 
@@ -85,7 +81,6 @@ impl Store {
             snap: None,
             read_only: false,
             generation: generation,
-            pending: Vec::new(),
             token: new_token(),
         };
         Ok(s)
@@ -139,7 +134,6 @@ impl Store {
         self.snap = Some(self.g.snapshot());
         self.open_tx = Some(self.next_tx);
         self.next_tx += 1;
-        self.pending.clear();
         Ok(())
     }
 
@@ -164,13 +158,6 @@ impl Store {
             Ok(id) => id,
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e.message())),
         };
-        let types = self.g.type_names_of_vertex(id);
-        self.pending.push(Rec::Vertex {
-            tx: tx,
-            id: id,
-            types: types,
-            attrs: attrs,
-        });
         Ok(id)
     }
 
@@ -184,47 +171,22 @@ impl Store {
             Ok(id) => id,
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e.message())),
         };
-        let tname = match ty {
-            Some(s) => s.to_string(),
-            None => String::new(),
-        };
-        self.pending.push(Rec::FarEdge {
-            tx: tx,
-            id: id,
-            src: src,
-            dst: dst,
-            ty: tname,
-            attrs: HashMap::new(),
-        });
         Ok(id)
     }
 
     pub fn put_content(&mut self, type_name: &str, key: &str) -> io::Result<()> {
-        let tx = self.tx_id()?;
+        let _tx = self.tx_id()?;
         self.g.mark_content(type_name, key);
-        self.pending.push(Rec::Content {
-            tx: tx,
-            type_name: type_name.to_string(),
-            key: key.to_string(),
-        });
         Ok(())
     }
 
     pub fn put_index(&mut self, type_name: &str, key: &str) -> io::Result<()> {
-        let tx = self.tx_id()?;
+        let _tx = self.tx_id()?;
         self.g.create_index(type_name, key);
-        self.pending.push(Rec::Index {
-            tx: tx,
-            type_name: type_name.to_string(),
-            key: key.to_string(),
-            unique: false,
-        });
         Ok(())
     }
 
-    /// Append this tx. Pending puts go as they are.
-    /// graph_mut with empty pending writes the
-    /// delta against the snapshot, not the arena.
+    /// The log is the delta against the snapshot.
     pub fn commit(&mut self) -> io::Result<Pos> {
         if self.read_only {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
@@ -232,12 +194,6 @@ impl Store {
         let tx = self.tx_id()?;
         let recs = if let Some(ref snap) = self.snap {
             capture_delta(tx, snap, &self.g)
-        } else if !self.pending.is_empty() {
-            let mut recs = Vec::new();
-            recs.push(Rec::Begin { tx: tx });
-            recs.append(&mut self.pending);
-            recs.push(Rec::Commit { tx: tx });
-            recs
         } else {
             capture(tx, &self.g)
         };
@@ -248,14 +204,20 @@ impl Store {
         let _ = self.take_lease();
         self.open_tx = None;
         self.snap = None;
-        self.pending.clear();
         let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
         self.pos()
     }
 
+    /// Cypher against the live arena. Commit is separate.
+    pub fn query(&mut self, text: &str) -> super::query::QueryResult {
+        match self.graph_mut() {
+            Ok(g) => super::query::run(g, text),
+            Err(e) => super::query::QueryResult::error(&e.to_string()),
+        }
+    }
+
     pub fn rollback(&mut self) {
         self.open_tx = None;
-        self.pending.clear();
         self.snap = None;
         let _ = self.replay_self();
     }
@@ -617,6 +579,18 @@ fn vertex_same(a: &Graph, b: &Graph, id: Khid) -> bool {
     }
 }
 
+fn edge_same(a: &Graph, b: &Graph, id: Khid) -> bool {
+    match (a.edge(id), b.edge(id)) {
+        (Some(x), Some(y)) => {
+            x.attrs() == y.attrs()
+                && a.edge_type_name(id) == b.edge_type_name(id)
+                && x.is_far() == y.is_far()
+        }
+        (None, None) => true,
+        _ => false,
+    }
+}
+
 fn capture_delta(tx: u64, before: &Graph, after: &Graph) -> Vec<Rec> {
     let mut recs = Vec::new();
     recs.push(Rec::Begin { tx: tx });
@@ -670,7 +644,9 @@ fn capture_delta(tx: u64, before: &Graph, after: &Graph) -> Vec<Rec> {
     }
     for &(id, src, dst, _) in after.all_edges().iter() {
         if old_edges.contains_key(&id) {
-            continue;
+            if edge_same(before, after, id) {
+                continue;
+            }
         }
         let e: &Edge = match after.edge(id) {
             Some(e) => e,
