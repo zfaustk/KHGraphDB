@@ -840,6 +840,25 @@ impl Graph {
         }
     }
 
+    fn post_restored_edge(&mut self, eid: Khid) {
+        let (tn, attrs) = match self.edge(eid) {
+            Some(e) => {
+                let tn = match e.type_id().and_then(|t| self.type_name_of(t).map(|s| s.to_string())) {
+                    Some(s) => s,
+                    None => return,
+                };
+                (tn, e.attrs().clone())
+            }
+            None => return,
+        };
+        for (k, val) in attrs.iter() {
+            let iid = SchemaIndex::id(&tn, k);
+            if let Some(idx) = self.edge_indexes.get_mut(&iid) {
+                idx.add(eid, val);
+            }
+        }
+    }
+
     pub fn set_attr(&mut self, vid: Khid, key: &str, value: &str) -> Result<()> {
         self.set_prop(vid, key, Prop::from_str(value))
     }
@@ -1008,6 +1027,9 @@ impl Graph {
                         type_name: Option<String>,
                         attrs: HashMap<String, Prop>)
                         -> Result<Khid> {
+        if self.eget(kid).is_some() {
+            self.remove_edge(kid);
+        }
         if !self.vhas(src) || !self.vhas(dst) {
             return Err(Error::new("missing vertex"));
         }
@@ -1031,6 +1053,7 @@ impl Graph {
             dstv.add_in(kid);
         }
         self.eput(kid, e);
+        self.post_restored_edge(kid);
         Ok(kid)
     }
 
@@ -1041,6 +1064,9 @@ impl Graph {
                             type_name: Option<String>,
                             attrs: HashMap<String, Prop>)
                             -> Result<Khid> {
+        if self.eget(kid).is_some() {
+            self.remove_edge(kid);
+        }
         if dst.on(self.shard) && self.vhas(dst.khid()) {
             return self.restore_edge(kid, src, dst.khid(), type_name, attrs);
         }
@@ -1064,6 +1090,7 @@ impl Graph {
             srcv.add_out(kid);
         }
         self.eput(kid, e);
+        self.post_restored_edge(kid);
         Ok(kid)
     }
 

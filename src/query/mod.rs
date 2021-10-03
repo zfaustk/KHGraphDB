@@ -201,6 +201,11 @@ impl QueryResult {
             deleted: 0,
         }
     }
+
+    /// Store uses this when the lease is missing.
+    pub fn error(msg: &str) -> QueryResult {
+        QueryResult::fail(msg)
+    }
 }
 
 pub fn run(g: &mut Graph, text: &str) -> QueryResult {
