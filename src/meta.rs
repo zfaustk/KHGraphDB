@@ -3,7 +3,7 @@
 //! this, not the page.
 
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -13,6 +13,7 @@ use super::khid::Khid;
 
 const MAGIC: &'static [u8] = b"KHM1";
 const TAG_PUT: u8 = 1;
+const TAG_DEL: u8 = 2;
 
 /// (type, key, value) → addresses.
 pub struct Meta {
@@ -53,6 +54,18 @@ impl Meta {
                 Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
                 Err(e) => return Err(e),
             }
+            if tag[0] == TAG_DEL {
+                let tn = read_str(&mut f)?;
+                let key = read_str(&mut f)?;
+                let val = read_str(&mut f)?;
+                let shard = read_u32(&mut f)?;
+                let raw = read_u64(&mut f)?;
+                let addr = Addr::new(shard, Khid::from_raw(raw));
+                if let Some(v) = map.get_mut(&(tn.clone(), key.clone(), val.clone())) {
+                    v.retain(|a| *a != addr);
+                }
+                continue;
+            }
             if tag[0] != TAG_PUT {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "meta tag"));
             }
@@ -88,6 +101,43 @@ impl Meta {
             Some(v) => v.clone(),
             None => Vec::new(),
         }
+    }
+
+    /// Append a posting. FIND sees it after this.
+    pub fn remember(&mut self, type_name: &str, key: &str, value: &str, addr: Addr)
+                    -> io::Result<()> {
+        self.map
+            .entry((type_name.to_string(), key.to_string(), value.to_string()))
+            .or_insert(Vec::new())
+            .push(addr);
+        self.append_tag(TAG_PUT, type_name, key, value, addr)
+    }
+
+    /// Append a forget. FIND no longer returns addr.
+    pub fn forget(&mut self, type_name: &str, key: &str, value: &str, addr: Addr)
+                  -> io::Result<()> {
+        if let Some(v) = self.map.get_mut(&(type_name.to_string(), key.to_string(), value.to_string())) {
+            v.retain(|a| *a != addr);
+        }
+        self.append_tag(TAG_DEL, type_name, key, value, addr)
+    }
+
+    fn append_tag(&self, tag: u8, tn: &str, key: &str, val: &str, addr: Addr)
+                  -> io::Result<()> {
+        fs::create_dir_all(&self.dir)?;
+        let path = self.dir.join("meta");
+        let fresh = !path.exists();
+        let mut f = OpenOptions::new().create(true).append(true).open(&path)?;
+        if fresh {
+            f.write_all(MAGIC)?;
+        }
+        f.write_all(&[tag])?;
+        write_str(&mut f, tn)?;
+        write_str(&mut f, key)?;
+        write_str(&mut f, val)?;
+        write_u32(&mut f, addr.shard())?;
+        write_u64(&mut f, addr.khid().raw())?;
+        f.sync_data()
     }
 
     pub fn len(&self) -> usize {

@@ -11,12 +11,15 @@ use super::addr::Addr;
 use super::graph::Graph;
 use super::khid::Khid;
 use super::pos::Pos;
+use super::prop::Prop;
+use super::query::{QueryResult, Val};
 use super::stub::Stub;
 use super::wal;
 
 const TAG_PULL: u8 = 1;
 const TAG_HYDRATE: u8 = 2;
 const TAG_FIND: u8 = 3;
+const TAG_QUERY: u8 = 4;
 const KIND_TAIL: u8 = 0;
 const KIND_SNAP: u8 = 1;
 
@@ -63,6 +66,9 @@ pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<TcpListener> {
 
 /// One request on an accepted stream. The graph is
 /// a snapshot for hydrate; the dir holds the log.
+/// One request. The graph is a snapshot for
+/// hydrate and MATCH. Writes on a clone die
+/// with the connection. The dir holds the log.
 pub fn handle(dir: &Path, g: &Graph, mut s: TcpStream) -> io::Result<()> {
     let mut tag = [0u8; 1];
     s.read_exact(&mut tag)?;
@@ -70,6 +76,7 @@ pub fn handle(dir: &Path, g: &Graph, mut s: TcpStream) -> io::Result<()> {
         TAG_PULL => reply_pull(dir, &mut s),
         TAG_HYDRATE => reply_hydrate(g, &mut s),
         TAG_FIND => reply_find(g, &mut s),
+        TAG_QUERY => reply_query(g, &mut s),
         _ => Err(io::Error::new(io::ErrorKind::InvalidData, "wire tag")),
     }
 }
@@ -137,6 +144,177 @@ fn reply_find(g: &Graph, s: &mut TcpStream) -> io::Result<()> {
         write_u64(s, id.raw())?;
     }
     Ok(())
+}
+
+fn reply_query(g: &Graph, s: &mut TcpStream) -> io::Result<()> {
+    let text = read_str(s)?;
+    let mut live = g.snapshot();
+    let r = super::query::run(&mut live, &text);
+    write_result(s, &r)
+}
+
+fn write_result<W: Write>(w: &mut W, r: &QueryResult) -> io::Result<()> {
+    w.write_all(&[if r.ok { 1 } else { 0 }])?;
+    write_str(w, &r.message)?;
+    write_u32(w, r.created as u32)?;
+    write_u32(w, r.deleted as u32)?;
+    write_u32(w, r.columns.len() as u32)?;
+    for c in r.columns.iter() {
+        write_str(w, c)?;
+    }
+    write_u32(w, r.rows.len() as u32)?;
+    for row in r.rows.iter() {
+        write_u32(w, row.len() as u32)?;
+        for cell in row.iter() {
+            match *cell {
+                None => w.write_all(&[0])?,
+                Some(ref v) => write_val(w, v)?,
+            }
+        }
+    }
+    Ok(())
+}
+
+fn write_val<W: Write>(w: &mut W, v: &Val) -> io::Result<()> {
+    match *v {
+        Val::Id(k) => {
+            w.write_all(&[1])?;
+            write_u64(w, k.raw())
+        }
+        Val::Prop(ref p) => {
+            w.write_all(&[2])?;
+            write_prop(w, p)
+        }
+        Val::Path(ref p) => {
+            w.write_all(&[3])?;
+            write_u32(w, p.len() as u32)?;
+            for id in p.ids().iter() {
+                write_u64(w, id.raw())?;
+            }
+            Ok(())
+        }
+        Val::List(ref xs) => {
+            w.write_all(&[4])?;
+            write_u32(w, xs.len() as u32)?;
+            for x in xs.iter() {
+                write_val(w, x)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn write_prop<W: Write>(w: &mut W, p: &Prop) -> io::Result<()> {
+    match *p {
+        Prop::Bool(b) => {
+            w.write_all(&[0, if b { 1 } else { 0 }])
+        }
+        Prop::Int(n) => {
+            w.write_all(&[1])?;
+            write_u64(w, n as u64)
+        }
+        Prop::Float(n) => {
+            w.write_all(&[2])?;
+            write_u64(w, n.to_bits())
+        }
+        Prop::Str(ref s) => {
+            w.write_all(&[3])?;
+            write_str(w, s)
+        }
+    }
+}
+
+fn read_result<R: Read>(r: &mut R) -> io::Result<QueryResult> {
+    let mut okb = [0u8; 1];
+    r.read_exact(&mut okb)?;
+    let message = read_str(r)?;
+    let created = read_u32(r)? as usize;
+    let deleted = read_u32(r)? as usize;
+    let nc = read_u32(r)? as usize;
+    let mut columns = Vec::new();
+    let mut i = 0;
+    while i < nc {
+        columns.push(read_str(r)?);
+        i += 1;
+    }
+    let nr = read_u32(r)? as usize;
+    let mut rows = Vec::new();
+    let mut j = 0;
+    while j < nr {
+        let n = read_u32(r)? as usize;
+        let mut row = Vec::new();
+        let mut k = 0;
+        while k < n {
+            row.push(read_cell(r)?);
+            k += 1;
+        }
+        rows.push(row);
+        j += 1;
+    }
+    Ok(QueryResult {
+        ok: okb[0] != 0,
+        message: message,
+        columns: columns,
+        rows: rows,
+        created: created,
+        deleted: deleted,
+    })
+}
+
+fn read_cell<R: Read>(r: &mut R) -> io::Result<Option<Val>> {
+    let mut tag = [0u8; 1];
+    r.read_exact(&mut tag)?;
+    match tag[0] {
+        0 => Ok(None),
+        1 => {
+            let raw = read_u64(r)?;
+            Ok(Some(Val::Id(Khid::from_raw(raw))))
+        }
+        2 => {
+            let p = read_prop(r)?;
+            Ok(Some(Val::Prop(p)))
+        }
+        3 => {
+            let n = read_u32(r)? as usize;
+            let mut ids = Vec::new();
+            let mut i = 0;
+            while i < n {
+                ids.push(Khid::from_raw(read_u64(r)?));
+                i += 1;
+            }
+            Ok(Some(Val::Path(super::query::Path::new(ids))))
+        }
+        4 => {
+            let n = read_u32(r)? as usize;
+            let mut xs = Vec::new();
+            let mut i = 0;
+            while i < n {
+                match read_cell(r)? {
+                    Some(v) => xs.push(v),
+                    None => {}
+                }
+                i += 1;
+            }
+            Ok(Some(Val::List(xs)))
+        }
+        _ => Err(io::Error::new(io::ErrorKind::InvalidData, "val tag")),
+    }
+}
+
+fn read_prop<R: Read>(r: &mut R) -> io::Result<Prop> {
+    let mut tag = [0u8; 1];
+    r.read_exact(&mut tag)?;
+    match tag[0] {
+        0 => {
+            let mut b = [0u8; 1];
+            r.read_exact(&mut b)?;
+            Ok(Prop::from_bool(b[0] != 0))
+        }
+        1 => Ok(Prop::from_int(read_u64(r)? as i64)),
+        2 => Ok(Prop::from_float(f64::from_bits(read_u64(r)?))),
+        3 => Ok(Prop::from_str(&read_str(r)?)),
+        _ => Err(io::Error::new(io::ErrorKind::InvalidData, "prop tag")),
+    }
 }
 
 fn stub_at(g: &Graph, addr: Addr) -> Option<Stub> {
@@ -238,4 +416,13 @@ pub fn find(addr: SocketAddr, type_name: &str, key: &str, value: &str)
         i += 1;
     }
     Ok(out)
+}
+
+/// MATCH (and friends) at that home. The arena
+/// on the wire is a snapshot. Writes do not stick.
+pub fn ask(addr: SocketAddr, text: &str) -> io::Result<QueryResult> {
+    let mut s = TcpStream::connect(addr)?;
+    s.write_all(&[TAG_QUERY])?;
+    write_str(&mut s, text)?;
+    read_result(&mut s)
 }
