@@ -15,6 +15,7 @@ mod bookmark;
 mod meta;
 mod six;
 mod correct;
+mod combo;
 mod replica;
 mod sentinel;
 mod wire;
