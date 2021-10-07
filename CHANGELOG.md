@@ -1,3 +1,9 @@
+## 7.0.0 - 2021-10-07
+
+- Commit is only the delta. query is Cypher on the store.
+- MATCH on a socket is a snapshot. Meta can forget.
+- Delete, SET, compact, replica combinations agree after reopen.
+
 ## 6.4.0 - 2021-10-02
 
 - Commit prefers the delta over pending.
