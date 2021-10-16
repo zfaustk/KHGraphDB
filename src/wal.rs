@@ -597,6 +597,7 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
         }
     }
     let mut g = Graph::on("g1", shard);
+    g.quiet();
     for rec in recs.iter() {
         if !committed.contains(&rec.tx()) {
             continue;
@@ -640,6 +641,7 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
             }
         }
     }
+    g.live();
     Ok(g)
 }
 

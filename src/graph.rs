@@ -10,6 +10,17 @@ use super::khid::Khid;
 use super::addr::Addr;
 use super::stub::Stub;
 
+/// A live write, for the log. Restore does not record.
+#[derive(Clone, Debug)]
+pub enum Touch {
+    Vertex(Khid),
+    Edge(Khid),
+    DropVertex(Khid),
+    DropEdge(Khid),
+    Index { type_name: String, key: String, unique: bool },
+    Content { type_name: String, key: String },
+}
+
 /// Directed property graph. Vertices live in a slot Vec.
 /// The index is the KHID. KHID is identity on this shard.
 /// Lookups take Khid. Names stay strings.
@@ -26,6 +37,8 @@ pub struct Graph {
     indexes: HashMap<String, SchemaIndex>,
     edge_indexes: HashMap<String, SchemaIndex>,
     stubs: HashMap<Addr, Stub>,
+    recording: bool,
+    touches: Vec<Touch>,
 }
 
 impl Graph {
@@ -63,6 +76,8 @@ impl Graph {
             indexes: HashMap::new(),
             edge_indexes: HashMap::new(),
             stubs: HashMap::new(),
+            recording: true,
+            touches: Vec::new(),
         }
     }
 
@@ -202,6 +217,30 @@ impl Graph {
         self.clone()
     }
 
+    pub(crate) fn quiet(&mut self) {
+        self.recording = false;
+        self.touches.clear();
+    }
+
+    pub(crate) fn live(&mut self) {
+        self.recording = true;
+        self.touches.clear();
+    }
+
+    pub(crate) fn touches(&self) -> &[Touch] {
+        &self.touches
+    }
+
+    pub(crate) fn clear_touches(&mut self) {
+        self.touches.clear();
+    }
+
+    fn rec(&mut self, t: Touch) {
+        if self.recording {
+            self.touches.push(t);
+        }
+    }
+
     pub fn clear(&mut self) {
         self.serial = 0;
         self.vertices.clear();
@@ -215,6 +254,7 @@ impl Graph {
         self.indexes.clear();
         self.edge_indexes.clear();
         self.stubs.clear();
+        self.touches.clear();
     }
 
     pub fn subgraph(&self, vids: &[Khid]) -> Graph {
@@ -441,6 +481,7 @@ impl Graph {
             }
         }
         self.vput(kid, v);
+        self.rec(Touch::Vertex(kid));
         Ok(kid)
     }
 
@@ -493,6 +534,7 @@ impl Graph {
             dstv.add_in(kid);
         }
         self.eput(kid, e);
+        self.rec(Touch::Edge(kid));
         Ok(kid)
     }
 
@@ -524,6 +566,7 @@ impl Graph {
             srcv.add_out(kid);
         }
         self.eput(kid, e);
+        self.rec(Touch::Edge(kid));
         Ok(kid)
     }
 
@@ -544,6 +587,7 @@ impl Graph {
             }
         }
         self.unpost_edge(ek);
+        self.rec(Touch::DropEdge(ek));
         self.etake(ek)
     }
 
@@ -577,6 +621,7 @@ impl Graph {
             }
         }
         self.unpost_vertex(vk);
+        self.rec(Touch::DropVertex(vk));
         self.vtake(vk)
     }
 
@@ -601,6 +646,7 @@ impl Graph {
         for (k, val) in attrs.iter() {
             self.post_vertex(type_name, vk, k, val);
         }
+        self.rec(Touch::Vertex(vk));
         Ok(true)
     }
 
@@ -684,6 +730,11 @@ impl Graph {
             idx.add(*vid, &val);
         }
         self.indexes.insert(id, idx);
+        self.rec(Touch::Index {
+            type_name: type_name.to_string(),
+            key: key.to_string(),
+            unique: unique,
+        });
         true
     }
 
@@ -779,6 +830,10 @@ impl Graph {
         }
         self.indexes.remove(&SchemaIndex::id(type_name, key));
         self.edge_indexes.remove(&SchemaIndex::id(type_name, key));
+        self.rec(Touch::Content {
+            type_name: type_name.to_string(),
+            key: key.to_string(),
+        });
         true
     }
 
@@ -915,6 +970,7 @@ impl Graph {
                 idx.add(vk, &value);
             }
         }
+        self.rec(Touch::Vertex(vk));
         Ok(())
     }
 
@@ -947,10 +1003,14 @@ impl Graph {
                 }
             }
         }
-        match self.at_mut(vk) {
+        let out = match self.at_mut(vk) {
             Some(v) => Ok(v.remove_attr(key).map(|p| p.as_display())),
             None => Err(Error::new("missing vertex")),
+        };
+        if out.is_ok() {
+            self.rec(Touch::Vertex(vk));
         }
+        out
     }
 
     pub fn all_types(&self) -> Vec<(Khid, String)> {
@@ -1141,6 +1201,7 @@ impl Graph {
                 idx.add(ek, &value);
             }
         }
+        self.rec(Touch::Edge(ek));
         true
     }
 }
