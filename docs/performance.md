@@ -1,14 +1,27 @@
-# Performance notes
+# Performance
 
-Measured with `System.Diagnostics.Stopwatch` on the test host.
-No BenchmarkDotNet. That is 2014.
+This kernel is a notebook at home: sparse nodes,
+fat bodies, keyed lookup, a log that is the delta.
+It is not a TPC number. There is no YCSB, no LDBC,
+no BenchmarkDotNet. Those would describe a different
+database.
 
-- Identity, type and schema lookups are dictionaries.
-- MATCH seeds from `Find(Type, key)` when a property map is present.
-- BFS / DFS / Dijkstra scratch only the vertices they touch.
-- Adjacency is a `List`. `OutgoingAt(i)` does not allocate.
-- Clone is a KHG2 round trip. It is correct, not a memcpy.
+`cargo run --release --example bench -- 5000`
+prints load rate, keyed MATCH, count scan,
+commit+1, SET+commit, replay, a torn-tail loop,
+and concurrent readers on a snapshot. Times are
+nanoseconds. p50 / p95 / p99 are the sorted
+samples, not a fitted model.
 
-A 200-vertex chain, one-hop MATCH on an indexed name, should
-return in well under a second on a 2013 laptop. The test prints
-the millisecond count.
+What the clock is for:
+
+- Identity MATCH should beat a Type scan.
+- A one-vertex commit must not walk the arena.
+  7.1 records touches; `begin` does not clone.
+- Open truncates a torn tail and writes again.
+- Readers pin a snapshot. One writer holds the
+  lease. Concurrent clients are readers, not
+  a lock manager.
+
+A 200-vertex chain (2014, C#) still lives in
+`csharp/`. It is a unit test, not evidence.
