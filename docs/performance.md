@@ -23,5 +23,16 @@ What the clock is for:
   lease. Concurrent clients are readers, not
   a lock manager.
 
+What it already points at:
+
+- `commit+1` is still dominated by rewriting
+  meta and `fsync`, not by the delta. Meta
+  should tail, like the log. See `docs/next.md`.
+- A MATCH that only reads should not clone
+  the arena. `query::run` is `&mut` because
+  CREATE shares the walk.
+- Memory `Tx` still clones. Inverse of a
+  touch is the next cut, not a lock manager.
+
 A 200-vertex chain (2014, C#) still lives in
 `csharp/`. It is a unit test, not evidence.
