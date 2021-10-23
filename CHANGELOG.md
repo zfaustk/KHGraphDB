@@ -1,3 +1,9 @@
+## 7.1.0 - 2021-10-23
+
+- begin does not clone. Commit writes touches.
+- examples/bench: p50/p95/p99, torn loop, readers.
+- performance.md: not LDBC, not YCSB.
+
 ## 7.0.0 - 2021-10-07
 
 - Commit is only the delta. query is Cypher on the store.
