@@ -42,6 +42,9 @@ across processes is a Pos on TCP. MATCH
 still binds a Khid on one graph.
 
 The arena still clones when there is no store.
+That is a prototype. A transaction is a
+prefix: the store already pins a Pos. Memory
+Tx will keep an inverse, not a second arena.
 Store rollback replays the log. A lease fences
 the writer. FIND on a socket is one round.
 commit is the durable write. khg `:commit`
@@ -53,7 +56,8 @@ not treat it as a second truth.
 
 4.3 is the standby at year end. 5.0 is a
 Pos on a socket. 5.1 is meta. 6.0 is the
-prefix: `docs/six.md`.
+prefix: `docs/six.md`. What is still a
+prototype is `docs/next.md`.
 
 
 
