@@ -1,21 +1,22 @@
-//! In-memory transaction. Clone the arena. Writes hit
-//! the live graph. Drop puts the clone back unless
-//! commit dropped the snapshot.
+//! In-memory transaction. Inverse of each touch.
+//! Writes hit the live graph. Drop walks undos
+//! unless commit disarmed them.
 
 use super::graph::Graph;
 
-/// A write that can still go back. The snapshot is a
-/// Graph clone. No Rc. Drop is rollback.
+/// A write that can still go back. The inverse
+/// is on the graph. No second arena. Drop is rollback.
 pub struct Tx<'a> {
     live: &'a mut Graph,
-    snap: Option<Graph>,
+    open: bool,
 }
 
 impl<'a> Tx<'a> {
     pub fn begin(g: &'a mut Graph) -> Tx<'a> {
+        g.arm();
         Tx {
-            snap: Some(g.snapshot()),
             live: g,
+            open: true,
         }
     }
 
@@ -24,20 +25,22 @@ impl<'a> Tx<'a> {
     }
 
     pub fn commit(mut self) {
-        self.snap = None;
+        self.live.disarm();
+        self.open = false;
     }
 
     pub fn rollback(&mut self) {
-        if let Some(ref s) = self.snap {
-            *self.live = s.clone();
-        }
+        self.live.apply_undos();
+        self.live.arm();
     }
 }
 
 impl<'a> Drop for Tx<'a> {
     fn drop(&mut self) {
-        if let Some(s) = self.snap.take() {
-            *self.live = s;
+        if self.open {
+            self.live.apply_undos();
+            self.live.disarm();
+            self.open = false;
         }
     }
 }
