@@ -23,6 +23,28 @@ fn commit_writes_meta() {
 }
 
 #[test]
+fn commit_plus_one_tails() {
+    let dir = tmp("meta-t");
+    let mut s = Store::open(&dir, "notes", 1).unwrap();
+    s.graph_mut().unwrap().create_index("Doc", "name");
+    let mut i = 0;
+    while i < 40 {
+        s.graph_mut().unwrap().add_vertex(attrs(&format!("n{}", i)), Some("Doc")).unwrap();
+        i += 1;
+    }
+    s.commit().unwrap();
+    let before = fs::metadata(dir.join("meta")).unwrap().len();
+    s.graph_mut().unwrap().add_vertex(attrs("last"), Some("Doc")).unwrap();
+    s.commit().unwrap();
+    let after = fs::metadata(dir.join("meta")).unwrap().len();
+    assert!(after > before);
+    assert!(after - before < before);
+    let m = Meta::open(&dir).unwrap();
+    assert_eq!(m.find("Doc", "name", "last").len(), 1);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn drop_meta_rebuilds() {
     let dir = tmp("meta-r");
     let mut s = Store::open(&dir, "notes", 1).unwrap();

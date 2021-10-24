@@ -18,7 +18,7 @@ pub use meta::Meta;
 pub use wal::Head;
 pub use sentinel::Sentinel;
 pub use route::Route;
-pub use query::{run as run_query, QueryResult, Val, Path};
+pub use query::{run as run_query, ask as ask_query, QueryResult, Val, Path};
 pub use tx::Tx;
 
 pub mod error;

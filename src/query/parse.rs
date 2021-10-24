@@ -340,6 +340,45 @@ pub(crate) fn run_inner(g: &mut Graph, text: &str) -> Result<QueryResult> {
     run_inner_params(g, text, &HashMap::new())
 }
 
+pub(crate) fn run_read(g: &Graph, text: &str) -> Result<QueryResult> {
+    let mut lx = Lexer::new(text);
+    let mut toks = Vec::new();
+    loop {
+        let t = lx.next()?;
+        let eof = t.kind == TokenKind::Eof;
+        toks.push(t);
+        if eof {
+            break;
+        }
+    }
+    let mut p = Parser {
+        toks: toks,
+        i: 0,
+        params: HashMap::new(),
+    };
+    p.exec_read(g)
+}
+
+pub(crate) fn writes(text: &str) -> bool {
+    let mut lx = Lexer::new(text);
+    loop {
+        let t = match lx.next() {
+            Ok(t) => t,
+            Err(_) => return true,
+        };
+        if t.kind == TokenKind::Eof {
+            return false;
+        }
+        if t.kind == TokenKind::Ident {
+            let s = t.text.to_lowercase();
+            if s == "create" || s == "merge" || s == "set"
+                || s == "delete" || s == "remove" || s == "detach" {
+                return true;
+            }
+        }
+    }
+}
+
 pub(crate) fn run_inner_params(g: &mut Graph,
                                text: &str,
                                params: &HashMap<String, Prop>)
@@ -487,7 +526,175 @@ impl Parser {
         Ok(r)
     }
 
+    fn has_write(&self) -> bool {
+        let mut i = 0;
+        while i < self.toks.len() {
+            if self.toks[i].kind == TokenKind::Ident {
+                let s = self.toks[i].text.to_lowercase();
+                if s == "create" || s == "merge" || s == "set"
+                    || s == "delete" || s == "remove" || s == "detach" {
+                    return true;
+                }
+            }
+            i += 1;
+        }
+        false
+    }
+
+    fn exec_read(&mut self, g: &Graph) -> Result<QueryResult> {
+        if self.has_write() {
+            return Err(self.err_here("write"));
+        }
+        if self.ident_is("FIND") {
+            return self.exec_find(g);
+        }
+        let mut last: Option<QueryResult> = None;
+        if self.ident_is("EXPLAIN") {
+            self.next();
+            let mut optional = false;
+            if self.ident_is("OPTIONAL") {
+                self.next();
+                if !self.ident_is("MATCH") {
+                    return Err(self.err_here("expected MATCH"));
+                }
+                self.next();
+                optional = true;
+            } else if self.ident_is("MATCH") {
+                self.next();
+            } else {
+                return Err(self.err_here("EXPLAIN expected MATCH"));
+            }
+            let mut pat = self.parse_match()?;
+            pat.optional = optional;
+            if self.ident_is("WHERE") {
+                self.next();
+                pat.pred = Some(self.parse_where()?);
+            }
+            if self.ident_is("RETURN") {
+                self.next();
+                if self.ident_is("DISTINCT") {
+                    self.next();
+                }
+                let _cols = self.parse_return()?;
+                pat.project = true;
+                if self.ident_is("ORDER") {
+                    self.next();
+                    if !self.ident_is("BY") {
+                        return Err(self.err_here("expected BY"));
+                    }
+                    self.next();
+                    let _ = self.parse_order()?;
+                }
+                if self.ident_is("SKIP") {
+                    self.next();
+                    if self.kind() != TokenKind::Number {
+                        return Err(self.err_here("expected number"));
+                    }
+                    self.next();
+                }
+                if self.ident_is("LIMIT") {
+                    self.next();
+                    if self.kind() != TokenKind::Number {
+                        return Err(self.err_here("expected number"));
+                    }
+                    let n = parse_usize(&self.text())?;
+                    self.next();
+                    pat.limit = Some(n);
+                }
+            }
+            return exec_explain(g, &pat);
+        }
+        while self.kind() != TokenKind::Eof {
+            if self.ident_is("OPTIONAL") {
+                self.next();
+                if !self.ident_is("MATCH") {
+                    return Err(self.err_here("expected MATCH"));
+                }
+                self.next();
+                let mut pat = self.parse_match()?;
+                pat.optional = true;
+                if last.is_none() && self.ident_is("WHERE") {
+                    self.next();
+                    pat.pred = Some(self.parse_where()?);
+                }
+                last = Some(exec_match(g, &pat, last));
+            } else if self.ident_is("MATCH") {
+                self.next();
+                let mut pat = self.parse_match()?;
+                if last.is_none() && self.ident_is("WHERE") {
+                    self.next();
+                    pat.pred = Some(self.parse_where()?);
+                }
+                last = Some(exec_match(g, &pat, last));
+            } else if self.ident_is("WHERE") {
+                self.next();
+                let preds = self.parse_where()?;
+                match last {
+                    Some(src) => last = Some(filter_where(g, src, &preds)),
+                    None => return Err(self.err_here("WHERE without MATCH")),
+                }
+            } else if self.ident_is("UNWIND") {
+                self.next();
+                let (col, lits) = self.parse_unwind_src()?;
+                if !self.ident_is("AS") {
+                    return Err(self.err_here("expected AS"));
+                }
+                self.next();
+                let alias = self.expect_ident()?;
+                last = Some(exec_unwind(last, col, lits, alias));
+            } else if self.ident_is("WITH") {
+                self.next();
+                let distinct = if self.ident_is("DISTINCT") {
+                    self.next();
+                    true
+                } else {
+                    false
+                };
+                let cols = self.parse_return()?;
+                match last {
+                    Some(src) => {
+                        let mut r = project(g, &src, &cols);
+                        if distinct {
+                            r = distinct_rows(r);
+                        }
+                        last = Some(self.parse_return_tail(g, r)?);
+                    }
+                    None => return Err(self.err_here("WITH without MATCH")),
+                }
+            } else if self.ident_is("RETURN") {
+                self.next();
+                let distinct = if self.ident_is("DISTINCT") {
+                    self.next();
+                    true
+                } else {
+                    false
+                };
+                let cols = self.parse_return()?;
+                match last {
+                    Some(src) => {
+                        let mut r = project(g, &src, &cols);
+                        if distinct {
+                            r = distinct_rows(r);
+                        }
+                        last = Some(self.parse_return_tail(g, r)?);
+                        break;
+                    }
+                    None => return Err(self.err_here("RETURN without MATCH")),
+                }
+            } else {
+                break;
+            }
+        }
+        match last {
+            Some(r) => Ok(r),
+            None => Err(self.err_here("expected MATCH")),
+        }
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        if !self.has_write() {
+            return self.exec_read(g);
+        }
         if self.ident_is("FIND") {
             return self.exec_find(g);
         }

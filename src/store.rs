@@ -131,7 +131,7 @@ impl Store {
         if self.open_tx.is_some() {
             return Ok(());
         }
-        self.g.clear_touches();
+        self.g.arm();
         self.open_tx = Some(self.next_tx);
         self.next_tx += 1;
         Ok(())
@@ -200,23 +200,32 @@ impl Store {
         let _ = self.take_lease();
         self.open_tx = None;
         self.snap = None;
-        self.g.clear_touches();
-        let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
+        let _ = super::meta::Meta::tail(&self.dir, &self.g);
+        self.g.disarm();
         self.pos()
     }
 
-    /// Cypher against the live arena. Commit is separate.
+    /// Cypher against the live arena. A read does not
+    /// take the lease. Commit is separate.
     pub fn query(&mut self, text: &str) -> super::query::QueryResult {
+        if !super::query::writes(text) {
+            return super::query::ask(&self.g, text);
+        }
         match self.graph_mut() {
             Ok(g) => super::query::run(g, text),
             Err(e) => super::query::QueryResult::error(&e.to_string()),
         }
     }
 
+    pub fn ask(&self, text: &str) -> super::query::QueryResult {
+        super::query::ask(&self.g, text)
+    }
+
     pub fn rollback(&mut self) {
         self.open_tx = None;
         self.snap = None;
-        let _ = self.replay_self();
+        self.g.apply_undos();
+        self.g.disarm();
     }
 
     fn replay_self(&mut self) -> io::Result<()> {

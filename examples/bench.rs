@@ -82,7 +82,7 @@ fn main() {
     while i < 400 {
         let q = format!("MATCH (a:Doc {{name:'n{}'}}) RETURN a", i % n);
         let t = Instant::now();
-        let r = query::run(&mut s.graph().clone(), &q);
+        let r = query::ask(s.graph(), &q);
         keyed.push(ns(t));
         assert!(r.ok);
         i += 1;
@@ -93,7 +93,7 @@ fn main() {
     i = 0;
     while i < 40 {
         let t = Instant::now();
-        let r = query::run(&mut s.graph().clone(), "MATCH (a:Doc) RETURN count(a)");
+        let r = query::ask(s.graph(), "MATCH (a:Doc) RETURN count(a)");
         scan.push(ns(t));
         assert!(r.ok);
         i += 1;
@@ -157,7 +157,7 @@ fn main() {
             let mut j = 0;
             while j < 100 {
                 let q = format!("MATCH (a:Doc {{name:'n{}'}}) RETURN a", j);
-                let _ = query::run(&mut gg.clone(), &q);
+                let _ = query::ask(&gg, &q);
                 j += 1;
             }
         }));

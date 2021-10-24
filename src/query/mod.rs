@@ -215,6 +215,19 @@ pub fn run(g: &mut Graph, text: &str) -> QueryResult {
     }
 }
 
+/// MATCH, FIND, EXPLAIN. No clone. A write is refused.
+pub fn ask(g: &Graph, text: &str) -> QueryResult {
+    match parse::run_read(g, text) {
+        Ok(r) => r,
+        Err(e) => QueryResult::fail(e.message()),
+    }
+}
+
+/// True when the text would mutate.
+pub fn writes(text: &str) -> bool {
+    parse::writes(text)
+}
+
 /// MATCH with $name bound to a Prop. The tag is kept.
 pub fn run_with(g: &mut Graph, text: &str, params: std::collections::HashMap<String, Prop>) -> QueryResult {
     match parse::run_inner_params(g, text, &params) {

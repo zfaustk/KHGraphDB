@@ -21,6 +21,31 @@ pub enum Touch {
     Content { type_name: String, key: String },
 }
 
+/// Inverse of a live write. Rollback walks this
+/// backwards. Restore does not record.
+#[derive(Clone, Debug)]
+pub enum Undo {
+    VertexGone(Khid),
+    VertexWas {
+        id: Khid,
+        types: Vec<String>,
+        attrs: HashMap<String, Prop>,
+    },
+    EdgeGone(Khid),
+    EdgeWas {
+        id: Khid,
+        src: Khid,
+        dst: Khid,
+        ty: String,
+        attrs: HashMap<String, Prop>,
+        far: Option<Addr>,
+    },
+    IndexGone {
+        type_name: String,
+        key: String,
+    },
+}
+
 /// Directed property graph. Vertices live in a slot Vec.
 /// The index is the KHID. KHID is identity on this shard.
 /// Lookups take Khid. Names stay strings.
@@ -38,7 +63,9 @@ pub struct Graph {
     edge_indexes: HashMap<String, SchemaIndex>,
     stubs: HashMap<Addr, Stub>,
     recording: bool,
+    armed: bool,
     touches: Vec<Touch>,
+    undos: Vec<Undo>,
 }
 
 impl Graph {
@@ -77,7 +104,9 @@ impl Graph {
             edge_indexes: HashMap::new(),
             stubs: HashMap::new(),
             recording: true,
+            armed: false,
             touches: Vec::new(),
+            undos: Vec::new(),
         }
     }
 
@@ -224,7 +253,61 @@ impl Graph {
 
     pub(crate) fn live(&mut self) {
         self.recording = true;
+        self.armed = false;
         self.touches.clear();
+        self.undos.clear();
+    }
+
+    pub(crate) fn arm(&mut self) {
+        self.armed = true;
+        self.touches.clear();
+        self.undos.clear();
+    }
+
+    pub(crate) fn disarm(&mut self) {
+        self.armed = false;
+        self.touches.clear();
+        self.undos.clear();
+    }
+
+    pub(crate) fn apply_undos(&mut self) {
+        let rec = self.recording;
+        let arm = self.armed;
+        self.recording = false;
+        self.armed = false;
+        let undos = ::std::mem::replace(&mut self.undos, Vec::new());
+        for u in undos.into_iter().rev() {
+            match u {
+                Undo::VertexGone(id) => {
+                    self.remove_vertex(id);
+                }
+                Undo::VertexWas { id, types, attrs } => {
+                    let _ = self.restore_vertex(id, attrs, types);
+                }
+                Undo::EdgeGone(id) => {
+                    self.remove_edge(id);
+                }
+                Undo::EdgeWas { id, src, dst, ty, attrs, far } => {
+                    let tno = if ty.is_empty() { None } else { Some(ty) };
+                    if let Some(a) = far {
+                        let _ = self.restore_far_edge(id, src, a, tno, attrs);
+                    } else {
+                        let _ = self.restore_edge(id, src, dst, tno, attrs);
+                    }
+                }
+                Undo::IndexGone { type_name, key } => {
+                    self.indexes.remove(&SchemaIndex::id(&type_name, &key));
+                }
+            }
+        }
+        self.recording = rec;
+        self.armed = arm;
+        self.touches.clear();
+        self.undos.clear();
+    }
+
+    pub(crate) fn undos(&self) -> &[Undo] {
+        &self.undos
     }
 
     pub(crate) fn touches(&self) -> &[Touch] {
@@ -236,8 +319,40 @@ impl Graph {
     }
 
     fn rec(&mut self, t: Touch) {
-        if self.recording {
+        if self.recording && self.armed {
             self.touches.push(t);
+        }
+    }
+
+    fn rec_undo(&mut self, u: Undo) {
+        if self.recording && self.armed {
+            self.undos.push(u);
+        }
+    }
+
+    fn push_vertex_was(&mut self, id: Khid) {
+        if let Some(v) = self.vertex(id) {
+            let attrs = v.attrs().clone();
+            let types = self.type_names_of_vertex(id);
+            self.rec_undo(Undo::VertexWas {
+                id: id,
+                types: types,
+                attrs: attrs,
+            });
+        }
+    }
+
+    fn push_edge_was(&mut self, id: Khid) {
+        if let Some(e) = self.edge(id) {
+            let ty = self.edge_type_name(id).unwrap_or(String::new());
+            self.rec_undo(Undo::EdgeWas {
+                id: id,
+                src: e.source(),
+                dst: e.target(),
+                ty: ty,
+                attrs: e.attrs().clone(),
+                far: e.far(),
+            });
         }
     }
 
@@ -481,6 +596,7 @@ impl Graph {
             }
         }
         self.vput(kid, v);
+        self.rec_undo(Undo::VertexGone(kid));
         self.rec(Touch::Vertex(kid));
         Ok(kid)
     }
@@ -534,6 +650,7 @@ impl Graph {
             dstv.add_in(kid);
         }
         self.eput(kid, e);
+        self.rec_undo(Undo::EdgeGone(kid));
         self.rec(Touch::Edge(kid));
         Ok(kid)
     }
@@ -566,6 +683,7 @@ impl Graph {
             srcv.add_out(kid);
         }
         self.eput(kid, e);
+        self.rec_undo(Undo::EdgeGone(kid));
         self.rec(Touch::Edge(kid));
         Ok(kid)
     }
@@ -587,6 +705,7 @@ impl Graph {
             }
         }
         self.unpost_edge(ek);
+        self.push_edge_was(ek);
         self.rec(Touch::DropEdge(ek));
         self.etake(ek)
     }
@@ -621,20 +740,23 @@ impl Graph {
             }
         }
         self.unpost_vertex(vk);
+        self.push_vertex_was(vk);
         self.rec(Touch::DropVertex(vk));
         self.vtake(vk)
     }
 
     pub fn add_type_to_vertex(&mut self, vk: Khid, type_name: &str) -> Result<bool> {
+        if !self.vhas(vk) {
+            return Err(Error::new("missing vertex"));
+        }
+        if self.has_type(vk, type_name) {
+            return Ok(false);
+        }
+        self.push_vertex_was(vk);
         let tid = self.add_type(type_name)?;
         {
-            let v = match self.at_mut(vk) {
-                Some(v) => v,
-                None => return Err(Error::new("missing vertex")),
-            };
-            if !v.attach_type(tid) {
-                return Ok(false);
-            }
+            let v = self.at_mut(vk).unwrap();
+            v.attach_type(tid);
         }
         if let Some(t) = self.tget_mut(tid) {
             t.add_vertex(vk);
@@ -730,6 +852,10 @@ impl Graph {
             idx.add(*vid, &val);
         }
         self.indexes.insert(id, idx);
+        self.rec_undo(Undo::IndexGone {
+            type_name: type_name.to_string(),
+            key: key.to_string(),
+        });
         self.rec(Touch::Index {
             type_name: type_name.to_string(),
             key: key.to_string(),
@@ -805,7 +931,7 @@ impl Graph {
         self.indexes.contains_key(&SchemaIndex::id(type_name, key))
     }
 
-    fn ty_content(&self, type_name: &str, key: &str) -> bool {
+    pub(crate) fn ty_content(&self, type_name: &str, key: &str) -> bool {
         match self.type_by_name(type_name) {
             Some(t) => t.is_content(key),
             None => false,
@@ -919,6 +1045,9 @@ impl Graph {
     }
 
     pub fn set_prop(&mut self, vk: Khid, key: &str, value: Prop) -> Result<()> {
+        if !self.vhas(vk) {
+            return Err(Error::new("missing vertex"));
+        }
         let types: Vec<Khid> = match self.at(vk) {
             Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
@@ -937,6 +1066,7 @@ impl Graph {
                 }
             }
         }
+        self.push_vertex_was(vk);
         if let Some(v) = self.at_mut(vk) {
             v.set_prop(key, value.clone());
         }
@@ -975,6 +1105,10 @@ impl Graph {
     }
 
     pub fn remove_attr(&mut self, vk: Khid, key: &str) -> Result<Option<String>> {
+        if !self.vhas(vk) {
+            return Err(Error::new("missing vertex"));
+        }
+        self.push_vertex_was(vk);
         let types: Vec<Khid> = match self.at(vk) {
             Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
@@ -1186,6 +1320,7 @@ impl Graph {
             None => return false,
         };
         let old = self.eget(ek).and_then(|e| e.get_prop(key)).cloned();
+        self.push_edge_was(ek);
         match self.eget_mut(ek) {
             Some(e) => {
                 e.set_prop(key, value.clone());

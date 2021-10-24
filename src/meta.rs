@@ -8,8 +8,9 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use super::addr::Addr;
-use super::graph::Graph;
+use super::graph::{Graph, Touch, Undo};
 use super::khid::Khid;
+use super::prop::Prop;
 
 const MAGIC: &'static [u8] = b"KHM1";
 const TAG_PUT: u8 = 1;
@@ -96,6 +97,67 @@ impl Meta {
         Ok(m)
     }
 
+    fn val_key(p: &Prop) -> String {
+        match p.as_str() {
+            Some(s) => s.to_string(),
+            None => p.as_display(),
+        }
+    }
+
+    /// Append PUT/DEL for this tx. Compact still rebuilds.
+    pub fn tail(dir: &Path, g: &Graph) -> io::Result<Meta> {
+        let mut m = Meta::open(dir)?;
+        for u in g.undos() {
+            match *u {
+                Undo::VertexWas { id, ref types, ref attrs } => {
+                    let addr = Addr::new(g.shard(), id);
+                    for tn in types.iter() {
+                        for (k, val) in attrs.iter() {
+                            if g.ty_content(tn, k) {
+                                continue;
+                            }
+                            let s = Meta::val_key(val);
+                            m.forget(tn, k, &s, addr)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        for t in g.touches() {
+            match *t {
+                Touch::Vertex(id) => {
+                    if let Some(v) = g.vertex(id) {
+                        let addr = Addr::new(g.shard(), id);
+                        let types = g.type_names_of_vertex(id);
+                        for tn in types.iter() {
+                            for (k, val) in v.attrs().iter() {
+                                if g.ty_content(tn, k) {
+                                    continue;
+                                }
+                                if !g.has_index(tn, k) {
+                                    continue;
+                                }
+                                let s = Meta::val_key(val);
+                                m.remember(tn, k, &s, addr)?;
+                            }
+                        }
+                    }
+                }
+                Touch::Index { ref type_name, ref key, .. } => {
+                    for vid in g.vertices_of_type(type_name).iter() {
+                        if let Some(val) = g.vertex(*vid).and_then(|v| v.get_prop(key)) {
+                            let s = Meta::val_key(val);
+                            m.remember(type_name, key, &s, Addr::new(g.shard(), *vid))?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(m)
+    }
+
     pub fn find(&self, type_name: &str, key: &str, value: &str) -> Vec<Addr> {
         match self.map.get(&(type_name.to_string(), key.to_string(), value.to_string())) {
             Some(v) => v.clone(),
@@ -108,8 +170,14 @@ impl Meta {
                     -> io::Result<()> {
         self.map
             .entry((type_name.to_string(), key.to_string(), value.to_string()))
-            .or_insert(Vec::new())
-            .push(addr);
+            .or_insert(Vec::new());
+        {
+            let v = self.map.get_mut(&(type_name.to_string(), key.to_string(), value.to_string())).unwrap();
+            if v.iter().any(|a| *a == addr) {
+                return Ok(());
+            }
+            v.push(addr);
+        }
         self.append_tag(TAG_PUT, type_name, key, value, addr)
     }
 

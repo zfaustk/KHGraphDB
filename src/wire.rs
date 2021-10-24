@@ -148,8 +148,12 @@ fn reply_find(g: &Graph, s: &mut TcpStream) -> io::Result<()> {
 
 fn reply_query(g: &Graph, s: &mut TcpStream) -> io::Result<()> {
     let text = read_str(s)?;
-    let mut live = g.snapshot();
-    let r = super::query::run(&mut live, &text);
+    let r = if super::query::writes(&text) {
+        let mut live = g.snapshot();
+        super::query::run(&mut live, &text)
+    } else {
+        super::query::ask(g, &text)
+    };
     write_result(s, &r)
 }
 
