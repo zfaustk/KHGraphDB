@@ -4,13 +4,11 @@ A transaction is a prefix. Clone was a
 prototype. It is not MVCC, not a copy-on-write
 page tree, not a lock table.
 
-The store already lives the real rule. One
-writer. Readers pin a `Pos`. Rollback is
-forgetting a tail, not restoring a second
-arena. Memory `Tx` still clones; it will
-keep the inverse of each touch and put the
-arena back that way. Commit is advancing
-the prefix. Drop is discarding it.
+Memory `Tx` keeps the inverse of each touch
+and puts the arena back that way. The store
+forgets a tail. One writer. Readers pin a
+`Pos`. Commit is advancing the prefix. Drop
+is discarding it.
 
 A notebook is a home. Permission, crash, and
 the body sit there. A second writer waits on

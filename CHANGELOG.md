@@ -1,3 +1,11 @@
+## 7.2.0 - 2021-11-21
+
+- Memory Tx keeps an inverse, not a clone.
+- Store rollback forgets the tail.
+- `ask` is MATCH on `&Graph`. A write is refused.
+- Meta tails PUT/DEL. Compact still rebuilds.
+- Bench: keyed MATCH does not clone.
+
 ## 7.1.0 - 2021-10-23
 
 - begin does not clone. Commit writes touches.

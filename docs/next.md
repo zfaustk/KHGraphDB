@@ -1,31 +1,19 @@
 # Next
 
-The prefix is the database. Clone, a rewritten
-meta file, and a mutable MATCH are leftover
-prototypes. The clock already says so.
+The prefix is the database. What landed in 7.2,
+and what is still a clock.
 
-Transaction. Memory `Tx` still clones. It will
-keep the inverse of each touch and put the
-arena back that way. The store already forgets
-a tail. One writer. Readers pin a `Pos`. A
-notebook is a home: permission and crash sit
-there, not on a row. A second writer waits on
-the lease. Isolation is the pin, not a version
-chain.
+Transaction. Memory `Tx` keeps the inverse of
+each touch. The store forgets a tail. One
+writer. Readers pin a `Pos`. Not a lock table.
 
-Meta. Every commit still rewrites the posting
-file. `commit+1` in the bench is that rewrite
-plus `fsync`. Touches already name the keys
-that moved. Meta should append PUT and DEL,
-the same shape as the log. Rebuild is compact
-of meta, not the common path.
+Meta. Commit appends PUT and DEL. Rebuild is
+compact of meta, not the common path. The
+clock on `commit+1` is now the `fsync`.
 
-MATCH. A read pins a prefix. It should not
-need `&mut Graph`. `query::run` is mutable
-because CREATE shares the walk. Split the
-read. Then a reader does not clone the
-notebook to count, and `ask` on a socket
-does not snapshot the whole home.
+MATCH. `ask` takes `&Graph`. A write is
+refused. A reader does not clone the notebook
+to count. `ask` on a socket is the same.
 
 Durability. Every commit `fsync`s. That is
 the tax, and it stays the default. A session
