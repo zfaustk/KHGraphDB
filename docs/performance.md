@@ -17,7 +17,8 @@ What the clock is for:
 
 - Identity MATCH should beat a Type scan.
 - A one-vertex commit must not walk the arena.
-  7.1 records touches; `begin` does not clone.
+  Touches on the write, PUT/DEL on meta.
+- MATCH is `ask`. It does not clone.
 - Open truncates a torn tail and writes again.
 - Readers pin a snapshot. One writer holds the
   lease. Concurrent clients are readers, not
@@ -25,14 +26,9 @@ What the clock is for:
 
 What it already points at:
 
-- `commit+1` is still dominated by rewriting
-  meta and `fsync`, not by the delta. Meta
-  should tail, like the log. See `docs/next.md`.
-- A MATCH that only reads should not clone
-  the arena. `query::run` is `&mut` because
-  CREATE shares the walk.
-- Memory `Tx` still clones. Inverse of a
-  touch is the next cut, not a lock manager.
+- `commit+1` is `fsync`. Meta tails.
+- Memory `Tx` keeps an inverse.
+- Grouped sync is still a session choice.
 
 A 200-vertex chain (2014, C#) still lives in
 `csharp/`. It is a unit test, not evidence.
