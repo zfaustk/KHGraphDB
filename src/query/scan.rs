@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use crate::graph::Graph;
 use crate::khid::Khid;
 use crate::prop::Prop;
-use super::{NodePat, Path, Pattern, QueryResult, RelPat, Val};
+use super::{Expr, NodePat, Path, Pattern, QueryResult, RelPat, Val};
 
 /// Fill missing node names so a flip cannot rename n0 to n1.
 pub fn name_slots(pat: &mut Pattern) {
@@ -126,22 +126,35 @@ pub fn contains_id(ids: &[Khid], id: Khid) -> bool {
 }
 
 /// Seed ids for a node pattern. Indexed (Type, key) wins.
-pub fn seeds(g: &Graph, n: &NodePat) -> Vec<Khid> {
+/// A comparison on an ordered posting is a range, not a scan.
+pub fn seeds(g: &Graph, n: &NodePat, pred: Option<&Expr>) -> Vec<Khid> {
     if let Some(ref tn) = n.type_name {
         if !n.props.is_empty() {
             let mut picked: Option<(String, Prop)> = None;
+            let mut unique = false;
             for &(ref k, ref val) in n.props.iter() {
-                if g.has_index(tn, k) {
+                if g.has_unique(tn, k) {
                     picked = Some((k.clone(), val.clone()));
+                    unique = true;
                     break;
                 }
+                if g.has_index(tn, k) && picked.is_none() {
+                    picked = Some((k.clone(), val.clone()));
+                }
             }
+            let _ = unique;
             let (k, val) = match picked {
                 Some(p) => p,
                 None => (n.props[0].0.clone(), n.props[0].1.clone()),
             };
             let found = g.find_prop(tn, &k, &val);
             return found.into_iter().filter(|id| node_ok(g, *id, n)).collect();
+        }
+        if let Some((k, lo, hi, li, ri)) = bounds_for(n, pred) {
+            if g.has_index(tn, &k) {
+                let found = g.find_range(tn, &k, lo.as_ref(), hi.as_ref(), li, ri);
+                return found.into_iter().filter(|id| node_ok(g, *id, n)).collect();
+            }
         }
     }
     let src: Vec<Khid> = match n.type_id {
@@ -156,21 +169,103 @@ pub fn seeds(g: &Graph, n: &NodePat) -> Vec<Khid> {
     src.into_iter().filter(|id| node_ok(g, *id, n)).collect()
 }
 
+/// Selinger without the catalog: unique is 1, a posting
+/// is its length, a type is its members. No bushy trees.
+pub fn card(g: &Graph, n: &NodePat, pred: Option<&Expr>) -> usize {
+    if let Some(ref tn) = n.type_name {
+        for &(ref k, ref val) in n.props.iter() {
+            if g.has_unique(tn, k) {
+                return 1;
+            }
+            if g.has_index(tn, k) {
+                let n = g.find_prop(tn, k, val).len();
+                if n > 0 {
+                    return n;
+                }
+            }
+        }
+        if let Some((k, lo, hi, li, ri)) = bounds_for(n, pred) {
+            if g.has_index(tn, &k) {
+                let n = g.find_range(tn, &k, lo.as_ref(), hi.as_ref(), li, ri).len();
+                if n > 0 {
+                    return n;
+                }
+            }
+        }
+        let n = g.vertices_of_type(tn).len();
+        if n > 0 {
+            return n;
+        }
+    }
+    let n = g.vertex_count();
+    if n == 0 { 1 } else { n }
+}
+
+fn bounds_for(n: &NodePat, pred: Option<&Expr>) -> Option<(String, Option<Prop>, Option<Prop>, bool, bool)> {
+    let pred = match pred {
+        Some(p) => p,
+        None => return None,
+    };
+    let var = match n.var {
+        Some(ref v) => v.as_str(),
+        None => return None,
+    };
+    walk_bounds(var, pred)
+}
+
+fn walk_bounds(var: &str, e: &Expr) -> Option<(String, Option<Prop>, Option<Prop>, bool, bool)> {
+    match *e {
+        Expr::Cmp(ref v, ref k, op, ref val) if v == var => {
+            match op {
+                -1 => Some((k.clone(), None, Some(val.clone()), true, false)),
+                -2 => Some((k.clone(), None, Some(val.clone()), true, true)),
+                1 => Some((k.clone(), Some(val.clone()), None, false, true)),
+                2 => Some((k.clone(), Some(val.clone()), None, true, true)),
+                _ => None,
+            }
+        }
+        Expr::Eq(ref v, ref k, ref val) if v == var => {
+            Some((k.clone(), Some(val.clone()), Some(val.clone()), true, true))
+        }
+        Expr::And(ref a, ref b) => {
+            match (walk_bounds(var, a), walk_bounds(var, b)) {
+                (Some(l), Some(r)) => merge_bounds(l, r),
+                (Some(x), None) | (None, Some(x)) => Some(x),
+                (None, None) => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn merge_bounds(a: (String, Option<Prop>, Option<Prop>, bool, bool),
+                b: (String, Option<Prop>, Option<Prop>, bool, bool))
+                -> Option<(String, Option<Prop>, Option<Prop>, bool, bool)> {
+    if a.0 != b.0 {
+        return Some(a);
+    }
+    let lo = match (a.1, b.1) {
+        (Some(x), Some(y)) => Some(if x > y { x } else { y }),
+        (Some(x), None) | (None, Some(x)) => Some(x),
+        (None, None) => None,
+    };
+    let hi = match (a.2, b.2) {
+        (Some(x), Some(y)) => Some(if x < y { x } else { y }),
+        (Some(x), None) | (None, Some(x)) => Some(x),
+        (None, None) => None,
+    };
+    Some((a.0, lo, hi, a.3 && b.3, a.4 && b.4))
+}
+
 pub fn keyed(n: &NodePat) -> bool {
     n.type_name.is_some() && !n.props.is_empty()
 }
 
-pub fn should_flip(pat: &Pattern, seed: &HashMap<String, Khid>) -> bool {
+pub fn should_flip(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> bool {
     if pat.shortest {
         return false;
     }
     if pat.rels.len() != 1 || pat.nodes.len() != 2 {
-        return false;
-    }
-    if keyed(&pat.nodes[0]) {
-        return false;
-    }
-    if !keyed(&pat.nodes[1]) {
         return false;
     }
     if let Some(ref v) = pat.nodes[0].var {
@@ -178,7 +273,9 @@ pub fn should_flip(pat: &Pattern, seed: &HashMap<String, Khid>) -> bool {
             return false;
         }
     }
-    true
+    let c0 = card(g, &pat.nodes[0], pat.pred.as_ref());
+    let c1 = card(g, &pat.nodes[1], pat.pred.as_ref());
+    c1 < c0
 }
 
 pub fn flip_one_hop(pat: &Pattern) -> Pattern {
@@ -221,15 +318,15 @@ pub fn unflip_result(mut r: QueryResult, orig_cols: &[String]) -> QueryResult {
 
 pub fn start_seeds(g: &Graph, pat: &Pattern) -> Vec<Khid> {
     let n0 = &pat.nodes[0];
-    if n0.type_id.is_some() || !n0.props.is_empty() {
-        return seeds(g, n0);
+    if n0.type_id.is_some() || !n0.props.is_empty() || pat.pred.is_some() {
+        return seeds(g, n0, pat.pred.as_ref());
     }
     if !pat.rels.is_empty() {
         if let Some(tid) = pat.rels[0].type_id {
             return starts_from_type(g, tid, pat.rels[0].dir, n0);
         }
     }
-    seeds(g, n0)
+    seeds(g, n0, pat.pred.as_ref())
 }
 
 fn starts_from_type(g: &Graph, tid: Khid, dir: i32, n0: &NodePat) -> Vec<Khid> {

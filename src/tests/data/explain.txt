@@ -7,12 +7,13 @@ E KNOWS Alice Bob
 .query
 EXPLAIN MATCH (a:Person)-[:KNOWS]->(b)
 .expect
-rows 6
+rows 7
 slot | name | khid
 a | Person | k2
 b |  |
 e0 | KNOWS | k5
 plan | Expand | Expand a -[KNOWS]-> b
+cost | 2 | a
 op | Seed |
 op | Expand |
 
@@ -23,10 +24,11 @@ N Person Alice
 .query
 EXPLAIN MATCH (a:Person) WHERE a.name = 'Alice'
 .expect
-rows 4
+rows 5
 slot | name | khid
 a | Person | k2
 plan | Filter | Filter
+cost | 1 | a
 op | Seed |
 op | Filter |
 
@@ -37,10 +39,11 @@ N Person Alice
 .query
 EXPLAIN MATCH (a:Person) RETURN a LIMIT 1
 .expect
-rows 5
+rows 6
 slot | name | khid
 a | Person | k2
 plan | Limit | Limit 1
+cost | 1 | a
 op | Seed |
 op | Project |
 op | Limit |

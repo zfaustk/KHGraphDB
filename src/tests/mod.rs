@@ -23,6 +23,7 @@ mod wire;
 mod cases;
 mod pipeline;
 mod tx;
+mod kernel;
 mod io;
 mod wal;
 mod parse;

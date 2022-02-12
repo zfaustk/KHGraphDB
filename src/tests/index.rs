@@ -41,9 +41,14 @@ fn get_is_khid() {
 }
 
 #[test]
-fn nil_means_any_poster() {
-    let mut idx = SchemaIndex::new("Person", "name", true);
-    assert!(!idx.contains_other(&Prop::from_str("Ada"), Khid::nil()));
-    idx.add(Khid::from_raw(1), &Prop::from_str("Ada"));
-    assert!(idx.contains_other(&Prop::from_str("Ada"), Khid::nil()));
+fn range_is_ordered() {
+    let mut idx = SchemaIndex::new("Doc", "n", false);
+    idx.add(Khid::from_raw(1), &Prop::from_int(10));
+    idx.add(Khid::from_raw(2), &Prop::from_int(20));
+    idx.add(Khid::from_raw(3), &Prop::from_int(30));
+    let mid = idx.range(Some(&Prop::from_int(10)), Some(&Prop::from_int(30)), false, false);
+    assert_eq!(mid.len(), 1);
+    assert_eq!(mid[0], Khid::from_raw(2));
+    let ge = idx.range(Some(&Prop::from_int(20)), None, true, true);
+    assert_eq!(ge.len(), 2);
 }

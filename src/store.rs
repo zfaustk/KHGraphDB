@@ -35,6 +35,8 @@ pub struct Store {
     read_only: bool,
     generation: u32,
     token: u64,
+    durable: bool,
+    dirty: bool,
 }
 
 impl Store {
@@ -82,6 +84,8 @@ impl Store {
             read_only: false,
             generation: generation,
             token: new_token(),
+            durable: true,
+            dirty: false,
         };
         Ok(s)
     }
@@ -194,8 +198,13 @@ impl Store {
         let tx = self.tx_id()?;
         let recs = recs_from_touches(tx, &self.g);
         wal::append(&recs, &mut self.log)?;
-        self.log.sync_data()?;
-        let _ = sync_dir(&self.dir);
+        if self.durable {
+            self.log.sync_data()?;
+            let _ = sync_dir(&self.dir);
+            self.dirty = false;
+        } else {
+            self.dirty = true;
+        }
         self.write_beat(tx)?;
         let _ = self.take_lease();
         self.open_tx = None;
@@ -203,6 +212,44 @@ impl Store {
         let _ = super::meta::Meta::tail(&self.dir, &self.g);
         self.g.disarm();
         self.pos()
+    }
+
+    /// Grouped sync. The default commit already hits
+    /// the platter. A session that set durable false
+    /// calls this.
+    pub fn flush(&mut self) -> io::Result<Pos> {
+        if self.dirty {
+            self.log.sync_data()?;
+            let _ = sync_dir(&self.dir);
+            self.dirty = false;
+        }
+        self.pos()
+    }
+
+    pub fn set_durable(&mut self, yes: bool) {
+        self.durable = yes;
+    }
+
+    pub fn durable(&self) -> bool {
+        self.durable
+    }
+
+    pub fn fold_meta(&self) -> io::Result<()> {
+        let m = super::meta::Meta::open(&self.dir)?;
+        m.fold()
+    }
+
+    /// How far this copy lags `at`. Same generation only.
+    pub fn lag(&self, at: Pos) -> io::Result<u64> {
+        let here = self.pos()?;
+        if here.generation() != at.generation() {
+            return Err(io::Error::new(io::ErrorKind::Other, "old generation"));
+        }
+        if at.offset() >= here.offset() {
+            Ok(at.offset() - here.offset())
+        } else {
+            Ok(0)
+        }
     }
 
     /// Cypher against the live arena. A read does not
@@ -234,9 +281,11 @@ impl Store {
         let dir = self.dir.clone();
         let name = self.g.khid().to_string();
         let shard = self.g.shard();
+        let durable = self.durable;
         let mut s = Store::open(&dir, &name, shard)?;
         s.read_only = ro;
         s.token = token;
+        s.durable = durable;
         *self = s;
         Ok(())
     }
