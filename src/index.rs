@@ -1,15 +1,18 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
+use std::ops::Bound::{Excluded, Included, Unbounded};
 
 use super::khid::Khid;
 use super::prop::Prop;
 
-/// Posting list for (Type, key) -> Prop -> vertex ids.
+/// Ordered posting for (Type, key) → Prop → vertex ids.
+/// A B-tree, not a hash: comparison is a range.
+/// There is no pager. The arena is the pool.
 #[derive(Clone)]
 pub struct SchemaIndex {
     type_name: String,
     key: String,
     unique: bool,
-    posting: HashMap<Prop, HashSet<Khid>>,
+    posting: BTreeMap<Prop, HashSet<Khid>>,
 }
 
 impl SchemaIndex {
@@ -18,7 +21,7 @@ impl SchemaIndex {
             type_name: type_name.to_string(),
             key: key.to_string(),
             unique: unique,
-            posting: HashMap::new(),
+            posting: BTreeMap::new(),
         }
     }
 
@@ -65,6 +68,38 @@ impl SchemaIndex {
             Some(set) => set.iter().cloned().collect(),
             None => Vec::new(),
         }
+    }
+
+    /// Inclusive/exclusive range on the ordered keys.
+    pub fn range(&self,
+                 lo: Option<&Prop>,
+                 hi: Option<&Prop>,
+                 lo_inc: bool,
+                 hi_inc: bool)
+                 -> Vec<Khid> {
+        let start = match lo {
+            Some(p) if lo_inc => Included(p),
+            Some(p) => Excluded(p),
+            None => Unbounded,
+        };
+        let end = match hi {
+            Some(p) if hi_inc => Included(p),
+            Some(p) => Excluded(p),
+            None => Unbounded,
+        };
+        let mut v = Vec::new();
+        for (_, set) in self.posting.range((start, end)) {
+            v.extend(set.iter().cloned());
+        }
+        v
+    }
+
+    pub fn len(&self) -> usize {
+        let mut n = 0;
+        for set in self.posting.values() {
+            n += set.len();
+        }
+        n
     }
 
     /// All postings. Meta rebuilds from this.

@@ -220,6 +220,12 @@ impl Meta {
         &self.dir
     }
 
+    /// Rewrite the file from the map. Drops cancelled
+    /// PUT/DEL pairs. Compact of a run.
+    pub fn fold(&self) -> io::Result<()> {
+        self.sync()
+    }
+
     fn sync(&self) -> io::Result<()> {
         fs::create_dir_all(&self.dir)?;
         let tmp = self.dir.join("meta.tmp");

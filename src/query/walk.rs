@@ -49,11 +49,23 @@ pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
             rel.type_id.map(Val::Id),
         ]);
     }
-    let op = super::op::compile(&pat);
+    let flipped = scan::should_flip(g, &pat, &HashMap::new());
+    let walk = if flipped {
+        scan::flip_one_hop(&pat)
+    } else {
+        pat.clone()
+    };
+    let op = super::op::compile(&walk);
+    let cost = scan::card(g, &walk.nodes[0], walk.pred.as_ref());
     r.rows.push(vec![
         name_val("plan"),
         name_val(op.kind()),
         name_val(&op.describe()),
+    ]);
+    r.rows.push(vec![
+        name_val("cost"),
+        name_val(&format!("{}", cost)),
+        name_val(&walk.nodes[0].var.clone().unwrap_or("n0".to_string())),
     ]);
     for k in op.kinds().iter() {
         r.rows.push(vec![
@@ -784,7 +796,7 @@ pub(crate) fn exec_merge(g: &mut Graph, pat: &Pattern) -> Result<QueryResult> {
 }
 
 fn merge_node(g: &mut Graph, n: &NodePat) -> Result<QueryResult> {
-    let found = scan::seeds(g, n);
+    let found = scan::seeds(g, n, None);
     if !found.is_empty() {
         let mut r = QueryResult::ok_msg("exists");
         r.columns.push(n.var.clone().unwrap_or("n".to_string()));

@@ -926,6 +926,39 @@ impl Graph {
         hits
     }
 
+    /// Range on an ordered posting. No index: empty.
+    /// Filter still runs; this only cuts the seed.
+    pub fn find_range(&self,
+                      type_name: &str,
+                      key: &str,
+                      lo: Option<&Prop>,
+                      hi: Option<&Prop>,
+                      lo_inc: bool,
+                      hi_inc: bool)
+                      -> Vec<Khid> {
+        let id = SchemaIndex::id(type_name, key);
+        match self.indexes.get(&id) {
+            Some(idx) => idx.range(lo, hi, lo_inc, hi_inc),
+            None => Vec::new(),
+        }
+    }
+
+    pub fn has_unique(&self, type_name: &str, key: &str) -> bool {
+        let id = SchemaIndex::id(type_name, key);
+        match self.indexes.get(&id) {
+            Some(idx) => idx.unique(),
+            None => false,
+        }
+    }
+
+    pub fn index_len(&self, type_name: &str, key: &str) -> usize {
+        let id = SchemaIndex::id(type_name, key);
+        match self.indexes.get(&id) {
+            Some(idx) => idx.len(),
+            None => 0,
+        }
+    }
+
     /// True when (Type, key) has a posting list.
     pub fn has_index(&self, type_name: &str, key: &str) -> bool {
         self.indexes.contains_key(&SchemaIndex::id(type_name, key))

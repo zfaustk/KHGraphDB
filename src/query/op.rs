@@ -155,7 +155,7 @@ pub fn run(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> QueryResul
     }
     scan::name_slots(&mut pat);
     let orig_cols = scan::columns_of(&pat);
-    let flipped = scan::should_flip(&pat, seed);
+    let flipped = scan::should_flip(g, &pat, seed);
     let walk_pat = if flipped {
         scan::flip_one_hop(&pat)
     } else {
@@ -257,7 +257,7 @@ fn exec_seed(g: &Graph,
     let found = if node == 0 {
         scan::start_seeds(g, pat)
     } else {
-        scan::seeds(g, n)
+        scan::seeds(g, n, pat.pred.as_ref())
     };
     let mut rows = Vec::new();
     for id in found.iter() {
@@ -357,7 +357,7 @@ fn exec_shortest_rows(g: &Graph,
         return Vec::new();
     }
     let starts = scan::start_seeds(g, pat);
-    let ends = scan::seeds(g, &pat.nodes[1]);
+    let ends = scan::seeds(g, &pat.nodes[1], pat.pred.as_ref());
     let rel = &pat.rels[0];
     let tid = rel.type_id;
     let mut rows = Vec::new();
