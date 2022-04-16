@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**7.2.0** (2021). Inverse of a touch. MATCH is a read. Meta tails. The prefix is the database. Rust 1.31, edition 2018. No crates.io dependencies.
+**8.0.0** (2022). The posting is ordered. Seed is the cheaper end. Lag is a Pos. Rust 1.31, edition 2018. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -87,7 +87,7 @@ $param
 
 See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
 `docs/tx.md`, `docs/home.md`, `docs/content.md`, `docs/store.md`,
-and `docs/replica.md`. Type is still not a string. MATCH binds
+`docs/replica.md`, and `docs/kernel.md`. Type is still not a string. MATCH binds
 it by KHID. Path is a value. A graph can be named, cloned,
 or cut down to a subgraph. A Catalog holds several graphs;
 the query still takes one. A transaction keeps

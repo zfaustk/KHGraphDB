@@ -16,6 +16,8 @@ samples, not a fitted model.
 What the clock is for:
 
 - Identity MATCH should beat a Type scan.
+- A range on an ordered posting should beat a Filter.
+- Unique seed costs one. EXPLAIN prints it.
 - A one-vertex commit must not walk the arena.
   Touches on the write, PUT/DEL on meta.
 - MATCH is `ask`. It does not clone.

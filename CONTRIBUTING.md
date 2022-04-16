@@ -21,7 +21,7 @@ KHGraphDB 7.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 - Type may mark a key as content. The index refuses it.
 - A stub is a far title. Hydrate from home in this process.
 - A transaction keeps an inverse. Drop rolls back.
-- MATCH is `ask`. A write is `run`.
+- Seed is the cheaper end. The posting is ordered.
 - `cargo test` is the gate.
 
 Do not add C# 6. Do not flatten Type into a string.
