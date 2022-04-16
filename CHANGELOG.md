@@ -1,3 +1,11 @@
+## 8.0.0 - 2022-04-16
+
+- The posting is a B-tree. Comparison is a range.
+- Seed starts at the cheaper end. EXPLAIN prints cost.
+- Meta fold rewrites a run. Compact is the merge.
+- Replica lag is a Pos. Grouped sync is a session.
+- `docs/kernel.md`: the subtractions.
+
 ## 7.2.0 - 2021-11-21
 
 - Memory Tx keeps an inverse, not a clone.
