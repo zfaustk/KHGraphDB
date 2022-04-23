@@ -31,3 +31,28 @@ a CLR.
 
 This file is the subtractions. The code
 is what remains.
+
+## After
+
+Cost is rows, not pages. Reverse from
+the cheaper end, not only two hops.
+Expand costs seed times degree. The
+posting is the statistic. No histogram.
+
+ask sees the tail. A picture at commit
+would make in-process ask match a pin.
+Try that. Measure commit+1.
+
+Compact is the checkpoint. Generation
+voids an old Pos. If the log is a
+multiple of the last capture, compact.
+No thread. The writer notices.
+
+Group sync waits for a count, not a
+clock. Default is still one commit,
+one fsync.
+
+edition 2021 shipped. The crate can
+move. No async. The writer is a loop.
+
+
