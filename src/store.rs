@@ -31,12 +31,15 @@ pub struct Store {
     g: Graph,
     next_tx: u64,
     open_tx: Option<u64>,
-    snap: Option<Graph>,
     read_only: bool,
     generation: u32,
     token: u64,
     durable: bool,
     dirty: bool,
+    committed: super::graph::Graph,
+    sync_every: u32,
+    since_sync: u32,
+    compact_at: u64,
 }
 
 impl Store {
@@ -74,19 +77,24 @@ impl Store {
             let gen = if h.generation == 0 { 1 } else { h.generation };
             (g, max + 1, gen)
         };
-        let s = Store {
+        let committed = g.clone();
+        let mut s = Store {
             dir: dir.to_path_buf(),
             log: log,
             g: g,
             next_tx: next_tx,
             open_tx: None,
-            snap: None,
             read_only: false,
             generation: generation,
             token: new_token(),
             durable: true,
             dirty: false,
+            committed: committed,
+            sync_every: 1,
+            since_sync: 0,
+            compact_at: 0,
         };
+        s.compact_at = s.log.metadata()?.len();
         Ok(s)
     }
 
@@ -198,19 +206,21 @@ impl Store {
         let tx = self.tx_id()?;
         let recs = recs_from_touches(tx, &self.g);
         wal::append(&recs, &mut self.log)?;
-        if self.durable {
+        self.since_sync = self.since_sync.saturating_add(1);
+        if self.durable && self.since_sync >= self.sync_every {
             self.log.sync_data()?;
             let _ = sync_dir(&self.dir);
             self.dirty = false;
-        } else {
+            self.since_sync = 0;
+        } else if !self.durable || self.sync_every > 1 {
             self.dirty = true;
         }
         self.write_beat(tx)?;
         let _ = self.take_lease();
         self.open_tx = None;
-        self.snap = None;
         let _ = super::meta::Meta::tail(&self.dir, &self.g);
         self.g.disarm();
+        self.committed = self.g.clone();
         self.pos()
     }
 
@@ -222,6 +232,7 @@ impl Store {
             self.log.sync_data()?;
             let _ = sync_dir(&self.dir);
             self.dirty = false;
+            self.since_sync = 0;
         }
         self.pos()
     }
@@ -232,6 +243,10 @@ impl Store {
 
     pub fn durable(&self) -> bool {
         self.durable
+    }
+
+    pub fn set_sync_every(&mut self, n: u32) {
+        self.sync_every = if n == 0 { 1 } else { n };
     }
 
     pub fn fold_meta(&self) -> io::Result<()> {
@@ -256,7 +271,7 @@ impl Store {
     /// take the lease. Commit is separate.
     pub fn query(&mut self, text: &str) -> super::query::QueryResult {
         if !super::query::writes(text) {
-            return super::query::ask(&self.g, text);
+            return super::query::ask(&self.committed, text);
         }
         match self.graph_mut() {
             Ok(g) => super::query::run(g, text),
@@ -265,29 +280,13 @@ impl Store {
     }
 
     pub fn ask(&self, text: &str) -> super::query::QueryResult {
-        super::query::ask(&self.g, text)
+        super::query::ask(&self.committed, text)
     }
 
     pub fn rollback(&mut self) {
         self.open_tx = None;
-        self.snap = None;
         self.g.apply_undos();
         self.g.disarm();
-    }
-
-    fn replay_self(&mut self) -> io::Result<()> {
-        let ro = self.read_only;
-        let token = self.token;
-        let dir = self.dir.clone();
-        let name = self.g.khid().to_string();
-        let shard = self.g.shard();
-        let durable = self.durable;
-        let mut s = Store::open(&dir, &name, shard)?;
-        s.read_only = ro;
-        s.token = token;
-        s.durable = durable;
-        *self = s;
-        Ok(())
     }
 
     /// Graph as of `at`. Same generation only.
@@ -342,7 +341,18 @@ impl Store {
         log.seek(SeekFrom::End(0))?;
         self.log = log;
         let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
+        self.compact_at = self.log.metadata()?.len();
         self.pos()
+    }
+
+    /// Compact when the log is a multiple of the
+    /// last capture. The writer notices. No thread.
+    pub fn maybe_compact(&mut self) -> io::Result<Option<Pos>> {
+        let n = self.log.metadata()?.len();
+        if self.compact_at > 0 && n > self.compact_at.saturating_mul(4) {
+            return self.compact().map(Some);
+        }
+        Ok(None)
     }
 
     fn write_beat(&self, tx: u64) -> io::Result<()> {
