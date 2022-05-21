@@ -261,11 +261,13 @@ pub fn keyed(n: &NodePat) -> bool {
     n.type_name.is_some() && !n.props.is_empty()
 }
 
-pub fn should_flip(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> bool {
+/// Reverse the walk when the cheaper end is nearer
+/// the last node. Left-deep. Do not start in the middle.
+pub fn should_reverse(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> bool {
     if pat.shortest {
         return false;
     }
-    if pat.rels.len() != 1 || pat.nodes.len() != 2 {
+    if pat.nodes.len() < 2 {
         return false;
     }
     if let Some(ref v) = pat.nodes[0].var {
@@ -273,18 +275,55 @@ pub fn should_flip(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> bo
             return false;
         }
     }
-    let c0 = card(g, &pat.nodes[0], pat.pred.as_ref());
-    let c1 = card(g, &pat.nodes[1], pat.pred.as_ref());
-    c1 < c0
+    let mut best = 0usize;
+    let mut best_c = card(g, &pat.nodes[0], pat.pred.as_ref());
+    let mut i = 1;
+    while i < pat.nodes.len() {
+        let c = card(g, &pat.nodes[i], pat.pred.as_ref());
+        if c < best_c {
+            best = i;
+            best_c = c;
+        }
+        i += 1;
+    }
+    best * 2 >= pat.nodes.len()
 }
 
-pub fn flip_one_hop(pat: &Pattern) -> Pattern {
+pub fn reverse_walk(pat: &Pattern) -> Pattern {
     let mut p = pat.clone();
-    let n0 = p.nodes[0].clone();
-    p.nodes[0] = p.nodes[1].clone();
-    p.nodes[1] = n0;
-    p.rels[0].dir = -p.rels[0].dir;
+    p.nodes.reverse();
+    p.rels.reverse();
+    let mut i = 0;
+    while i < p.rels.len() {
+        p.rels[i].dir = -p.rels[i].dir;
+        i += 1;
+    }
     p
+}
+
+/// Seed card, then times degree per hop. Rows, not pages.
+pub fn plan_cost(g: &Graph, pat: &Pattern) -> (usize, usize) {
+    let seed = card(g, &pat.nodes[0], pat.pred.as_ref());
+    let mut tot = seed;
+    let mut i = 0;
+    while i < pat.rels.len() {
+        tot = tot.saturating_mul(rel_degree(g, &pat.rels[i]));
+        i += 1;
+    }
+    (seed, tot)
+}
+
+fn rel_degree(g: &Graph, rel: &RelPat) -> usize {
+    let e = match rel.type_name {
+        Some(ref tn) if !tn.is_empty() => g.edges_of_type(tn).len(),
+        _ => g.edge_count(),
+    };
+    let v = g.vertex_count();
+    if v == 0 {
+        return 1;
+    }
+    let d = (e * 2) / v;
+    if d == 0 { 1 } else { d }
 }
 
 pub fn unflip_result(mut r: QueryResult, orig_cols: &[String]) -> QueryResult {

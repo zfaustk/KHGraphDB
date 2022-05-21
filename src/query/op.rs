@@ -155,9 +155,9 @@ pub fn run(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> QueryResul
     }
     scan::name_slots(&mut pat);
     let orig_cols = scan::columns_of(&pat);
-    let flipped = scan::should_flip(g, &pat, seed);
+    let flipped = scan::should_reverse(g, &pat, seed);
     let walk_pat = if flipped {
-        scan::flip_one_hop(&pat)
+        scan::reverse_walk(&pat)
     } else {
         pat.clone()
     };

@@ -270,6 +270,7 @@ fn explain_still_runs_on_a_store() {
     let dir = tmp("c-ex");
     let mut s = Store::open(&dir, "notes", 1).unwrap();
     s.query("CREATE (a:Doc {name:'Ada'})");
+    s.commit().unwrap();
     let r = s.query("EXPLAIN MATCH (n:Doc {name:'Ada'}) RETURN n");
     assert!(r.ok);
     let _ = fs::remove_dir_all(&dir);

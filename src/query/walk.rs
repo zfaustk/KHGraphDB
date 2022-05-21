@@ -49,14 +49,14 @@ pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
             rel.type_id.map(Val::Id),
         ]);
     }
-    let flipped = scan::should_flip(g, &pat, &HashMap::new());
+    let flipped = scan::should_reverse(g, &pat, &HashMap::new());
     let walk = if flipped {
-        scan::flip_one_hop(&pat)
+        scan::reverse_walk(&pat)
     } else {
         pat.clone()
     };
     let op = super::op::compile(&walk);
-    let cost = scan::card(g, &walk.nodes[0], walk.pred.as_ref());
+    let (seed_c, rows_c) = scan::plan_cost(g, &walk);
     r.rows.push(vec![
         name_val("plan"),
         name_val(op.kind()),
@@ -64,8 +64,13 @@ pub(crate) fn exec_explain(g: &Graph, pat: &Pattern) -> Result<QueryResult> {
     ]);
     r.rows.push(vec![
         name_val("cost"),
-        name_val(&format!("{}", cost)),
+        name_val(&format!("{}", seed_c)),
         name_val(&walk.nodes[0].var.clone().unwrap_or("n0".to_string())),
+    ]);
+    r.rows.push(vec![
+        name_val("rows"),
+        name_val(&format!("{}", rows_c)),
+        None,
     ]);
     for k in op.kinds().iter() {
         r.rows.push(vec![
