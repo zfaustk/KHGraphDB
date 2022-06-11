@@ -314,10 +314,6 @@ impl Graph {
         &self.touches
     }
 
-    pub(crate) fn clear_touches(&mut self) {
-        self.touches.clear();
-    }
-
     fn rec(&mut self, t: Touch) {
         if self.recording && self.armed {
             self.touches.push(t);

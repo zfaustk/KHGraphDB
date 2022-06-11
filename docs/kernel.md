@@ -55,4 +55,13 @@ one fsync.
 edition 2021 shipped. The crate can
 move. No async. The writer is a loop.
 
+## Picture
+
+A Graph clone at commit hid the tail.
+ask matched a pin. The clock on
+commit+1 doubled. Readers of this
+process were not the product. Revert.
+A pin is still the snapshot.
+
+
 

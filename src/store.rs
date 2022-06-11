@@ -36,7 +36,6 @@ pub struct Store {
     token: u64,
     durable: bool,
     dirty: bool,
-    committed: super::graph::Graph,
     sync_every: u32,
     since_sync: u32,
     compact_at: u64,
@@ -77,7 +76,6 @@ impl Store {
             let gen = if h.generation == 0 { 1 } else { h.generation };
             (g, max + 1, gen)
         };
-        let committed = g.clone();
         let mut s = Store {
             dir: dir.to_path_buf(),
             log: log,
@@ -89,7 +87,6 @@ impl Store {
             token: new_token(),
             durable: true,
             dirty: false,
-            committed: committed,
             sync_every: 1,
             since_sync: 0,
             compact_at: 0,
@@ -165,7 +162,7 @@ impl Store {
                       attrs: HashMap<String, Prop>,
                       ty: Option<&str>)
                       -> io::Result<Khid> {
-        let tx = self.tx_id()?;
+        let _ = self.tx_id()?;
         let id = match self.g.add_vertex_props(attrs.clone(), ty) {
             Ok(id) => id,
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e.message())),
@@ -178,7 +175,7 @@ impl Store {
                    dst: Addr,
                    ty: Option<&str>)
                    -> io::Result<Khid> {
-        let tx = self.tx_id()?;
+        let _ = self.tx_id()?;
         let id = match self.g.add_far_edge(src, dst, ty) {
             Ok(id) => id,
             Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e.message())),
@@ -220,7 +217,6 @@ impl Store {
         self.open_tx = None;
         let _ = super::meta::Meta::tail(&self.dir, &self.g);
         self.g.disarm();
-        self.committed = self.g.clone();
         self.pos()
     }
 
@@ -271,7 +267,7 @@ impl Store {
     /// take the lease. Commit is separate.
     pub fn query(&mut self, text: &str) -> super::query::QueryResult {
         if !super::query::writes(text) {
-            return super::query::ask(&self.committed, text);
+            return super::query::ask(&self.g, text);
         }
         match self.graph_mut() {
             Ok(g) => super::query::run(g, text),
@@ -280,7 +276,7 @@ impl Store {
     }
 
     pub fn ask(&self, text: &str) -> super::query::QueryResult {
-        super::query::ask(&self.committed, text)
+        super::query::ask(&self.g, text)
     }
 
     pub fn rollback(&mut self) {
@@ -539,8 +535,8 @@ fn unix() -> u64 {
 }
 
 fn new_token() -> u64 {
-    use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-    static SEQ: AtomicUsize = ATOMIC_USIZE_INIT;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static SEQ: AtomicUsize = AtomicUsize::new(0);
     let n = SEQ.fetch_add(1, Ordering::SeqCst) as u64 + 1;
     unix() ^ (n << 16) ^ ((std::process::id() as u64) << 32)
 }
