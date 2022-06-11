@@ -155,17 +155,12 @@ fn reverse_from_the_far_end() {
 }
 
 #[test]
-fn picture_hides_the_tail() {
+fn ask_sees_the_tail() {
     let dir = tmp("pic");
     let mut s = Store::open(&dir, "notes", 1).unwrap();
     s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
     s.commit().unwrap();
     s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
-    let live = s.graph().vertex_count();
-    let r = s.ask("MATCH (a:Doc {name:'Bob'}) RETURN a");
-    assert_eq!(live, 2);
-    assert_eq!(r.rows.len(), 0);
-    s.commit().unwrap();
     let r = s.ask("MATCH (a:Doc {name:'Bob'}) RETURN a");
     assert_eq!(r.rows.len(), 1);
     let _ = fs::remove_dir_all(&dir);

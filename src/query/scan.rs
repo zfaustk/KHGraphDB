@@ -257,10 +257,6 @@ fn merge_bounds(a: (String, Option<Prop>, Option<Prop>, bool, bool),
     Some((a.0, lo, hi, a.3 && b.3, a.4 && b.4))
 }
 
-pub fn keyed(n: &NodePat) -> bool {
-    n.type_name.is_some() && !n.props.is_empty()
-}
-
 /// Reverse the walk when the cheaper end is nearer
 /// the last node. Left-deep. Do not start in the middle.
 pub fn should_reverse(g: &Graph, pat: &Pattern, seed: &HashMap<String, Khid>) -> bool {
