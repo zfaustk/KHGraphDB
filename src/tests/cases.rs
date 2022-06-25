@@ -25,7 +25,7 @@ fn parse_cases(src: &str) -> Vec<Case> {
     let mut params: Vec<(String, String)> = Vec::new();
     let mut sec = 0; // 0 name, 1 graph, 2 query, 3 expect
     for raw in src.lines() {
-        let line = raw.trim_right();
+        let line = raw.trim_end();
         if line.starts_with("## ") {
             if !cur_name.is_empty() {
                 out.push(Case {
@@ -268,7 +268,7 @@ fn trim_lines(s: &str) -> String {
             out.push('\n');
         }
         first = false;
-        out.push_str(line.trim_right());
+        out.push_str(line.trim_end());
     }
     out
 }
