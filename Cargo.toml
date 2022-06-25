@@ -4,4 +4,5 @@ version = "8.0.0"
 authors = ["zfaustk"]
 license = "MIT"
 description = "A graph database. Vertex, Edge, Type."
-edition = "2018"
+edition = "2021"
+rust-version = "1.56"
