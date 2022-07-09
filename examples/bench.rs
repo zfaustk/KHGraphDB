@@ -100,6 +100,27 @@ fn main() {
     }
     report("count scan", &mut scan);
 
+    s.graph_mut().unwrap().create_index("Doc", "n");
+    i = 0;
+    while i < n {
+        if let Some(v) = s.graph().vertex_by_name(&format!("n{}", i)) {
+            let id = v.khid();
+            s.graph_mut().unwrap().set_prop(id, "n", khgraphdb::Prop::from_int(i as i64)).unwrap();
+        }
+        i += 1;
+    }
+    s.commit().unwrap();
+    let mut ranged = Vec::new();
+    i = 0;
+    while i < 200 {
+        let t = Instant::now();
+        let r = query::ask(s.graph(), "MATCH (a:Doc) WHERE a.n > 10 RETURN a");
+        ranged.push(ns(t));
+        assert!(r.ok);
+        i += 1;
+    }
+    report("range MATCH", &mut ranged);
+
     let mut commits = Vec::new();
     i = 0;
     while i < 200 {
