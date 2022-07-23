@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**8.0.0** (2022). The posting is ordered. Seed is the cheaper end. Lag is a Pos. Rust 1.31, edition 2018. No crates.io dependencies.
+**8.1.0** (2022). Reverse from the cheaper end. Compact is a checkpoint. edition 2021. Rust 1.56. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
