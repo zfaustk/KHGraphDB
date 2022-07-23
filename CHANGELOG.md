@@ -1,3 +1,11 @@
+## 8.1.0 - 2022-07-23
+
+- Reverse from the cheaper end. Cost is seed times degree.
+- Compact is the checkpoint. Group waits for a count.
+- A picture at commit hid the tail and doubled commit+1. Revert.
+- edition 2021, rust-version 1.56.
+- Bench: range MATCH. Tests: range clock, maybe_compact.
+
 ## 8.0.0 - 2022-04-16
 
 - The posting is a B-tree. Comparison is a range.
