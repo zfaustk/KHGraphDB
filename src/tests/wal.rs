@@ -20,7 +20,8 @@ fn roundtrip_records() {
             id: Khid::from_raw(1),
             types: vec!["Person".to_string()],
             attrs: name("Ada"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::Commit { tx: 1 },
     ];
     let mut buf = Vec::new();
@@ -40,7 +41,8 @@ fn recover_puts_the_vertex() {
             id: Khid::from_raw(1),
             types: vec!["Person".to_string()],
             attrs: name("Ada"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::Commit { tx: 1 },
     ];
     let mut buf = Vec::new();
@@ -61,14 +63,16 @@ fn uncommitted_does_not_replay() {
             id: Khid::from_raw(1),
             types: vec!["Person".to_string()],
             attrs: name("Ada"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::Begin { tx: 2 },
         Rec::Vertex {
             tx: 2,
             id: Khid::from_raw(2),
             types: vec!["Person".to_string()],
             attrs: name("Bob"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::Commit { tx: 2 },
     ];
     let g = wal::replay(1, &recs).unwrap();
@@ -88,7 +92,8 @@ fn body_is_on_the_log() {
             id: Khid::from_raw(1),
             types: vec!["Doc".to_string()],
             attrs: attrs,
-        },
+        
+            blobs: Vec::new(),},
         Rec::Commit { tx: 1 },
     ];
     let g = wal::replay(1, &recs).unwrap();
@@ -105,13 +110,15 @@ fn edge_after_ends() {
             id: Khid::from_raw(1),
             types: vec!["Person".to_string()],
             attrs: name("Ada"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::Vertex {
             tx: 1,
             id: Khid::from_raw(2),
             types: vec!["Person".to_string()],
             attrs: name("Bob"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::Edge {
             tx: 1,
             id: Khid::from_raw(3),
@@ -138,7 +145,8 @@ fn far_edge_replays() {
             id: Khid::from_raw(1),
             types: vec!["Doc".to_string()],
             attrs: name("Ada"),
-        },
+        
+            blobs: Vec::new(),},
         Rec::FarEdge {
             tx: 1,
             id: Khid::from_raw(2),

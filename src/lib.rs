@@ -40,6 +40,7 @@ pub mod wal;
 pub mod pos;
 pub mod meta;
 pub mod store;
+pub mod blob;
 pub mod sentinel;
 pub mod wire;
 pub mod route;

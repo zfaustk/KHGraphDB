@@ -1332,6 +1332,40 @@ impl Graph {
         }
     }
 
+    pub fn is_content_key(&self, id: Khid, key: &str) -> bool {
+        for tn in self.type_names_of_vertex(id).iter() {
+            if self.ty_content(tn, key) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Content attrs of a vertex. These leave the WAL.
+    pub fn content_of(&self, id: Khid) -> Vec<(String, Prop)> {
+        let v = match self.vertex(id) {
+            Some(v) => v,
+            None => return Vec::new(),
+        };
+        let mut out = Vec::new();
+        for (k, p) in v.attrs().iter() {
+            if self.is_content_key(id, k) {
+                out.push((k.clone(), p.clone()));
+            }
+        }
+        out
+    }
+
+    pub fn strip_content(&self, id: Khid, attrs: &HashMap<String, Prop>) -> HashMap<String, Prop> {
+        let mut m = HashMap::new();
+        for (k, p) in attrs.iter() {
+            if !self.is_content_key(id, k) {
+                m.insert(k.clone(), p.clone());
+            }
+        }
+        m
+    }
+
     pub fn edge_type_name(&self, eid: Khid) -> Option<String> {
         match self.edge(eid) {
             Some(e) => e.type_id().and_then(|tid| self.ty(tid).map(|t| t.name().to_string())),

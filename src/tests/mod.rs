@@ -26,4 +26,5 @@ mod tx;
 mod kernel;
 mod io;
 mod wal;
+mod write;
 mod parse;

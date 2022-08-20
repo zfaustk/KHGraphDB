@@ -39,6 +39,9 @@ pub enum Rec {
         id: Khid,
         types: Vec<String>,
         attrs: HashMap<String, Prop>,
+        /// Content keys live in blob/{id}-{serial}.
+        /// Empty on an old record: the page was inline.
+        blobs: Vec<(String, u64)>,
     },
     Edge {
         tx: u64,
@@ -278,7 +281,7 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             w.write_all(&[TAG_COMMIT])?;
             write_u64(w, tx)
         }
-        Rec::Vertex { tx, id, ref types, ref attrs } => {
+        Rec::Vertex { tx, id, ref types, ref attrs, ref blobs } => {
             w.write_all(&[TAG_VERTEX])?;
             write_u64(w, tx)?;
             write_khid(w, id)?;
@@ -286,7 +289,13 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             for t in types.iter() {
                 write_str(w, t)?;
             }
-            write_attrs(w, attrs)
+            write_attrs(w, attrs)?;
+            write_u32(w, blobs.len() as u32)?;
+            for &(ref k, serial) in blobs.iter() {
+                write_str(w, k)?;
+                write_u64(w, serial)?;
+            }
+            Ok(())
         }
         Rec::Edge { tx, id, src, dst, ref ty, ref attrs } => {
             w.write_all(&[TAG_EDGE])?;
@@ -350,11 +359,27 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
                 i += 1;
             }
             let attrs = read_attrs(r)?;
+            let blobs = match read_u32(r) {
+                Ok(n) => {
+                    let mut v = Vec::new();
+                    let mut i = 0;
+                    while i < n as usize {
+                        let k = read_str(r)?;
+                        let s = read_u64(r)?;
+                        v.push((k, s));
+                        i += 1;
+                    }
+                    v
+                }
+                Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => Vec::new(),
+                Err(e) => return Err(e),
+            };
             Ok(Rec::Vertex {
                 tx: tx,
                 id: id,
                 types: types,
                 attrs: attrs,
+                blobs: blobs,
             })
         }
         TAG_EDGE => {
