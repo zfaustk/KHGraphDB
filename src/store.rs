@@ -39,6 +39,8 @@ pub struct Store {
     sync_every: u32,
     since_sync: u32,
     compact_at: u64,
+    next_blob: u64,
+    blob_of: HashMap<(Khid, String), u64>,
 }
 
 impl Store {
@@ -51,10 +53,10 @@ impl Store {
             .create(true)
             .open(&path)?;
         let len = log.metadata()?.len();
-        let (g, next_tx, generation) = if len == 0 {
+        let (g, next_tx, generation, recs) = if len == 0 {
             wal::write_header(shard, 1, &mut log)?;
             log.sync_data()?;
-            (Graph::on(name, shard), 1, 1)
+            (Graph::on(name, shard), 1, 1, Vec::new())
         } else {
             log.seek(SeekFrom::Start(0))?;
             let (h, recs, end) = wal::read_valid(&mut log)?;
@@ -63,6 +65,7 @@ impl Store {
                 Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e.message())),
             };
             g.set_id(name);
+            super::blob::fill(dir, &mut g, &recs)?;
             let mut max = 0u64;
             for rec in recs.iter() {
                 if rec.tx() > max {
@@ -74,8 +77,16 @@ impl Store {
             }
             log.seek(SeekFrom::End(0))?;
             let gen = if h.generation == 0 { 1 } else { h.generation };
-            (g, max + 1, gen)
+            (g, max + 1, gen, recs)
         };
+        let mut blob_of: HashMap<(Khid, String), u64> = HashMap::new();
+        for rec in recs.iter() {
+            if let Rec::Vertex { id, ref blobs, .. } = *rec {
+                for &(ref k, s) in blobs.iter() {
+                    blob_of.insert((id, k.clone()), s);
+                }
+            }
+        }
         let mut s = Store {
             dir: dir.to_path_buf(),
             log: log,
@@ -90,6 +101,8 @@ impl Store {
             sync_every: 1,
             since_sync: 0,
             compact_at: 0,
+            next_blob: super::blob::max_serial(dir) + 1,
+            blob_of: blob_of,
         };
         s.compact_at = s.log.metadata()?.len();
         Ok(s)
@@ -195,13 +208,55 @@ impl Store {
         Ok(())
     }
 
+    fn spill(&mut self) -> io::Result<()> {
+        let mut ids = Vec::new();
+        for t in self.g.touches().iter() {
+            if let Touch::Vertex(id) = *t {
+                ids.push(id);
+            }
+        }
+        self.spill_ids(&ids)
+    }
+
+    fn spill_all(&mut self) -> io::Result<()> {
+        let ids = self.g.vertex_ids();
+        self.spill_ids(&ids)
+    }
+
+    fn spill_ids(&mut self, ids: &[Khid]) -> io::Result<()> {
+        for id in ids.iter() {
+            for (k, p) in self.g.content_of(*id).iter() {
+                let bytes = match p.as_str() {
+                    Some(s) => s.as_bytes().to_vec(),
+                    None => p.as_display().into_bytes(),
+                };
+                let reuse = match self.blob_of.get(&(*id, k.clone())) {
+                    Some(&ser) => match super::blob::get(&self.dir, *id, ser) {
+                        Ok(Some(old)) => old == bytes,
+                        _ => false,
+                    },
+                    None => false,
+                };
+                if reuse {
+                    continue;
+                }
+                let ser = self.next_blob;
+                self.next_blob += 1;
+                super::blob::put(&self.dir, *id, ser, &bytes)?;
+                self.blob_of.insert((*id, k.clone()), ser);
+            }
+        }
+        super::blob::sync_dir(&self.dir)
+    }
+
     /// The log is the delta against the snapshot.
     pub fn commit(&mut self) -> io::Result<Pos> {
         if self.read_only {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "read-only replica"));
         }
         let tx = self.tx_id()?;
-        let recs = recs_from_touches(tx, &self.g);
+        self.spill()?;
+        let recs = recs_from_touches(tx, &self.g, &self.blob_of);
         wal::append(&recs, &mut self.log)?;
         self.since_sync = self.since_sync.saturating_add(1);
         if self.durable && self.since_sync >= self.sync_every {
@@ -297,6 +352,7 @@ impl Store {
             Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e.message())),
         };
         g.set_id(self.g.khid());
+        super::blob::fill(&self.dir, &mut g, &recs)?;
         Ok(g)
     }
 
@@ -321,7 +377,8 @@ impl Store {
         self.generation += 1;
         let tx = self.next_tx;
         self.next_tx += 1;
-        let recs = capture(tx, &self.g);
+        self.spill_all()?;
+        let recs = capture(tx, &self.g, &self.blob_of);
         let tmp = self.dir.join("log.tmp");
         {
             let mut f = File::create(&tmp)?;
@@ -337,6 +394,7 @@ impl Store {
         log.seek(SeekFrom::End(0))?;
         self.log = log;
         let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
+        let _ = super::blob::gc(&self.dir, &super::blob::live_from(&recs));
         self.compact_at = self.log.metadata()?.len();
         self.pos()
     }
@@ -387,6 +445,7 @@ impl Store {
         if from.join("meta").exists() {
             let _ = fs::copy(from.join("meta"), dir.join("meta"));
         }
+        let _ = super::blob::copy_all(from, dir);
         let mut s = Store::open(dir, name, 0)?;
         s.read_only = true;
         Ok(s)
@@ -409,6 +468,7 @@ impl Store {
                 let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
             }
             let _ = super::meta::catch_up(&self.dir, from);
+            let _ = super::blob::copy_all(from, &self.dir);
             return Ok(());
         }
         if src_pos.generation() != dst_pos.generation()
@@ -427,6 +487,7 @@ impl Store {
             let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
         }
         let _ = super::meta::catch_up(&self.dir, from);
+        let _ = super::blob::copy_all(from, &self.dir);
         self.reopen_replica()
     }
 
@@ -563,23 +624,34 @@ fn read_lease(dir: &Path) -> Option<(u64, u64)> {
     Some((tok, until))
 }
 
-fn recs_from_touches(tx: u64, g: &Graph) -> Vec<Rec> {
+fn vertex_rec(tx: u64, g: &Graph, id: Khid, blob_of: &HashMap<(Khid, String), u64>) -> Rec {
+    let types = g.type_names_of_vertex(id);
+    let attrs = match g.vertex(id) {
+        Some(v) => g.strip_content(id, v.attrs()),
+        None => HashMap::new(),
+    };
+    let mut blobs = Vec::new();
+    for (k, _) in g.content_of(id).iter() {
+        if let Some(&s) = blob_of.get(&(id, k.clone())) {
+            blobs.push((k.clone(), s));
+        }
+    }
+    Rec::Vertex {
+        tx: tx,
+        id: id,
+        types: types,
+        attrs: attrs,
+        blobs: blobs,
+    }
+}
+
+fn recs_from_touches(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>) -> Vec<Rec> {
     let mut recs = Vec::new();
     recs.push(Rec::Begin { tx: tx });
     for t in g.touches().iter() {
         match *t {
             Touch::Vertex(id) => {
-                let types = g.type_names_of_vertex(id);
-                let attrs = match g.vertex(id) {
-                    Some(v) => v.attrs().clone(),
-                    None => continue,
-                };
-                recs.push(Rec::Vertex {
-                    tx: tx,
-                    id: id,
-                    types: types,
-                    attrs: attrs,
-                });
+                recs.push(vertex_rec(tx, g, id, blob_of));
             }
             Touch::Edge(id) => {
                 let e = match g.edge(id) {
@@ -635,7 +707,7 @@ fn recs_from_touches(tx: u64, g: &Graph) -> Vec<Rec> {
     recs
 }
 
-fn capture(tx: u64, g: &Graph) -> Vec<Rec> {
+fn capture(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>) -> Vec<Rec> {
     let mut recs = Vec::new();
     recs.push(Rec::Begin { tx: tx });
     for &(tid, _) in g.all_types().iter() {
@@ -651,17 +723,7 @@ fn capture(tx: u64, g: &Graph) -> Vec<Rec> {
         }
     }
     for id in g.vertex_ids().iter() {
-        let types = g.type_names_of_vertex(*id);
-        let attrs = match g.vertex(*id) {
-            Some(v) => v.attrs().clone(),
-            None => continue,
-        };
-        recs.push(Rec::Vertex {
-            tx: tx,
-            id: *id,
-            types: types,
-            attrs: attrs,
-        });
+        recs.push(vertex_rec(tx, g, *id, blob_of));
     }
     for &(id, src, dst, _) in g.all_edges().iter() {
         let e: &Edge = match g.edge(id) {
