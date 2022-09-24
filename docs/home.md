@@ -55,7 +55,7 @@ not treat it as a second truth.
 4.3 is the standby at year end. 5.0 is a
 Pos on a socket. 5.1 is meta. 6.0 is the
 prefix: `docs/six.md`. 7.2 is `docs/next.md`.
-8.0 is `docs/kernel.md`. 8.1 dropped the picture.
+8.0 is `docs/kernel.md`. 8.1 dropped the picture. 8.2 is `docs/write.md`.
 
 
 

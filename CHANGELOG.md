@@ -1,3 +1,11 @@
+## 8.2.0 - 2022-09-24
+
+- Content leaves the WAL for an immutable blob.
+- Serials do not overwrite. `read_at` hydrates the old page.
+- Blob, dirsync, then the record. Compact GCs orphans.
+- Replica copies `blob/` with the log.
+- `docs/write.md`: the order, and why not WAL-first.
+
 ## 8.1.0 - 2022-07-23
 
 - Reverse from the cheaper end. Cost is seed times degree.

@@ -19,3 +19,8 @@ is an Addr, not a second copy of the page.
 Do not put a page in the posting list to make
 search fast. Search is derived. The page is
 the payload of the vertex that owns it.
+
+The page is a blob. The WAL record names a
+serial. Serials do not overwrite. A pin
+still sees the old file. See `docs/write.md`.
+
