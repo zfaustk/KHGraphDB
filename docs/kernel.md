@@ -63,5 +63,13 @@ commit+1 doubled. Readers of this
 process were not the product. Revert.
 A pin is still the snapshot.
 
+## Write
+
+The page left the log. A serial does
+not overwrite. Blob first, then the
+record. Compact drops orphans. See
+`docs/write.md`.
+
+
 
 

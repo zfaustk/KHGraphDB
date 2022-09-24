@@ -23,6 +23,7 @@ KHGraphDB 7.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 - A transaction keeps an inverse. Drop rolls back.
 - Seed is the cheaper end. The posting is ordered.
 - Compact is the checkpoint. ask in this process sees the tail.
+- The page is a blob. Blob first, then the record.
 - edition 2021. rustc 1.56.
 - `cargo test` is the gate.
 

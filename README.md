@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By kinghand.
 
-**8.1.0** (2022). Reverse from the cheaper end. Compact is a checkpoint. edition 2021. Rust 1.56. No crates.io dependencies.
+**8.2.0** (2022). The page is a blob. A pin names a serial. Blob first. edition 2021. Rust 1.56. No crates.io dependencies.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -87,7 +87,7 @@ $param
 
 See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
 `docs/tx.md`, `docs/home.md`, `docs/content.md`, `docs/store.md`,
-`docs/replica.md`, and `docs/kernel.md`. Type is still not a string. MATCH binds
+`docs/replica.md`, `docs/kernel.md`, and `docs/write.md`. Type is still not a string. MATCH binds
 it by KHID. Path is a value. A graph can be named, cloned,
 or cut down to a subgraph. A Catalog holds several graphs;
 the query still takes one. A transaction keeps
