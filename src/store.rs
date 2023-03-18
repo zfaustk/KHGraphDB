@@ -41,6 +41,8 @@ pub struct Store {
     compact_at: u64,
     next_blob: u64,
     blob_of: HashMap<(Khid, String), u64>,
+    next_vec: u64,
+    vec_of: HashMap<(Khid, String), u64>,
 }
 
 impl Store {
@@ -66,6 +68,7 @@ impl Store {
             };
             g.set_id(name);
             super::blob::fill(dir, &mut g, &recs)?;
+            super::vec::fill(dir, &mut g, &recs)?;
             let mut max = 0u64;
             for rec in recs.iter() {
                 if rec.tx() > max {
@@ -80,11 +83,15 @@ impl Store {
             (g, max + 1, gen, recs)
         };
         let mut blob_of: HashMap<(Khid, String), u64> = HashMap::new();
+        let mut vec_of: HashMap<(Khid, String), u64> = HashMap::new();
         for rec in recs.iter() {
             if let Rec::Vertex { id, ref blobs, .. } = *rec {
                 for &(ref k, s) in blobs.iter() {
                     blob_of.insert((id, k.clone()), s);
                 }
+            }
+            if let Rec::Emb { id, ref key, serial, .. } = *rec {
+                vec_of.insert((id, key.clone()), serial);
             }
         }
         let mut s = Store {
@@ -103,6 +110,8 @@ impl Store {
             compact_at: 0,
             next_blob: super::blob::max_serial(dir) + 1,
             blob_of: blob_of,
+            next_vec: super::vec::max_serial(dir) + 1,
+            vec_of: vec_of,
         };
         s.compact_at = s.log.metadata()?.len();
         Ok(s)
@@ -249,6 +258,47 @@ impl Store {
         super::blob::sync_dir(&self.dir)
     }
 
+    fn spill_vecs(&mut self) -> io::Result<()> {
+        let mut pairs = Vec::new();
+        for t in self.g.touches().iter() {
+            if let Touch::Emb { id, ref key } = *t {
+                pairs.push((id, key.clone()));
+            }
+        }
+        self.spill_vec_pairs(&pairs)
+    }
+
+    fn spill_vecs_all(&mut self) -> io::Result<()> {
+        let pairs: Vec<(Khid, String)> = self.g.embeddings().into_iter()
+            .map(|(id, k, _)| (id, k))
+            .collect();
+        self.spill_vec_pairs(&pairs)
+    }
+
+    fn spill_vec_pairs(&mut self, pairs: &[(Khid, String)]) -> io::Result<()> {
+        for &(id, ref key) in pairs.iter() {
+            let v = match self.g.get_vec(id, key) {
+                Some(v) => v.to_vec(),
+                None => continue,
+            };
+            let reuse = match self.vec_of.get(&(id, key.clone())) {
+                Some(&ser) => match super::vec::get(&self.dir, id, ser) {
+                    Ok(Some(old)) => old == v,
+                    _ => false,
+                },
+                None => false,
+            };
+            if reuse {
+                continue;
+            }
+            let ser = self.next_vec;
+            self.next_vec += 1;
+            super::vec::put(&self.dir, id, ser, &v)?;
+            self.vec_of.insert((id, key.clone()), ser);
+        }
+        super::vec::sync_dir(&self.dir)
+    }
+
     /// The log is the delta against the snapshot.
     pub fn commit(&mut self) -> io::Result<Pos> {
         if self.read_only {
@@ -256,7 +306,8 @@ impl Store {
         }
         let tx = self.tx_id()?;
         self.spill()?;
-        let recs = recs_from_touches(tx, &self.g, &self.blob_of);
+        self.spill_vecs()?;
+        let recs = recs_from_touches(tx, &self.g, &self.blob_of, &self.vec_of);
         wal::append(&recs, &mut self.log)?;
         self.since_sync = self.since_sync.saturating_add(1);
         if self.durable && self.since_sync >= self.sync_every {
@@ -353,6 +404,7 @@ impl Store {
         };
         g.set_id(self.g.khid());
         super::blob::fill(&self.dir, &mut g, &recs)?;
+        super::vec::fill(&self.dir, &mut g, &recs)?;
         Ok(g)
     }
 
@@ -378,7 +430,8 @@ impl Store {
         let tx = self.next_tx;
         self.next_tx += 1;
         self.spill_all()?;
-        let recs = capture(tx, &self.g, &self.blob_of);
+        self.spill_vecs_all()?;
+        let recs = capture(tx, &self.g, &self.blob_of, &self.vec_of);
         let tmp = self.dir.join("log.tmp");
         {
             let mut f = File::create(&tmp)?;
@@ -395,6 +448,7 @@ impl Store {
         self.log = log;
         let _ = super::meta::Meta::rebuild(&self.dir, &self.g);
         let _ = super::blob::gc(&self.dir, &super::blob::live_from(&recs));
+        let _ = super::vec::gc(&self.dir, &super::vec::live_from(&recs));
         self.compact_at = self.log.metadata()?.len();
         self.pos()
     }
@@ -446,6 +500,7 @@ impl Store {
             let _ = fs::copy(from.join("meta"), dir.join("meta"));
         }
         let _ = super::blob::copy_all(from, dir);
+        let _ = super::vec::copy_all(from, dir);
         let mut s = Store::open(dir, name, 0)?;
         s.read_only = true;
         Ok(s)
@@ -469,6 +524,7 @@ impl Store {
             }
             let _ = super::meta::catch_up(&self.dir, from);
             let _ = super::blob::copy_all(from, &self.dir);
+            let _ = super::vec::copy_all(from, &self.dir);
             return Ok(());
         }
         if src_pos.generation() != dst_pos.generation()
@@ -488,6 +544,7 @@ impl Store {
         }
         let _ = super::meta::catch_up(&self.dir, from);
         let _ = super::blob::copy_all(from, &self.dir);
+        let _ = super::vec::copy_all(from, &self.dir);
         self.reopen_replica()
     }
 
@@ -645,7 +702,10 @@ fn vertex_rec(tx: u64, g: &Graph, id: Khid, blob_of: &HashMap<(Khid, String), u6
     }
 }
 
-fn recs_from_touches(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>) -> Vec<Rec> {
+fn recs_from_touches(tx: u64,
+                     g: &Graph,
+                     blob_of: &HashMap<(Khid, String), u64>,
+                     vec_of: &HashMap<(Khid, String), u64>) -> Vec<Rec> {
     let mut recs = Vec::new();
     recs.push(Rec::Begin { tx: tx });
     for t in g.touches().iter() {
@@ -701,13 +761,33 @@ fn recs_from_touches(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>)
                     key: key.clone(),
                 });
             }
+            Touch::VecMark { ref type_name, ref key } => {
+                recs.push(Rec::VecMark {
+                    tx: tx,
+                    type_name: type_name.clone(),
+                    key: key.clone(),
+                });
+            }
+            Touch::Emb { id, ref key } => {
+                if let Some(&serial) = vec_of.get(&(id, key.clone())) {
+                    recs.push(Rec::Emb {
+                        tx: tx,
+                        id: id,
+                        key: key.clone(),
+                        serial: serial,
+                    });
+                }
+            }
         }
     }
     recs.push(Rec::Commit { tx: tx });
     recs
 }
 
-fn capture(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>) -> Vec<Rec> {
+fn capture(tx: u64,
+           g: &Graph,
+           blob_of: &HashMap<(Khid, String), u64>,
+           vec_of: &HashMap<(Khid, String), u64>) -> Vec<Rec> {
     let mut recs = Vec::new();
     recs.push(Rec::Begin { tx: tx });
     for &(tid, _) in g.all_types().iter() {
@@ -715,6 +795,13 @@ fn capture(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>) -> Vec<Re
             let name = t.name().to_string();
             for k in t.content_keys().iter() {
                 recs.push(Rec::Content {
+                    tx: tx,
+                    type_name: name.clone(),
+                    key: k.clone(),
+                });
+            }
+            for k in t.vector_keys().iter() {
+                recs.push(Rec::VecMark {
                     tx: tx,
                     type_name: name.clone(),
                     key: k.clone(),
@@ -759,6 +846,16 @@ fn capture(tx: u64, g: &Graph, blob_of: &HashMap<(Khid, String), u64>) -> Vec<Re
             key: k.clone(),
             unique: u,
         });
+    }
+    for (id, k, _) in g.embeddings().iter() {
+        if let Some(&serial) = vec_of.get(&(*id, k.clone())) {
+            recs.push(Rec::Emb {
+                tx: tx,
+                id: *id,
+                key: k.clone(),
+                serial: serial,
+            });
+        }
     }
     recs.push(Rec::Commit { tx: tx });
     recs

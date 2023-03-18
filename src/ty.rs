@@ -10,6 +10,7 @@ pub struct Type {
     vertices: HashSet<Khid>,
     edges: HashSet<Khid>,
     content: HashSet<String>,
+    vector: HashSet<String>,
 }
 
 impl Type {
@@ -24,6 +25,7 @@ impl Type {
             vertices: HashSet::new(),
             edges: HashSet::new(),
             content: HashSet::new(),
+            vector: HashSet::new(),
         }
     }
 
@@ -81,5 +83,21 @@ impl Type {
 
     pub fn content_keys(&self) -> &HashSet<String> {
         &self.content
+    }
+
+    /// A vector key is an embedding. The B-tree refuses it.
+    pub fn mark_vector(&mut self, key: &str) -> bool {
+        if key.is_empty() {
+            return false;
+        }
+        self.vector.insert(key.to_string())
+    }
+
+    pub fn is_vector(&self, key: &str) -> bool {
+        self.vector.contains(key)
+    }
+
+    pub fn vector_keys(&self) -> &HashSet<String> {
+        &self.vector
     }
 }

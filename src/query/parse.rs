@@ -548,6 +548,17 @@ impl Parser {
         if self.ident_is("FIND") {
             return self.exec_find(g);
         }
+        if self.ident_is("SIMILAR") {
+            return self.exec_similar(g);
+        }
+        if self.ident_is("EXPLAIN") {
+            let save = self.i;
+            self.next();
+            if self.ident_is("SIMILAR") {
+                return self.exec_explain_similar(g);
+            }
+            self.i = save;
+        }
         let mut last: Option<QueryResult> = None;
         if self.ident_is("EXPLAIN") {
             self.next();
@@ -689,6 +700,132 @@ impl Parser {
             Some(r) => Ok(r),
             None => Err(self.err_here("expected MATCH")),
         }
+    }
+
+    fn exec_similar(&mut self, g: &Graph) -> Result<QueryResult> {
+        self.next();
+        if self.kind() != TokenKind::LParen {
+            return Err(self.err_here("expected ("));
+        }
+        self.next();
+        let mut var = "a".to_string();
+        if self.kind() == TokenKind::Ident {
+            var = self.text();
+            self.next();
+        }
+        if self.kind() != TokenKind::Colon {
+            return Err(self.err_here("expected :Type"));
+        }
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("expected type"));
+        }
+        let tn = self.text();
+        self.next();
+        if self.kind() != TokenKind::RParen {
+            return Err(self.err_here("expected )"));
+        }
+        self.next();
+        let mut key = "emb".to_string();
+        if self.ident_is("ON") {
+            self.next();
+            if self.kind() != TokenKind::Ident {
+                return Err(self.err_here("expected key"));
+            }
+            key = self.text();
+            self.next();
+        }
+        if self.ident_is("TO") {
+            self.next();
+        }
+        let q = self.parse_vec()?;
+        let mut k = 10usize;
+        if self.ident_is("LIMIT") {
+            self.next();
+            if self.kind() != TokenKind::Number {
+                return Err(self.err_here("expected n"));
+            }
+            k = parse_usize(&self.text())?;
+            self.next();
+        }
+        if self.ident_is("RETURN") {
+            self.next();
+            let _ = self.parse_return();
+        }
+        let hits = g.similar(&tn, &key, &q, k);
+        let mut r = QueryResult::ok_msg("SIMILAR");
+        r.columns.push(var);
+        r.columns.push("score".to_string());
+        for &(id, s) in hits.iter() {
+            r.rows.push(vec![
+                Some(Val::Id(id)),
+                Some(Val::Prop(Prop::from_float(s as f64))),
+            ]);
+        }
+        Ok(r)
+    }
+
+    fn exec_explain_similar(&mut self, g: &Graph) -> Result<QueryResult> {
+        self.next();
+        if self.kind() != TokenKind::LParen {
+            return Err(self.err_here("expected ("));
+        }
+        self.next();
+        if self.kind() == TokenKind::Ident {
+            self.next();
+        }
+        if self.kind() != TokenKind::Colon {
+            return Err(self.err_here("expected :Type"));
+        }
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("expected type"));
+        }
+        let tn = self.text();
+        let n = match g.type_by_name(&tn) {
+            Some(t) => t.vertex_count(),
+            None => 0,
+        };
+        let mut e = QueryResult::ok_msg("EXPLAIN");
+        e.columns = vec!["slot".to_string(), "name".to_string(), "khid".to_string()];
+        e.rows.push(vec![
+            Some(Val::Prop(Prop::from_str("plan"))),
+            Some(Val::Prop(Prop::from_str("Scan"))),
+            Some(Val::Prop(Prop::from_str("cosine"))),
+        ]);
+        e.rows.push(vec![
+            Some(Val::Prop(Prop::from_str("cost"))),
+            Some(Val::Prop(Prop::from_str(&format!("{}", n)))),
+            Some(Val::Prop(Prop::from_str("members"))),
+        ]);
+        Ok(e)
+    }
+
+    fn parse_vec(&mut self) -> Result<Vec<f32>> {
+        if self.kind() != TokenKind::LBrack {
+            return Err(self.err_here("expected ["));
+        }
+        self.next();
+        let mut v = Vec::new();
+        while self.kind() != TokenKind::RBrack && self.kind() != TokenKind::Eof {
+            if self.kind() != TokenKind::Number {
+                return Err(self.err_here("expected number"));
+            }
+            let n: f32 = match self.text().parse() {
+                Ok(n) => n,
+                Err(_) => return Err(Error::new("bad number")),
+            };
+            v.push(n);
+            self.next();
+            if self.kind() == TokenKind::Comma {
+                self.next();
+            }
+        }
+        if self.kind() != TokenKind::RBrack {
+            return Err(self.err_here("expected ]"));
+        }
+        self.next();
+        Ok(v)
     }
 
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {

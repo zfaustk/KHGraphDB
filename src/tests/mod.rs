@@ -25,6 +25,7 @@ mod pipeline;
 mod tx;
 mod kernel;
 mod io;
+mod vec;
 mod wal;
 mod write;
 mod parse;

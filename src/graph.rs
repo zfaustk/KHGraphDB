@@ -19,6 +19,8 @@ pub enum Touch {
     DropEdge(Khid),
     Index { type_name: String, key: String, unique: bool },
     Content { type_name: String, key: String },
+    VecMark { type_name: String, key: String },
+    Emb { id: Khid, key: String },
 }
 
 /// Inverse of a live write. Rollback walks this
@@ -44,6 +46,12 @@ pub enum Undo {
         type_name: String,
         key: String,
     },
+    EmbGone { id: Khid, key: String },
+    EmbWas {
+        id: Khid,
+        key: String,
+        old: Option<Vec<f32>>,
+    },
 }
 
 /// Directed property graph. Vertices live in a slot Vec.
@@ -62,6 +70,7 @@ pub struct Graph {
     indexes: HashMap<String, SchemaIndex>,
     edge_indexes: HashMap<String, SchemaIndex>,
     stubs: HashMap<Addr, Stub>,
+    vectors: HashMap<(Khid, String), Vec<f32>>,
     recording: bool,
     armed: bool,
     touches: Vec<Touch>,
@@ -103,6 +112,7 @@ impl Graph {
             indexes: HashMap::new(),
             edge_indexes: HashMap::new(),
             stubs: HashMap::new(),
+            vectors: HashMap::new(),
             recording: true,
             armed: false,
             touches: Vec::new(),
@@ -297,6 +307,19 @@ impl Graph {
                 }
                 Undo::IndexGone { type_name, key } => {
                     self.indexes.remove(&SchemaIndex::id(&type_name, &key));
+                }
+                Undo::EmbGone { id, key } => {
+                    self.vectors.remove(&(id, key));
+                }
+                Undo::EmbWas { id, key, old } => {
+                    match old {
+                        Some(v) => {
+                            self.vectors.insert((id, key), v);
+                        }
+                        None => {
+                            self.vectors.remove(&(id, key));
+                        }
+                    }
                 }
             }
         }
@@ -736,6 +759,19 @@ impl Graph {
             }
         }
         self.unpost_vertex(vk);
+        let drop_keys: Vec<String> = self.vectors.keys()
+            .filter(|k| k.0 == vk)
+            .map(|k| k.1.clone())
+            .collect();
+        for key in drop_keys.iter() {
+            if let Some(old) = self.vectors.remove(&(vk, key.clone())) {
+                self.rec_undo(Undo::EmbWas {
+                    id: vk,
+                    key: key.clone(),
+                    old: Some(old),
+                });
+            }
+        }
         self.push_vertex_was(vk);
         self.rec(Touch::DropVertex(vk));
         self.vtake(vk)
@@ -828,6 +864,9 @@ impl Graph {
         if self.ty_content(type_name, key) {
             return false;
         }
+        if self.ty_vector(type_name, key) {
+            return false;
+        }
         let id = SchemaIndex::id(type_name, key);
         if let Some(idx) = self.indexes.get_mut(&id) {
             if unique {
@@ -865,6 +904,9 @@ impl Graph {
             return false;
         }
         if self.ty_content(type_name, key) {
+            return false;
+        }
+        if self.ty_vector(type_name, key) {
             return false;
         }
         let id = SchemaIndex::id(type_name, key);
@@ -992,8 +1034,93 @@ impl Graph {
         true
     }
 
+    pub(crate) fn ty_vector(&self, type_name: &str, key: &str) -> bool {
+        match self.type_by_name(type_name) {
+            Some(t) => t.is_vector(key),
+            None => false,
+        }
+    }
+
+    /// Mark a property as an embedding. Drops a posting
+    /// list. The floats live in vec/, not in the B-tree.
+    pub fn mark_vector(&mut self, type_name: &str, key: &str) -> bool {
+        if type_name.is_empty() || key.is_empty() {
+            return false;
+        }
+        let tid = match self.add_type(type_name) {
+            Ok(id) => id,
+            Err(_) => return false,
+        };
+        match self.tget_mut(tid) {
+            Some(t) => {
+                t.mark_vector(key);
+            }
+            None => return false,
+        }
+        self.indexes.remove(&SchemaIndex::id(type_name, key));
+        self.edge_indexes.remove(&SchemaIndex::id(type_name, key));
+        self.rec(Touch::VecMark {
+            type_name: type_name.to_string(),
+            key: key.to_string(),
+        });
+        true
+    }
+
+    pub fn set_vec(&mut self, id: Khid, key: &str, v: &[f32]) -> bool {
+        if self.vertex(id).is_none() || key.is_empty() {
+            return false;
+        }
+        let old = self.vectors.get(&(id, key.to_string())).cloned();
+        self.rec_undo(Undo::EmbWas {
+            id: id,
+            key: key.to_string(),
+            old: old,
+        });
+        self.vectors.insert((id, key.to_string()), v.to_vec());
+        self.rec(Touch::Emb {
+            id: id,
+            key: key.to_string(),
+        });
+        true
+    }
+
+    pub fn get_vec(&self, id: Khid, key: &str) -> Option<&[f32]> {
+        self.vectors.get(&(id, key.to_string())).map(|v| v.as_slice())
+    }
+
+    /// Cosine over the type. The notebook is the set.
+    pub fn similar(&self, type_name: &str, key: &str, q: &[f32], k: usize) -> Vec<(Khid, f32)> {
+        let mut hits = Vec::new();
+        let members = match self.type_by_name(type_name) {
+            Some(t) => t.vertices().clone(),
+            None => return hits,
+        };
+        for id in members.iter() {
+            if let Some(v) = self.get_vec(*id, key) {
+                let s = super::vec::cosine(q, v);
+                hits.push((*id, s));
+            }
+        }
+        hits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        if hits.len() > k {
+            hits.truncate(k);
+        }
+        hits
+    }
+
+    pub fn embeddings(&self) -> Vec<(Khid, String, Vec<f32>)> {
+        let mut out = Vec::new();
+        for (&(id, ref k), v) in self.vectors.iter() {
+            out.push((id, k.clone(), v.clone()));
+        }
+        out
+    }
+
     fn post_vertex(&mut self, type_name: &str, vid: Khid, key: &str, val: &Prop) {
         if self.ty_content(type_name, key) {
+            return;
+        }
+        if self.ty_vector(type_name, key) {
             return;
         }
         let iid = SchemaIndex::id(type_name, key);

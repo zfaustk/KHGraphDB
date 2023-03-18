@@ -28,6 +28,13 @@ MATCH p = (a)-[:KNOWS*1..2]->(b)
 RETURN length(p), nodes(p), collect(b)
 ```
 
+```
+SIMILAR (a:Doc) ON emb TO [0.1, 0.0, 0.0] LIMIT 5 RETURN a
+EXPLAIN SIMILAR (a:Doc) ON emb TO [0.1, 0.0, 0.0]
+```
+
+Cosine is a scan of the type. Not a walk.
+
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
 A one-hop MATCH whose right node names a value

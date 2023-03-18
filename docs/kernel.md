@@ -70,6 +70,14 @@ not overwrite. Blob first, then the
 record. Compact drops orphans. See
 `docs/write.md`.
 
+## Vec
+
+The embedding is a posting. Cosine is
+a scan of the type. No HNSW. No model.
+Drop `vec/` and the graph still opens.
+See `docs/vec.md`.
+
+
 
 
 

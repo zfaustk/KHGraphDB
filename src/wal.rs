@@ -24,6 +24,8 @@ const TAG_INDEX: u8 = 6;
 const TAG_CONTENT: u8 = 7;
 const TAG_DROP_V: u8 = 8;
 const TAG_DROP_E: u8 = 9;
+const TAG_VECMARK: u8 = 10;
+const TAG_EMB: u8 = 11;
 
 /// One record. A tx is Begin, puts, Commit.
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +80,17 @@ pub enum Rec {
         tx: u64,
         id: Khid,
     },
+    VecMark {
+        tx: u64,
+        type_name: String,
+        key: String,
+    },
+    Emb {
+        tx: u64,
+        id: Khid,
+        key: String,
+        serial: u64,
+    },
 }
 
 impl Rec {
@@ -91,7 +104,9 @@ impl Rec {
             Rec::Index { tx, .. } |
             Rec::Content { tx, .. } |
             Rec::DropVertex { tx, .. } |
-            Rec::DropEdge { tx, .. } => tx,
+            Rec::DropEdge { tx, .. } |
+            Rec::VecMark { tx, .. } |
+            Rec::Emb { tx, .. } => tx,
         }
     }
 }
@@ -339,6 +354,19 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             write_u64(w, tx)?;
             write_khid(w, id)
         }
+        Rec::VecMark { tx, ref type_name, ref key } => {
+            w.write_all(&[TAG_VECMARK])?;
+            write_u64(w, tx)?;
+            write_str(w, type_name)?;
+            write_str(w, key)
+        }
+        Rec::Emb { tx, id, ref key, serial } => {
+            w.write_all(&[TAG_EMB])?;
+            write_u64(w, tx)?;
+            write_khid(w, id)?;
+            write_str(w, key)?;
+            write_u64(w, serial)
+        }
     }
 }
 
@@ -442,6 +470,26 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
             tx: tx,
             id: read_khid(r)?,
         }),
+        TAG_VECMARK => {
+            let type_name = read_str(r)?;
+            let key = read_str(r)?;
+            Ok(Rec::VecMark {
+                tx: tx,
+                type_name: type_name,
+                key: key,
+            })
+        }
+        TAG_EMB => {
+            let id = read_khid(r)?;
+            let key = read_str(r)?;
+            let serial = read_u64(r)?;
+            Ok(Rec::Emb {
+                tx: tx,
+                id: id,
+                key: key,
+                serial: serial,
+            })
+        },
         _ => Err(Error::new(ErrorKind::InvalidData, "rec tag")),
     }
 }
@@ -664,6 +712,10 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
             Rec::DropEdge { id, .. } => {
                 g.remove_edge(id);
             }
+            Rec::VecMark { ref type_name, ref key, .. } => {
+                g.mark_vector(type_name, key);
+            }
+            Rec::Emb { .. } => {}
         }
     }
     g.live();
