@@ -1,3 +1,11 @@
+## 9.0.0 - 2023-05-20
+
+- MARK VECTOR. The B-tree refuses it. Floats live in `vec/`.
+- Serials do not overwrite. `read_at` hydrates the old vector.
+- SIMILAR (a:Doc) ON emb TO [..] LIMIT k. EXPLAIN cost is members.
+- Cosine is a scan. No HNSW. No model. Drop `vec/` and the graph opens.
+- `docs/vec.md`.
+
 ## 8.2.0 - 2022-09-24
 
 - Content leaves the WAL for an immutable blob.
