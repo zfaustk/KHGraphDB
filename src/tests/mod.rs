@@ -28,4 +28,7 @@ mod io;
 mod vec;
 mod wal;
 mod write;
+mod lock;
+mod engine;
+mod iso;
 mod parse;

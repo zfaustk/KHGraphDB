@@ -1,26 +1,30 @@
 # Transaction
 
-A transaction is a prefix. Clone was a
-prototype. It is not MVCC, not a copy-on-write
-page tree, not a lock table.
+A transaction is a prefix. Memory `Tx`
+keeps the inverse of each touch. The
+store forgets a tail. One writer on
+the arena. Readers of the engine hold
+an Arc of the last commit. That is the
+picture we measured in 2022 and dropped
+for a notebook. It is back because ask
+now shares a process with the writer.
 
-Memory `Tx` keeps the inverse of each touch
-and puts the arena back that way. The store
-forgets a tail. One writer. Readers pin a
-`Pos`. Commit is advancing the prefix. Drop
-is discarding it.
+Isolation for those readers is the
+snapshot. Dirty read is not on the Arc.
+A phantom arrives when apply publishes.
+A pin of a Graph does not move.
 
-A notebook is a home. Permission, crash, and
-the body sit there. A second writer waits on
-the lease. It does not take a row lock. If a
-vector posting comes, it is another reader of
-the same prefix. Isolation is the pin, not a
-version chain.
+Locks are 2PL on KHID. Deadlock is a
+cycle. They do not replace the lease.
+The lease is still the fence between
+processes.
 
 ```
-let bm = store.commit()?;
-let old = store.read_at(bm)?;
+let e = Engine::open(dir, "notes", 1)?;
+e.apply(|s| { s.query("CREATE (a:Doc {name:'Ada'})"); Ok(()) })?;
+let r = e.ask("MATCH (a:Doc) RETURN a");
 ```
 
-`.use` is refused while a transaction is open.
-See `docs/store.md`, `docs/six.md`, `docs/next.md`.
+`.use` is refused while a store
+transaction is open. See `docs/lock.md`,
+`docs/six.md`, `docs/store.md`.
