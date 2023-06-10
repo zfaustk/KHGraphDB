@@ -31,4 +31,5 @@ mod write;
 mod lock;
 mod engine;
 mod iso;
+mod replset;
 mod parse;

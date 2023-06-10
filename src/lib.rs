@@ -22,6 +22,7 @@ pub use query::{run as run_query, ask as ask_query, QueryResult, Val, Path};
 pub use tx::Tx;
 pub use engine::Engine;
 pub use lock::{LockMgr, Mode, Acquire, TxId};
+pub use replset::ReplSet;
 
 pub mod error;
 pub mod khid;
@@ -49,6 +50,7 @@ pub mod wire;
 pub mod route;
 pub mod lock;
 pub mod engine;
+pub mod replset;
 
 #[cfg(test)]
 mod tests;
