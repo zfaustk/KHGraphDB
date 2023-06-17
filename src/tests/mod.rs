@@ -32,4 +32,5 @@ mod lock;
 mod engine;
 mod iso;
 mod replset;
+mod snb;
 mod parse;

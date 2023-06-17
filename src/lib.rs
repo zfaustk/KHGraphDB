@@ -51,6 +51,7 @@ pub mod route;
 pub mod lock;
 pub mod engine;
 pub mod replset;
+pub mod snb;
 
 #[cfg(test)]
 mod tests;
