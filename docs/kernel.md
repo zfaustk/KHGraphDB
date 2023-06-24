@@ -77,6 +77,14 @@ a scan of the type. No HNSW. No model.
 Drop `vec/` and the graph still opens.
 See `docs/vec.md`.
 
+## Engine
+
+Readers share an Arc of the last commit.
+One writer holds the store. Locks are
+2PL on KHID. A replica set waits for
+min_ack. The lease is still the fence.
+
+
 
 
 

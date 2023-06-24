@@ -1,3 +1,12 @@
+## 9.1.0 - 2023-06-24
+
+- Domain: `graph/`, `store/`, query lexer.
+- `Engine`: Arc snapshot for concurrent ask. One writer.
+- `LockMgr`: S/X, wait-for, deadlock is a cycle.
+- `ReplSet`: min_ack, lag, failover. Lease is the fence.
+- SNB Interactive IS/IC/IU/BI, `cargo run --example snb`.
+- Isolation tests: dirty read, pin, phantom.
+
 ## 9.0.0 - 2023-05-20
 
 - MARK VECTOR. The B-tree refuses it. Floats live in `vec/`.
