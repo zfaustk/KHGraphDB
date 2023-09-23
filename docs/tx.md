@@ -14,6 +14,11 @@ snapshot. Dirty read is not on the Arc.
 A phantom arrives when apply publishes.
 A pin of a Graph does not move.
 
+A session writes a set. Commit sorts
+KHID, takes X, first committer wins.
+Lost update dies. Write skew lives.
+That is SI, not SSI. See `docs/occ.md`.
+
 Locks are 2PL on KHID. Deadlock is a
 cycle. They do not replace the lease.
 The lease is still the fence between

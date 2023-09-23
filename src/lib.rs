@@ -21,6 +21,7 @@ pub use route::Route;
 pub use query::{run as run_query, ask as ask_query, QueryResult, Val, Path};
 pub use tx::Tx;
 pub use engine::Engine;
+pub use session::Session;
 pub use lock::{LockMgr, Mode, Acquire, TxId};
 pub use replset::ReplSet;
 
@@ -50,6 +51,7 @@ pub mod wire;
 pub mod route;
 pub mod lock;
 pub mod engine;
+pub mod session;
 pub mod replset;
 pub mod snb;
 

@@ -84,6 +84,11 @@ One writer holds the store. Locks are
 2PL on KHID. A replica set waits for
 min_ack. The lease is still the fence.
 
+A session writes a set. First committer
+wins on a KHID. Write skew lives.
+See `docs/occ.md`.
+
+
 
 
 

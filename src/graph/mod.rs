@@ -620,6 +620,46 @@ impl Graph {
         Ok(kid)
     }
 
+    /// Install at a KHID the engine already handed out.
+    pub fn adopt_vertex(&mut self,
+                        id: Khid,
+                        attrs: HashMap<String, Prop>,
+                        type_name: Option<&str>)
+                        -> Result<Khid> {
+        if id.is_nil() {
+            return Err(Error::new("nil"));
+        }
+        self.note_khid(id);
+        let mut v = Vertex::with_props(id, attrs);
+        if let Some(name) = v.get("name") {
+            if !self.vertices_by_name.contains_key(name) {
+                self.vertices_by_name.insert(name.to_string(), id);
+            }
+        }
+        if let Some(tn) = type_name {
+            let tid = self.add_type(tn)?;
+            v.attach_type(tid);
+            if let Some(t) = self.tget_mut(tid) {
+                t.add_vertex(id);
+            }
+            let keys: Vec<(String, Prop)> = v.attrs()
+                .iter()
+                .map(|(k, val)| (k.clone(), val.clone()))
+                .collect();
+            for (k, val) in keys.iter() {
+                self.post_vertex(tn, id, k, val);
+            }
+        }
+        self.vput(id, v);
+        self.rec_undo(Undo::VertexGone(id));
+        self.rec(Touch::Vertex(id));
+        Ok(id)
+    }
+
+    pub fn serial(&self) -> u64 {
+        self.serial
+    }
+
     pub fn add_edge(&mut self,
                     src: Khid,
                     dst: Khid,

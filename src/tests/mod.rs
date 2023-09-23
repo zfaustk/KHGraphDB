@@ -31,6 +31,7 @@ mod write;
 mod lock;
 mod engine;
 mod iso;
+mod session;
 mod replset;
 mod snb;
 mod parse;
