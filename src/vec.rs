@@ -155,6 +155,34 @@ pub fn copy_all(from: &Path, to: &Path) -> io::Result<()> {
     sync_dir(to)
 }
 
+/// Only files the destination does not have.
+pub fn copy_new(from: &Path, to: &Path) -> io::Result<usize> {
+    let src = dir(from);
+    if !src.exists() {
+        return Ok(0);
+    }
+    let dst = dir(to);
+    fs::create_dir_all(&dst)?;
+    let mut n = 0usize;
+    for e in fs::read_dir(&src)? {
+        let e = e?;
+        let name = e.file_name();
+        if name.to_string_lossy().ends_with(".tmp") {
+            continue;
+        }
+        let dest = dst.join(&name);
+        if dest.exists() {
+            continue;
+        }
+        fs::copy(e.path(), dest)?;
+        n += 1;
+    }
+    if n > 0 {
+        sync_dir(to)?;
+    }
+    Ok(n)
+}
+
 pub fn live_from(recs: &[Rec]) -> HashSet<(u64, u64)> {
     let mut s = HashSet::new();
     for rec in recs.iter() {

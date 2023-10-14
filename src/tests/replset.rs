@@ -80,7 +80,7 @@ fn failover_promotes_a_copy() {
         s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
         Ok(())
     }).unwrap();
-    let s = rs.store().unwrap();
+    let s = rs.store();
     assert!(s.graph().vertex_by_name("Bob").is_some());
     assert!(s.graph().vertex_by_name("Ada").is_some());
     let _ = fs::remove_dir_all(&p);

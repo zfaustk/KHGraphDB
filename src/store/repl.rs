@@ -7,6 +7,10 @@ impl Store {
         Ok(s)
     }
 
+    pub fn demote(&mut self) {
+        self.read_only = true;
+    }
+
     /// A copy of the log. Read-only until promote.
     pub fn tail(dir: &Path, from: &Path, name: &str) -> io::Result<Store> {
         fs::create_dir_all(dir)?;
@@ -41,8 +45,8 @@ impl Store {
                 let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
             }
             let _ = super::meta::catch_up(&self.dir, from);
-            let _ = super::blob::copy_all(from, &self.dir);
-            let _ = super::vec::copy_all(from, &self.dir);
+            let _ = super::blob::copy_new(from, &self.dir);
+            let _ = super::vec::copy_new(from, &self.dir);
             return Ok(());
         }
         if src_pos.generation() != dst_pos.generation()
@@ -50,19 +54,21 @@ impl Store {
             let tmp = self.dir.join("log.new");
             fs::copy(&src, &tmp)?;
             fs::rename(&tmp, self.dir.join("log"))?;
+            let _ = super::blob::copy_all(from, &self.dir);
+            let _ = super::vec::copy_all(from, &self.dir);
         } else {
             let mut f = File::open(&src)?;
             f.seek(SeekFrom::Start(dst_pos.offset()))?;
             self.log.seek(SeekFrom::End(0))?;
             io::copy(&mut f, &mut self.log)?;
             self.log.sync_data()?;
+            let _ = super::blob::copy_new(from, &self.dir);
+            let _ = super::vec::copy_new(from, &self.dir);
         }
         if from.join("beat").exists() {
             let _ = fs::copy(from.join("beat"), self.dir.join("beat"));
         }
         let _ = super::meta::catch_up(&self.dir, from);
-        let _ = super::blob::copy_all(from, &self.dir);
-        let _ = super::vec::copy_all(from, &self.dir);
         self.reopen_replica()
     }
 
