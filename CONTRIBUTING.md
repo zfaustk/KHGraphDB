@@ -26,6 +26,7 @@ KHGraphDB 7.1 is Rust 1.31, edition 2018. The C# kernel in csharp/ is frozen.
 - The page is a blob. Blob first, then the record.
 - An embedding is a posting. Cosine is a scan.
 - Engine ask is a snapshot. Locks are 2PL on KHID.
+- Session commit is SI. First committer wins.
 - edition 2021. rustc 1.56.
 - `cargo test` is the gate.
 

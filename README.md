@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By zfaustk.
 
-**9.1.0** (2023). Engine snapshots. 2PL on KHID. ReplSet min_ack. SNB Interactive. edition 2021. Rust 1.56.
+**9.2.0** (2023). OCC SI. First committer wins. Live replset. edition 2021. Rust 1.56.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -87,7 +87,7 @@ $param
 
 See `docs/type.md`, `docs/language.md`, `docs/pipeline.md`,
 `docs/tx.md`, `docs/home.md`, `docs/content.md`, `docs/store.md`,
-`docs/replica.md`, `docs/kernel.md`, `docs/write.md`, `docs/vec.md`, `docs/lock.md`, `docs/replset.md`, and `docs/snb.md`. Type is still not a string. MATCH binds
+`docs/replica.md`, `docs/kernel.md`, `docs/write.md`, `docs/vec.md`, `docs/lock.md`, `docs/occ.md`, `docs/replset.md`, and `docs/snb.md`. Type is still not a string. MATCH binds
 it by KHID. Path is a value. A graph can be named, cloned,
 or cut down to a subgraph. A Catalog holds several graphs;
 the query still takes one. A transaction keeps

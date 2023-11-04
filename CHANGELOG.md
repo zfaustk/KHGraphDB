@@ -1,3 +1,10 @@
+## 9.2.0 - 2023-11-04
+
+- Session writeset. Commit is SI. Lost update aborts. Write skew is allowed.
+- Lock table is on the commit path. Keys sorted. A cycle aborts.
+- ReplSet holds live copies. catch_up copies only new blob/vec files.
+- `docs/occ.md`.
+
 ## 9.1.0 - 2023-06-24
 
 - Domain: `graph/`, `store/`, query lexer.
