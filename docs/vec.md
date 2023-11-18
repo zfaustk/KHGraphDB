@@ -29,3 +29,6 @@ same rule as the body.
 
 People will put a model in the
 database. The model is not ours.
+
+A view, if it comes, is another
+posting. Same rule: not topology.
