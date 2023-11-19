@@ -11,6 +11,19 @@ pub struct Type {
     edges: HashSet<Khid>,
     content: HashSet<String>,
     vector: HashSet<String>,
+    /// Recipe text. Schema, not a member.
+    view: Option<String>,
+    view_hash: u64,
+}
+
+/// FNV-1a. The soup records this, not the string.
+pub fn hash_view(q: &str) -> u64 {
+    let mut h = 0xcbf29ce484222325u64;
+    for b in q.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
 }
 
 impl Type {
@@ -26,6 +39,8 @@ impl Type {
             edges: HashSet::new(),
             content: HashSet::new(),
             vector: HashSet::new(),
+            view: None,
+            view_hash: 0,
         }
     }
 
@@ -99,5 +114,27 @@ impl Type {
 
     pub fn vector_keys(&self) -> &HashSet<String> {
         &self.vector
+    }
+
+    /// The recipe. Changing it does not fill members.
+    pub fn mark_view(&mut self, query: &str) -> bool {
+        if query.is_empty() {
+            return false;
+        }
+        self.view = Some(query.to_string());
+        self.view_hash = hash_view(query);
+        true
+    }
+
+    pub fn view(&self) -> Option<&str> {
+        self.view.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn view_hash(&self) -> u64 {
+        self.view_hash
+    }
+
+    pub fn is_view(&self) -> bool {
+        self.view.is_some()
     }
 }
