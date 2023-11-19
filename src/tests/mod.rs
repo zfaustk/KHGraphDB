@@ -35,3 +35,4 @@ mod session;
 mod replset;
 mod snb;
 mod derived;
+mod view;
