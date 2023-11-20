@@ -22,3 +22,24 @@ fn graph_refuses_a_blank_view() {
     assert!(!g.mark_view("Hit", ""));
     assert!(!g.mark_view("", "MATCH (a) RETURN a"));
 }
+
+#[test]
+fn uncommitted_view_does_not_replay() {
+    let recs = vec![
+        Rec::Begin { tx: 1 },
+        Rec::View {
+            tx: 1,
+            type_name: "Hit".to_string(),
+            query: "MATCH (a) RETURN a".to_string(),
+        },
+        Rec::Begin { tx: 2 },
+        Rec::View {
+            tx: 2,
+            type_name: "Hit".to_string(),
+            query: "MATCH (b) RETURN b".to_string(),
+        },
+        Rec::Commit { tx: 2 },
+    ];
+    let g = wal::replay(1, &recs).unwrap();
+    assert_eq!(g.view_of("Hit"), Some("MATCH (b) RETURN b"));
+}
