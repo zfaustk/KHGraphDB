@@ -13,3 +13,12 @@ fn empty_recipe_is_refused() {
 fn empty_hash_is_the_offset() {
     assert_eq!(hash_view(""), 0xcbf29ce484222325);
 }
+
+use crate::{Graph, wal::{self, Rec}};
+
+#[test]
+fn graph_refuses_a_blank_view() {
+    let mut g = Graph::new();
+    assert!(!g.mark_view("Hit", ""));
+    assert!(!g.mark_view("", "MATCH (a) RETURN a"));
+}
