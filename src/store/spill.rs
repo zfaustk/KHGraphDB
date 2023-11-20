@@ -142,6 +142,13 @@ fn recs_from_touches(tx: u64,
                     key: key.clone(),
                 });
             }
+            Touch::View { ref type_name, ref query } => {
+                recs.push(Rec::View {
+                    tx: tx,
+                    type_name: type_name.clone(),
+                    query: query.clone(),
+                });
+            }
             Touch::Emb { id, ref key } => {
                 if let Some(&serial) = vec_of.get(&(id, key.clone())) {
                     recs.push(Rec::Emb {
@@ -179,6 +186,13 @@ fn capture(tx: u64,
                     tx: tx,
                     type_name: name.clone(),
                     key: k.clone(),
+                });
+            }
+            if let Some(q) = t.view() {
+                recs.push(Rec::View {
+                    tx: tx,
+                    type_name: name.clone(),
+                    query: q.to_string(),
                 });
             }
         }

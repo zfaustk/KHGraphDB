@@ -26,6 +26,7 @@ const TAG_DROP_V: u8 = 8;
 const TAG_DROP_E: u8 = 9;
 const TAG_VECMARK: u8 = 10;
 const TAG_EMB: u8 = 11;
+const TAG_VIEW: u8 = 12;
 
 /// One record. A tx is Begin, puts, Commit.
 #[derive(Clone, Debug, PartialEq)]
@@ -91,6 +92,11 @@ pub enum Rec {
         key: String,
         serial: u64,
     },
+    View {
+        tx: u64,
+        type_name: String,
+        query: String,
+    },
 }
 
 impl Rec {
@@ -106,7 +112,8 @@ impl Rec {
             Rec::DropVertex { tx, .. } |
             Rec::DropEdge { tx, .. } |
             Rec::VecMark { tx, .. } |
-            Rec::Emb { tx, .. } => tx,
+            Rec::Emb { tx, .. } |
+            Rec::View { tx, .. } => tx,
         }
     }
 }
@@ -367,6 +374,12 @@ fn write_rec<W: Write>(w: &mut W, rec: &Rec) -> Result<()> {
             write_str(w, key)?;
             write_u64(w, serial)
         }
+        Rec::View { tx, ref type_name, ref query } => {
+            w.write_all(&[TAG_VIEW])?;
+            write_u64(w, tx)?;
+            write_str(w, type_name)?;
+            write_str(w, query)
+        }
     }
 }
 
@@ -489,7 +502,16 @@ fn read_rec<R: Read>(r: &mut R) -> Result<Rec> {
                 key: key,
                 serial: serial,
             })
-        },
+        }
+        TAG_VIEW => {
+            let type_name = read_str(r)?;
+            let query = read_str(r)?;
+            Ok(Rec::View {
+                tx: tx,
+                type_name: type_name,
+                query: query,
+            })
+        }
         _ => Err(Error::new(ErrorKind::InvalidData, "rec tag")),
     }
 }
@@ -714,6 +736,9 @@ pub fn replay(shard: u32, recs: &[Rec]) -> super::error::Result<Graph> {
             }
             Rec::VecMark { ref type_name, ref key, .. } => {
                 g.mark_vector(type_name, key);
+            }
+            Rec::View { ref type_name, ref query, .. } => {
+                g.mark_view(type_name, query);
             }
             Rec::Emb { .. } => {}
         }

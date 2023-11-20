@@ -20,6 +20,7 @@ pub enum Touch {
     Index { type_name: String, key: String, unique: bool },
     Content { type_name: String, key: String },
     VecMark { type_name: String, key: String },
+    View { type_name: String, query: String },
     Emb { id: Khid, key: String },
 }
 
@@ -891,3 +892,4 @@ impl Graph {
 }
 
 include!("posting.rs");
+include!("derived.rs");

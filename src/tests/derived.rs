@@ -1,7 +1,7 @@
 //! A view is a recipe on Type. Members come later.
 
 use crate::ty::{Type, hash_view};
-use crate::Khid;
+use crate::{Graph, Khid};
 
 #[test]
 fn hash_is_stable() {
@@ -19,4 +19,14 @@ fn recipe_lives_on_the_type() {
     assert_eq!(t.view_hash(), hash_view("MATCH (a:Doc) RETURN a"));
     assert!(t.mark_view("MATCH (a:Doc) RETURN a.title"));
     assert!(t.view_hash() != hash_view("MATCH (a:Doc) RETURN a"));
+}
+
+#[test]
+fn graph_marks_the_recipe() {
+    let mut g = Graph::new();
+    assert!(g.mark_view("Hit", "MATCH (a:Doc) RETURN a"));
+    assert!(g.is_view("Hit"));
+    assert_eq!(g.view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+    assert_eq!(g.view_hash_of("Hit"), Some(hash_view("MATCH (a:Doc) RETURN a")));
+    assert!(g.type_by_name("Hit").is_some());
 }

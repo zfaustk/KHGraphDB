@@ -155,7 +155,7 @@ fn keys_of(g: &Graph) -> HashSet<Khid> {
             Touch::Emb { id, .. } => {
                 s.insert(id);
             }
-            Touch::Index { .. } | Touch::Content { .. } | Touch::VecMark { .. } => {}
+            Touch::Index { .. } | Touch::Content { .. } | Touch::VecMark { .. } | Touch::View { .. } => {}
         }
     }
     s
