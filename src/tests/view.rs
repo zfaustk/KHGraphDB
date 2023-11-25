@@ -43,3 +43,29 @@ fn uncommitted_view_does_not_replay() {
     let g = wal::replay(1, &recs).unwrap();
     assert_eq!(g.view_of("Hit"), Some("MATCH (b) RETURN b"));
 }
+
+use std::io::Cursor;
+
+#[test]
+fn last_view_wins() {
+    let recs = vec![
+        Rec::Begin { tx: 1 },
+        Rec::View {
+            tx: 1,
+            type_name: "Hit".to_string(),
+            query: "MATCH (a) RETURN a".to_string(),
+        },
+        Rec::Commit { tx: 1 },
+        Rec::Begin { tx: 2 },
+        Rec::View {
+            tx: 2,
+            type_name: "Hit".to_string(),
+            query: "MATCH (b) RETURN b".to_string(),
+        },
+        Rec::Commit { tx: 2 },
+    ];
+    let mut buf = Vec::new();
+    wal::write(1, &recs, &mut buf).unwrap();
+    let g = wal::recover(&mut Cursor::new(buf)).unwrap();
+    assert_eq!(g.view_of("Hit"), Some("MATCH (b) RETURN b"));
+}
