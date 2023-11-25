@@ -163,6 +163,25 @@ fn far_edge_replays() {
 }
 
 #[test]
+fn view_roundtrip() {
+    let recs = vec![
+        Rec::Begin { tx: 1 },
+        Rec::View {
+            tx: 1,
+            type_name: "Hit".to_string(),
+            query: "MATCH (a:Doc) RETURN a".to_string(),
+        },
+        Rec::Commit { tx: 1 },
+    ];
+    let mut buf = Vec::new();
+    wal::write(1, &recs, &mut buf).unwrap();
+    let (_, got) = wal::read(&mut Cursor::new(&buf)).unwrap();
+    assert_eq!(got, recs);
+    let g = wal::recover(&mut Cursor::new(buf)).unwrap();
+    assert_eq!(g.view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+}
+
+#[test]
 fn bad_magic() {
     let err = wal::read(&mut Cursor::new(b"KHG4xxxx")).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
