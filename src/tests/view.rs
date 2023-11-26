@@ -101,3 +101,18 @@ fn replica_has_the_recipe() {
     let _ = std::fs::remove_dir_all(&prim);
     let _ = std::fs::remove_dir_all(&copy);
 }
+
+#[test]
+fn compact_twice_keeps_the_recipe() {
+    let dir = tmp("twice");
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        s.commit().unwrap();
+        s.compact().unwrap();
+        s.compact().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert_eq!(s.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
