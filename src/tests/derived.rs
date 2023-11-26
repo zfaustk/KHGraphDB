@@ -30,3 +30,25 @@ fn graph_marks_the_recipe() {
     assert_eq!(g.view_hash_of("Hit"), Some(hash_view("MATCH (a:Doc) RETURN a")));
     assert!(g.type_by_name("Hit").is_some());
 }
+
+#[test]
+fn recipe_survives_reopen_and_compact() {
+    use std::fs;
+    use crate::Store;
+    let dir = std::env::temp_dir().join(format!("kh-view-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        assert!(s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a"));
+        s.commit().unwrap();
+    }
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        assert_eq!(s.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+        s.compact().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert_eq!(s.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+    let _ = fs::remove_dir_all(&dir);
+}
+
