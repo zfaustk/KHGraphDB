@@ -78,3 +78,26 @@ fn two_types_keep_two_recipes() {
     assert_eq!(g.view_of("Hit"), Some("MATCH (a) RETURN a"));
     assert_eq!(g.view_of("Note"), Some("MATCH (b) RETURN b"));
 }
+
+use crate::Store;
+
+fn tmp(name: &str) -> std::path::PathBuf {
+    let p = std::env::temp_dir().join(format!("kh-view-{}-{}", std::process::id(), name));
+    let _ = std::fs::remove_dir_all(&p);
+    p
+}
+
+#[test]
+fn replica_has_the_recipe() {
+    let prim = tmp("p-view");
+    let copy = tmp("r-view");
+    {
+        let mut s = Store::open(&prim, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        s.commit().unwrap();
+    }
+    let r = Store::tail(&copy, &prim, "notes").unwrap();
+    assert_eq!(r.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+    let _ = std::fs::remove_dir_all(&prim);
+    let _ = std::fs::remove_dir_all(&copy);
+}
