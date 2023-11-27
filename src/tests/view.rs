@@ -127,3 +127,10 @@ fn mark_view_needs_as_and_a_string() {
     assert!(!run_query(&mut g, "MARK CONTENT Hit AS 'x'").ok);
     assert!(run_query(&mut g, "MARK VIEW Hit AS 'MATCH (a) RETURN a'").ok);
 }
+
+#[test]
+fn ask_mark_is_a_write() {
+    let g = Graph::new();
+    let a = ask_query(&g, "MARK VIEW Hit AS 'MATCH (a) RETURN a'");
+    assert!(!a.ok);
+}
