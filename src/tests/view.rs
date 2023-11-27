@@ -116,3 +116,14 @@ fn compact_twice_keeps_the_recipe() {
     assert_eq!(s.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+use crate::{ask_query, run_query};
+
+#[test]
+fn mark_view_needs_as_and_a_string() {
+    let mut g = Graph::new();
+    assert!(!run_query(&mut g, "MARK VIEW Hit").ok);
+    assert!(!run_query(&mut g, "MARK VIEW Hit AS").ok);
+    assert!(!run_query(&mut g, "MARK CONTENT Hit AS 'x'").ok);
+    assert!(run_query(&mut g, "MARK VIEW Hit AS 'MATCH (a) RETURN a'").ok);
+}
