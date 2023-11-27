@@ -52,3 +52,15 @@ fn recipe_survives_reopen_and_compact() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn mark_view_is_a_write() {
+    use crate::{ask_query, run_query};
+    let mut g = Graph::new();
+    let r = run_query(&mut g, "MARK VIEW Hit AS 'MATCH (a:Doc) RETURN a'");
+    assert!(r.ok);
+    assert_eq!(g.view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+    let a = ask_query(&g, "MARK VIEW Hit AS 'MATCH (a:Doc) RETURN a'");
+    assert!(!a.ok);
+}
+
+

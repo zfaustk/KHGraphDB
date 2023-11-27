@@ -287,7 +287,7 @@ impl Parser {
             if self.toks[i].kind == TokenKind::Ident {
                 let s = self.toks[i].text.to_lowercase();
                 if s == "create" || s == "merge" || s == "set"
-                    || s == "delete" || s == "remove" || s == "detach" {
+                    || s == "delete" || s == "remove" || s == "detach" || s == "mark" {
                     return true;
                 }
             }
@@ -583,7 +583,38 @@ impl Parser {
         Ok(v)
     }
 
+    fn exec_mark_view(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        self.next();
+        if !self.ident_is("VIEW") {
+            return Err(self.err_here("expected VIEW"));
+        }
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("MARK VIEW expected type"));
+        }
+        let tn = self.text();
+        self.next();
+        if !self.ident_is("AS") {
+            return Err(self.err_here("expected AS"));
+        }
+        self.next();
+        if self.kind() != TokenKind::String {
+            return Err(self.err_here("expected query string"));
+        }
+        let q = self.text();
+        self.next();
+        if !g.mark_view(&tn, &q) {
+            return Err(self.err_here("MARK VIEW"));
+        }
+        let mut r = QueryResult::ok_msg("VIEW");
+        r.message = tn;
+        Ok(r)
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        if self.ident_is("MARK") {
+            return self.exec_mark_view(g);
+        }
         if !self.has_write() {
             return self.exec_read(g);
         }
