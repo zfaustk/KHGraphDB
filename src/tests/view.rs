@@ -145,3 +145,15 @@ fn missing_hit_cannot_cite() {
     let src = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
     assert!(g.derive_from(Khid::from_raw(99), Addr::here(src)).is_err());
 }
+
+#[test]
+fn two_sources_are_two_cites() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let a = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let b = g.add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(a)).unwrap();
+    let _ = g.derive_from(hit, Addr::here(b)).unwrap();
+    assert_eq!(g.derived(hit).len(), 2);
+}
