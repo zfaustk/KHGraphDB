@@ -134,3 +134,14 @@ fn ask_mark_is_a_write() {
     let a = ask_query(&g, "MARK VIEW Hit AS 'MATCH (a) RETURN a'");
     assert!(!a.ok);
 }
+
+use crate::Addr;
+use super::common::attrs;
+
+#[test]
+fn missing_hit_cannot_cite() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    assert!(g.derive_from(Khid::from_raw(99), Addr::here(src)).is_err());
+}
