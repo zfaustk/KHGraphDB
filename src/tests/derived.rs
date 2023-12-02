@@ -63,4 +63,32 @@ fn mark_view_is_a_write() {
     assert!(!a.ok);
 }
 
+#[test]
+fn cite_is_an_address() {
+    use crate::Addr;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    let cited = g.derived(hit);
+    assert_eq!(cited.len(), 1);
+    assert_eq!(cited[0].khid(), src);
+    assert_eq!(g.vertex(src).unwrap().get("name"), Some("Ada"));
+    assert!(g.vertex(hit).unwrap().get("name") != Some("Ada"));
+}
+
+#[test]
+fn cite_a_far_addr_does_not_copy() {
+    use crate::Addr;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let far = Addr::new(2, Khid::from_raw(9));
+    let _ = g.derive_from(hit, far).unwrap();
+    assert_eq!(g.derived(hit), vec![far]);
+    assert!(g.vertex(Khid::from_raw(9)).is_none());
+}
+
+
 

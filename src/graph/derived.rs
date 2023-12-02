@@ -35,4 +35,36 @@ impl Graph {
     pub fn is_view(&self, type_name: &str) -> bool {
         self.type_by_name(type_name).map(|t| t.is_view()).unwrap_or(false)
     }
+
+    /// Point a hit at a source. Does not copy the page.
+    pub fn derive_from(&mut self, hit: Khid, src: Addr) -> Result<Khid> {
+        self.add_far_edge(hit, src, Some("DERIVED_FROM"))
+    }
+
+    /// Addresses this hit points at.
+    pub fn derived(&self, hit: Khid) -> Vec<Addr> {
+        let mut out = Vec::new();
+        let v = match self.vertex(hit) {
+            Some(v) => v,
+            None => return out,
+        };
+        for eid in v.outgoing().iter() {
+            let e = match self.edge(*eid) {
+                Some(e) => e,
+                None => continue,
+            };
+            match self.edge_type_name(*eid) {
+                Some(ref n) if n == "DERIVED_FROM" => {}
+                _ => continue,
+            }
+            if e.is_far() {
+                if let Some(a) = e.far() {
+                    out.push(a);
+                }
+            } else {
+                out.push(self.addr(e.target()));
+            }
+        }
+        out
+    }
 }
