@@ -168,3 +168,14 @@ fn far_and_local_together() {
     let _ = g.derive_from(hit, Addr::new(2, Khid::from_raw(9))).unwrap();
     assert_eq!(g.derived(hit).len(), 2);
 }
+
+#[test]
+fn stamp_is_lowercase_hex() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    let s = g.vertex(hit).unwrap().get("view").unwrap();
+    assert!(s.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+}
