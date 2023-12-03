@@ -37,8 +37,27 @@ impl Graph {
     }
 
     /// Point a hit at a source. Does not copy the page.
+    /// Stamps the recipe hash on the hit.
     pub fn derive_from(&mut self, hit: Khid, src: Addr) -> Result<Khid> {
+        if let Some(h) = self.hash_for_hit(hit) {
+            let _ = self.set_attr(hit, "view", &format!("{:x}", h));
+        }
         self.add_far_edge(hit, src, Some("DERIVED_FROM"))
+    }
+
+    fn hash_for_hit(&self, hit: Khid) -> Option<u64> {
+        let v = match self.vertex(hit) {
+            Some(v) => v,
+            None => return None,
+        };
+        for tid in v.types() {
+            if let Some(t) = self.ty(*tid) {
+                if t.is_view() {
+                    return Some(t.view_hash());
+                }
+            }
+        }
+        None
     }
 
     /// Addresses this hit points at.

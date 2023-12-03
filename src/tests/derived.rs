@@ -90,5 +90,19 @@ fn cite_a_far_addr_does_not_copy() {
     assert!(g.vertex(Khid::from_raw(9)).is_none());
 }
 
+#[test]
+fn hit_stamps_the_recipe_hash() {
+    use crate::Addr;
+    use crate::ty::hash_view;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    let want = format!("{:x}", hash_view("MATCH (a:Doc) RETURN a"));
+    assert_eq!(g.vertex(hit).unwrap().get("view"), Some(want.as_str()));
+}
+
+
 
 
