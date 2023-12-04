@@ -205,3 +205,16 @@ fn remaining_cite_stands() {
     assert_eq!(g.drop_stale_derived(), 1);
     assert!(g.vertex(hit).is_none());
 }
+
+#[test]
+fn far_cite_outlives_a_local_delete() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let a = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(a)).unwrap();
+    let _ = g.derive_from(hit, Addr::new(2, Khid::from_raw(9))).unwrap();
+    g.remove_vertex(a);
+    assert_eq!(g.drop_stale_derived(), 0);
+    assert_eq!(g.derived(hit).len(), 1);
+}
