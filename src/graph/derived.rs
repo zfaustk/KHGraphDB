@@ -86,4 +86,54 @@ impl Graph {
         }
         out
     }
+
+    /// Drop hits whose here-source is gone, or that
+    /// never cited. Far sources are not ours to judge.
+    pub fn drop_stale_derived(&mut self) -> usize {
+        let mut drop_v = Vec::new();
+        let views = self.view_type_ids();
+        for tid in views {
+            let members: Vec<Khid> = match self.ty(tid) {
+                Some(t) => t.vertices().iter().cloned().collect(),
+                None => continue,
+            };
+            for vid in members {
+                if self.source_gone(vid) {
+                    drop_v.push(vid);
+                }
+            }
+        }
+        drop_v.sort();
+        drop_v.dedup();
+        let n = drop_v.len();
+        for id in drop_v {
+            self.remove_vertex(id);
+        }
+        n
+    }
+
+    fn view_type_ids(&self) -> Vec<Khid> {
+        let mut v = Vec::new();
+        for &(tid, _) in self.all_types().iter() {
+            if let Some(t) = self.ty(tid) {
+                if t.is_view() {
+                    v.push(tid);
+                }
+            }
+        }
+        v
+    }
+
+    fn source_gone(&self, hit: Khid) -> bool {
+        let srcs = self.derived(hit);
+        if srcs.is_empty() {
+            return true;
+        }
+        for a in srcs {
+            if a.on(self.shard) && !self.vhas(a.khid()) {
+                return true;
+            }
+        }
+        false
+    }
 }

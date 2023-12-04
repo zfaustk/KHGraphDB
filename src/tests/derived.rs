@@ -103,6 +103,31 @@ fn hit_stamps_the_recipe_hash() {
     assert_eq!(g.vertex(hit).unwrap().get("view"), Some(want.as_str()));
 }
 
+#[test]
+fn drop_hit_when_source_is_gone() {
+    use crate::Addr;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    g.remove_vertex(src);
+    assert_eq!(g.drop_stale_derived(), 1);
+    assert!(g.vertex(hit).is_none());
+}
+
+#[test]
+fn far_source_is_not_ours() {
+    use crate::Addr;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::new(2, Khid::from_raw(9))).unwrap();
+    assert_eq!(g.drop_stale_derived(), 0);
+    assert!(g.vertex(hit).is_some());
+}
+
+
 
 
 
