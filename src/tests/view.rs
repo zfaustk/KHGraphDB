@@ -179,3 +179,12 @@ fn stamp_is_lowercase_hex() {
     let s = g.vertex(hit).unwrap().get("view").unwrap();
     assert!(s.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
 }
+
+#[test]
+fn unstamped_member_is_stale() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    assert_eq!(g.drop_stale_derived(), 1);
+    assert!(g.vertex(hit).is_none());
+}
