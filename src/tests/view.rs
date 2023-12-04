@@ -188,3 +188,20 @@ fn unstamped_member_is_stale() {
     assert_eq!(g.drop_stale_derived(), 1);
     assert!(g.vertex(hit).is_none());
 }
+
+#[test]
+fn remaining_cite_stands() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let a = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let b = g.add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(a)).unwrap();
+    let _ = g.derive_from(hit, Addr::here(b)).unwrap();
+    g.remove_vertex(a);
+    assert_eq!(g.drop_stale_derived(), 0);
+    assert_eq!(g.derived(hit).len(), 1);
+    g.remove_vertex(b);
+    assert_eq!(g.drop_stale_derived(), 1);
+    assert!(g.vertex(hit).is_none());
+}
