@@ -230,3 +230,14 @@ fn same_recipe_again_keeps_the_hit() {
     assert_eq!(g.drop_stale_derived(), 0);
     assert!(g.vertex(hit).is_some());
 }
+
+#[test]
+fn whitespace_is_a_new_recipe() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a ");
+    assert_eq!(g.drop_stale_derived(), 1);
+}
