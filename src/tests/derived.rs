@@ -127,6 +127,21 @@ fn far_source_is_not_ours() {
     assert!(g.vertex(hit).is_some());
 }
 
+#[test]
+fn drop_hit_when_recipe_changes() {
+    use crate::Addr;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a.title");
+    assert_eq!(g.drop_stale_derived(), 1);
+    assert!(g.vertex(hit).is_none());
+    assert!(g.vertex(src).is_some());
+}
+
+
 
 
 

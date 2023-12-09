@@ -87,8 +87,9 @@ impl Graph {
         out
     }
 
-    /// Drop hits whose here-source is gone, or that
-    /// never cited. Far sources are not ours to judge.
+    /// Drop hits whose here-source is gone, or whose
+    /// stamped hash is not the Type's recipe. Far
+    /// sources are not ours to judge.
     pub fn drop_stale_derived(&mut self) -> usize {
         let mut drop_v = Vec::new();
         let views = self.view_type_ids();
@@ -98,7 +99,7 @@ impl Graph {
                 None => continue,
             };
             for vid in members {
-                if self.source_gone(vid) {
+                if self.source_gone(vid) || self.recipe_mismatch(vid) {
                     drop_v.push(vid);
                 }
             }
@@ -135,5 +136,16 @@ impl Graph {
             }
         }
         false
+    }
+
+    fn recipe_mismatch(&self, hit: Khid) -> bool {
+        let want = match self.hash_for_hit(hit) {
+            Some(h) => format!("{:x}", h),
+            None => return true,
+        };
+        match self.vertex(hit).and_then(|v| v.get("view")) {
+            Some(s) if s == want => false,
+            _ => true,
+        }
     }
 }
