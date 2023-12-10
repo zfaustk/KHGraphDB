@@ -257,3 +257,22 @@ fn replica_after_compact_still_has_the_recipe() {
     let _ = std::fs::remove_dir_all(&prim);
     let _ = std::fs::remove_dir_all(&copy);
 }
+
+#[test]
+fn compact_does_not_drop_a_live_hit() {
+    use crate::Addr;
+    let dir = tmp("livehit");
+    let hit;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        let src = s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        hit = s.graph_mut().unwrap().add_vertex(attrs("h1"), Some("Hit")).unwrap();
+        s.graph_mut().unwrap().derive_from(hit, Addr::here(src)).unwrap();
+        s.commit().unwrap();
+        s.compact().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().vertex(hit).is_some());
+    let _ = std::fs::remove_dir_all(&dir);
+}
