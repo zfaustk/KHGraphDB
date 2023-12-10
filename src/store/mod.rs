@@ -426,6 +426,7 @@ impl Store {
             return Err(io::Error::new(io::ErrorKind::Other, "in a transaction"));
         }
         let shard = self.g.shard();
+        self.g.drop_stale_derived();
         self.generation += 1;
         let tx = self.next_tx;
         self.next_tx += 1;

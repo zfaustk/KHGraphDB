@@ -141,6 +141,31 @@ fn drop_hit_when_recipe_changes() {
     assert!(g.vertex(src).is_some());
 }
 
+#[test]
+fn compact_drops_a_stale_hit() {
+    use std::fs;
+    use crate::{Addr, Store};
+    let dir = std::env::temp_dir().join(format!("kh-stale-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    let src;
+    let hit;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        src = s.graph_mut().unwrap().add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+        hit = s.graph_mut().unwrap().add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+        s.graph_mut().unwrap().derive_from(hit, Addr::here(src)).unwrap();
+        s.commit().unwrap();
+        s.graph_mut().unwrap().remove_vertex(src);
+        s.commit().unwrap();
+        s.compact().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().vertex(hit).is_none());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+
 
 
 
