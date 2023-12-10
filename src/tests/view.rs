@@ -241,3 +241,19 @@ fn whitespace_is_a_new_recipe() {
     g.mark_view("Hit", "MATCH (a:Doc) RETURN a ");
     assert_eq!(g.drop_stale_derived(), 1);
 }
+
+#[test]
+fn replica_after_compact_still_has_the_recipe() {
+    let prim = tmp("p-cc");
+    let copy = tmp("r-cc");
+    {
+        let mut s = Store::open(&prim, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        s.commit().unwrap();
+        s.compact().unwrap();
+    }
+    let r = Store::tail(&copy, &prim, "notes").unwrap();
+    assert_eq!(r.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a"));
+    let _ = std::fs::remove_dir_all(&prim);
+    let _ = std::fs::remove_dir_all(&copy);
+}
