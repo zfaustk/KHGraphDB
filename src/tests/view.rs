@@ -276,3 +276,16 @@ fn compact_does_not_drop_a_live_hit() {
     assert!(s.graph().vertex(hit).is_some());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn recipe_change_keeps_the_source() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a.title");
+    let _ = g.drop_stale_derived();
+    assert!(g.vertex(src).is_some());
+    assert!(g.vertex(hit).is_none());
+}
