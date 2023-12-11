@@ -165,6 +165,31 @@ fn compact_drops_a_stale_hit() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn compact_drops_after_a_new_recipe() {
+    use std::fs;
+    use crate::{Addr, Store};
+    let dir = std::env::temp_dir().join(format!("kh-recipe-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    let hit;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        let src = s.graph_mut().unwrap().add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+        hit = s.graph_mut().unwrap().add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+        s.graph_mut().unwrap().derive_from(hit, Addr::here(src)).unwrap();
+        s.commit().unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a.title");
+        s.commit().unwrap();
+        s.compact().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert!(s.graph().vertex(hit).is_none());
+    assert_eq!(s.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a.title"));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+
 
 
 
