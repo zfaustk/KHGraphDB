@@ -289,3 +289,17 @@ fn recipe_change_keeps_the_source() {
     assert!(g.vertex(src).is_some());
     assert!(g.vertex(hit).is_none());
 }
+
+#[test]
+fn replica_cannot_mark_view() {
+    let prim = tmp("p-ro");
+    let copy = tmp("r-ro");
+    {
+        let mut s = Store::open(&prim, "notes", 1).unwrap();
+        s.commit().unwrap();
+    }
+    let mut r = Store::tail(&copy, &prim, "notes").unwrap();
+    assert!(r.graph_mut().is_err());
+    let _ = std::fs::remove_dir_all(&prim);
+    let _ = std::fs::remove_dir_all(&copy);
+}
