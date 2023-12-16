@@ -123,6 +123,7 @@ impl Type {
         }
         self.view = Some(query.to_string());
         self.view_hash = hash_view(query);
+        self.content.insert("reason".to_string());
         true
     }
 

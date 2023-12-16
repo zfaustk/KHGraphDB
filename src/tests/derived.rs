@@ -189,6 +189,21 @@ fn compact_drops_after_a_new_recipe() {
     let _ = fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn reason_is_content() {
+    let mut t = Type::new(Khid::from_raw(1), "Hit".to_string());
+    t.mark_view("MATCH (a) RETURN a");
+    assert!(t.is_content("reason"));
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    assert!(!g.create_index("Hit", "reason"));
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    g.set_attr(hit, "reason", "because").unwrap();
+    assert_eq!(g.vertex(hit).unwrap().get("reason"), Some("because"));
+    assert!(!g.has_index("Hit", "reason"));
+}
+
+
 
 
 
