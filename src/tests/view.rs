@@ -315,3 +315,20 @@ fn reason_may_be_set() {
     let r = run_query(&mut g, "MATCH (h:Hit {name:'h1'}) SET h.reason = 'walked'");
     assert!(r.ok);
 }
+
+#[test]
+fn reason_survives_reopen() {
+    let dir = tmp("reason");
+    let hit;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        hit = s.graph_mut().unwrap().add_vertex(attrs("h1"), Some("Hit")).unwrap();
+        s.graph_mut().unwrap().set_attr(hit, "reason", "because").unwrap();
+        s.commit().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert_eq!(s.graph().vertex(hit).unwrap().get("reason"), Some("because"));
+    assert!(s.graph().type_by_name("Hit").unwrap().is_content("reason"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
