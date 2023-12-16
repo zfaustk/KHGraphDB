@@ -303,3 +303,15 @@ fn replica_cannot_mark_view() {
     let _ = std::fs::remove_dir_all(&prim);
     let _ = std::fs::remove_dir_all(&copy);
 }
+
+use crate::Prop;
+
+#[test]
+fn reason_may_be_set() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    assert!(g.set_prop(hit, "reason", Prop::from_str("because")).is_ok());
+    let r = run_query(&mut g, "MATCH (h:Hit {name:'h1'}) SET h.reason = 'walked'");
+    assert!(r.ok);
+}
