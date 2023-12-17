@@ -332,3 +332,15 @@ fn reason_survives_reopen() {
     assert!(s.graph().type_by_name("Hit").unwrap().is_content("reason"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn same_addr_is_one_edge() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let a = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let e1 = g.derive_from(hit, Addr::here(a)).unwrap();
+    let e2 = g.derive_from(hit, Addr::here(a)).unwrap();
+    assert_eq!(e1, e2);
+    assert_eq!(g.derived(hit).len(), 1);
+}
