@@ -38,7 +38,14 @@ impl Graph {
 
     /// Point a hit at a source. Does not copy the page.
     /// Stamps the recipe hash on the hit.
+    /// The same Addr twice is one edge.
     pub fn derive_from(&mut self, hit: Khid, src: Addr) -> Result<Khid> {
+        if !self.vhas(hit) {
+            return Err(Error::new("missing vertex"));
+        }
+        if let Some(eid) = self.derived_edge(hit, src) {
+            return Ok(eid);
+        }
         if let Some(h) = self.hash_for_hit(hit) {
             let hex = format!("{:x}", h);
             self.push_vertex_was(hit);
@@ -48,6 +55,40 @@ impl Graph {
             self.rec(Touch::Vertex(hit));
         }
         self.add_far_edge(hit, src, Some("DERIVED_FROM"))
+    }
+
+    fn derived_edge(&self, hit: Khid, src: Addr) -> Option<Khid> {
+        let v = match self.vertex(hit) {
+            Some(v) => v,
+            None => return None,
+        };
+        for eid in v.outgoing().iter() {
+            let e = match self.edge(*eid) {
+                Some(e) => e,
+                None => continue,
+            };
+            match self.edge_type_name(*eid) {
+                Some(ref n) if n == "DERIVED_FROM" => {}
+                _ => continue,
+            }
+            let a = if e.is_far() {
+                match e.far() {
+                    Some(a) => a,
+                    None => continue,
+                }
+            } else {
+                self.addr(e.target())
+            };
+            let want = if src.on(self.shard) {
+                self.addr(src.khid())
+            } else {
+                src
+            };
+            if a == want {
+                return Some(*eid);
+            }
+        }
+        None
     }
 
     fn hash_for_hit(&self, hit: Khid) -> Option<u64> {
