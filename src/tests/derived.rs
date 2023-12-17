@@ -203,6 +203,23 @@ fn reason_is_content() {
     assert!(!g.has_index("Hit", "reason"));
 }
 
+#[test]
+fn the_stamp_is_not_a_set() {
+    use crate::Addr;
+    use crate::Prop;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    assert!(g.type_by_name("Hit").unwrap().is_content("view"));
+    assert!(!g.create_index("Hit", "view"));
+    let src = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    assert!(g.set_prop(hit, "view", Prop::from_str("deadbeef")).is_err());
+    let want = format!("{:x}", crate::ty::hash_view("MATCH (a:Doc) RETURN a"));
+    assert_eq!(g.vertex(hit).unwrap().get("view"), Some(want.as_str()));
+}
+
+
 
 
 

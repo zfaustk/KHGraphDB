@@ -40,7 +40,12 @@ impl Graph {
     /// Stamps the recipe hash on the hit.
     pub fn derive_from(&mut self, hit: Khid, src: Addr) -> Result<Khid> {
         if let Some(h) = self.hash_for_hit(hit) {
-            let _ = self.set_attr(hit, "view", &format!("{:x}", h));
+            let hex = format!("{:x}", h);
+            self.push_vertex_was(hit);
+            if let Some(v) = self.at_mut(hit) {
+                v.set_attr("view", &hex);
+            }
+            self.rec(Touch::Vertex(hit));
         }
         self.add_far_edge(hit, src, Some("DERIVED_FROM"))
     }

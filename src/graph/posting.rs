@@ -358,6 +358,13 @@ impl Graph {
             Some(v) => v.types().iter().cloned().collect(),
             None => return Err(Error::new("missing vertex")),
         };
+        if key == "view" {
+            for tid in types.iter() {
+                if self.tget(*tid).map(|t| t.is_view()).unwrap_or(false) {
+                    return Err(Error::new("view is the stamp"));
+                }
+            }
+        }
         let old_prop = self.at(vk).and_then(|v| v.get_prop(key)).cloned();
         let old_name = self.at(vk).and_then(|v| v.get("name")).unwrap_or("").to_string();
         for tid in types.iter() {
