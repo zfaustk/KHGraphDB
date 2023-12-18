@@ -21,5 +21,8 @@ returns the serial. The print form is Display.
 Type may mark a property as content. The index
 refuses that key. The page stays on the vertex.
 
+Type may mark a view. The query text is schema.
+Members are soup. Compact drops a changed recipe.
+
 This is the DNA. Do not flatten Type into a string to
 look more like Cypher.
