@@ -344,3 +344,16 @@ fn same_addr_is_one_edge() {
     assert_eq!(e1, e2);
     assert_eq!(g.derived(hit).len(), 1);
 }
+
+#[test]
+fn cypher_cannot_forge_the_stamp() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let src = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let hit = g.add_vertex(attrs("h1"), Some("Hit")).unwrap();
+    let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    let r = run_query(&mut g, "MATCH (h:Hit {name:'h1'}) SET h.view = 'deadbeef'");
+    assert!(!r.ok);
+    let want = format!("{:x}", hash_view("MATCH (a:Doc) RETURN a"));
+    assert_eq!(g.vertex(hit).unwrap().get("view"), Some(want.as_str()));
+}
