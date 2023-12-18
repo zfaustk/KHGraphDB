@@ -28,3 +28,7 @@ members. Do not start a second
 engine for a view.
 
 The soup is not this file.
+KEEP is not this year. Fold is not
+this year. The contract is the recipe,
+the cite, and compact.
+

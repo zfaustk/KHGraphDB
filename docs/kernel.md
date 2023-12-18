@@ -88,6 +88,15 @@ A session writes a set. First committer
 wins on a KHID. Write skew lives.
 See `docs/occ.md`.
 
+## Derived
+
+The recipe lives on the Type. Members
+are a posting. A hit cites an Addr.
+Compact drops orphans and a changed
+recipe. reason is content. The stamp
+is not a SET. See `docs/derived.md`.
+
+
 
 
 

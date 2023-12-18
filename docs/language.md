@@ -35,6 +35,17 @@ EXPLAIN SIMILAR (a:Doc) ON emb TO [0.1, 0.0, 0.0]
 
 Cosine is a scan of the type. Not a walk.
 
+```
+MARK VIEW Hit AS 'MATCH (a:Doc) RETURN a'
+```
+
+The query text lives on the Type. Members
+are a posting. `reason` and `view` are
+content. A hit points at a source with
+DERIVED_FROM. Compact drops a hit whose
+source is gone, or whose stamp is not
+the recipe.
+
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
 A one-hop MATCH whose right node names a value
