@@ -19,7 +19,17 @@ edge and the Pos. Prose is not an
 index.
 
 A pin does not see a later fill.
-Fold, if it comes, is bounded.
+
+KEEP runs the recipe. Each row is a
+hit. The hop is DERIVED_FROM. Fold n
+is the allowed depth of soup. Fold 0
+cites the world. A member of this
+Type is never a source of itself.
+
+NOTE is a vertex. SEEN is a hop. A
+note is not a view. The Pos lives on
+the page. Stamp before the hop, or
+replay wipes the edge.
 
 The notebook writes what it found
 the same way it writes a vertex.
@@ -28,7 +38,6 @@ members. Do not start a second
 engine for a view.
 
 The soup is not this file.
-KEEP is not this year. Fold is not
-this year. The contract is the recipe,
-the cite, and compact.
+The contract is the recipe, the cite,
+KEEP, and compact.
 
