@@ -92,9 +92,11 @@ See `docs/occ.md`.
 
 The recipe lives on the Type. Members
 are a posting. A hit cites an Addr.
-Compact drops orphans and a changed
-recipe. reason is content. The stamp
-is not a SET. See `docs/derived.md`.
+KEEP fills. Fold is depth. A view does
+not cite itself. NOTE is the world.
+Compact drops orphans. reason is
+content. The stamp is not a SET. See
+`docs/derived.md`.
 
 
 
