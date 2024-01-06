@@ -127,7 +127,8 @@ pub(crate) fn writes(text: &str) -> bool {
         if t.kind == TokenKind::Ident {
             let s = t.text.to_lowercase();
             if s == "create" || s == "merge" || s == "set"
-                || s == "delete" || s == "remove" || s == "detach" {
+                || s == "delete" || s == "remove" || s == "detach"
+                || s == "keep" || s == "note" {
                 return true;
             }
         }
@@ -287,7 +288,8 @@ impl Parser {
             if self.toks[i].kind == TokenKind::Ident {
                 let s = self.toks[i].text.to_lowercase();
                 if s == "create" || s == "merge" || s == "set"
-                    || s == "delete" || s == "remove" || s == "detach" || s == "mark" {
+                    || s == "delete" || s == "remove" || s == "detach"
+                    || s == "mark" || s == "keep" || s == "note" {
                     return true;
                 }
             }
@@ -611,9 +613,62 @@ impl Parser {
         Ok(r)
     }
 
+    fn exec_keep(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("KEEP expected type"));
+        }
+        let tn = self.text();
+        self.next();
+        let mut fold = 0u32;
+        if self.ident_is("FOLD") {
+            self.next();
+            if self.kind() != TokenKind::Number {
+                return Err(self.err_here("FOLD expected n"));
+            }
+            let n: u32 = match self.text().parse() {
+                Ok(n) => n,
+                Err(_) => return Err(Error::new("bad fold")),
+            };
+            self.next();
+            fold = n;
+        }
+        let k = super::keep::keep(g, &tn, fold)?;
+        let mut r = QueryResult::ok_msg("KEEP");
+        r.message = format!("{}", k);
+        r.created = k;
+        Ok(r)
+    }
+
+    fn exec_note(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("NOTE expected name"));
+        }
+        let name = self.text();
+        self.next();
+        let src = match g.vertex_by_name(&name) {
+            Some(v) => v.khid(),
+            None => return Err(self.err_here("NOTE missing vertex")),
+        };
+        let id = g.note(src)?;
+        let mut r = QueryResult::ok_msg("NOTE");
+        r.message = format!("{}", id);
+        r.created = 1;
+        r.columns.push("id".to_string());
+        r.rows.push(vec![Some(Val::Id(id))]);
+        Ok(r)
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
         if self.ident_is("MARK") {
             return self.exec_mark_view(g);
+        }
+        if self.ident_is("KEEP") {
+            return self.exec_keep(g);
+        }
+        if self.ident_is("NOTE") {
+            return self.exec_note(g);
         }
         if !self.has_write() {
             return self.exec_read(g);
