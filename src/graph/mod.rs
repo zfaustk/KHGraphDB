@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::error::{Error, Result};
 use super::vertex::Vertex;

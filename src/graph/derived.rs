@@ -194,4 +194,141 @@ impl Graph {
             _ => true,
         }
     }
+
+    pub fn is_view_member(&self, id: Khid) -> bool {
+        let v = match self.vertex(id) {
+            Some(v) => v,
+            None => return false,
+        };
+        for tid in v.types() {
+            if let Some(t) = self.ty(*tid) {
+                if t.is_view() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn wears(&self, id: Khid, tid: Khid) -> bool {
+        match self.vertex(id) {
+            Some(v) => v.types().iter().any(|t| *t == tid),
+            None => false,
+        }
+    }
+
+    /// World is 0. A hit is 1 plus the deepest
+    /// here-source. Far is not a step.
+    pub fn view_depth(&self, id: Khid) -> u32 {
+        let mut seen = HashSet::new();
+        self.depth_of(id, &mut seen)
+    }
+
+    fn depth_of(&self, id: Khid, seen: &mut HashSet<Khid>) -> u32 {
+        if !seen.insert(id) {
+            return 0;
+        }
+        if !self.is_view_member(id) {
+            return 0;
+        }
+        let mut d = 0u32;
+        for a in self.derived(id) {
+            if a.on(self.shard) && self.vhas(a.khid()) {
+                let dd = self.depth_of(a.khid(), seen);
+                if dd > d {
+                    d = dd;
+                }
+            }
+        }
+        d + 1
+    }
+
+    fn norm_addr(&self, a: Addr) -> Addr {
+        if a.on(self.shard) && self.vhas(a.khid()) {
+            self.addr(a.khid())
+        } else {
+            a
+        }
+    }
+
+    /// A member of this Type that already cites
+    /// exactly these addresses.
+    pub fn hit_citing(&self, tid: Khid, srcs: &[Addr]) -> Option<Khid> {
+        let members: Vec<Khid> = match self.ty(tid) {
+            Some(t) => t.vertices().iter().cloned().collect(),
+            None => return None,
+        };
+        let mut want: Vec<Addr> = srcs.iter().map(|a| self.norm_addr(*a)).collect();
+        want.sort();
+        want.dedup();
+        for id in members {
+            let mut have: Vec<Addr> = self.derived(id)
+                .into_iter()
+                .map(|a| self.norm_addr(a))
+                .collect();
+            have.sort();
+            have.dedup();
+            if have == want {
+                return Some(id);
+            }
+        }
+        None
+    }
+
+    pub fn stamp_pos(&mut self, id: Khid, pos: &str) -> bool {
+        if pos.is_empty() || !self.vhas(id) {
+            return false;
+        }
+        match self.set_attr(id, "pos", pos) {
+            Ok(()) => true,
+            Err(_) => false,
+        }
+    }
+
+    /// A note cites the world. It is not a view.
+    /// Stamp pos before the hop so a later vertex rec
+    /// does not wipe the edge on replay.
+    pub fn note(&mut self, src: Khid) -> Result<Khid> {
+        self.note_at(src, None)
+    }
+
+    pub fn note_at(&mut self, src: Khid, pos: Option<&str>) -> Result<Khid> {
+        if !self.vhas(src) {
+            return Err(Error::new("missing vertex"));
+        }
+        let _ = self.add_type("Note")?;
+        self.mark_content("Note", "pos");
+        let id = self.add_vertex(HashMap::new(), Some("Note"))?;
+        if let Some(p) = pos {
+            let _ = self.stamp_pos(id, p);
+        }
+        self.add_edge(id, src, Some("SEEN"))?;
+        Ok(id)
+    }
+
+    pub fn seen(&self, note: Khid) -> Vec<Addr> {
+        let mut out = Vec::new();
+        let v = match self.vertex(note) {
+            Some(v) => v,
+            None => return out,
+        };
+        for eid in v.outgoing().iter() {
+            let e = match self.edge(*eid) {
+                Some(e) => e,
+                None => continue,
+            };
+            match self.edge_type_name(*eid) {
+                Some(ref n) if n == "SEEN" => {}
+                _ => continue,
+            }
+            if e.is_far() {
+                if let Some(a) = e.far() {
+                    out.push(a);
+                }
+            } else {
+                out.push(self.addr(e.target()));
+            }
+        }
+        out
+    }
 }

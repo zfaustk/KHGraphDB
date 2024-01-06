@@ -125,6 +125,7 @@ impl Type {
         self.view_hash = hash_view(query);
         self.content.insert("reason".to_string());
         self.content.insert("view".to_string());
+        self.content.insert("pos".to_string());
         true
     }
 
