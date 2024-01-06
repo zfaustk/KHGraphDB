@@ -8,6 +8,7 @@ mod parse;
 mod walk;
 mod op;
 mod scan;
+mod keep;
 
 #[derive(Clone)]
 struct NodePat {
@@ -227,6 +228,8 @@ pub fn ask(g: &Graph, text: &str) -> QueryResult {
 pub fn writes(text: &str) -> bool {
     parse::writes(text)
 }
+
+pub use keep::{keep, keep_at};
 
 /// MATCH with $name bound to a Prop. The tag is kept.
 pub fn run_with(g: &mut Graph, text: &str, params: std::collections::HashMap<String, Prop>) -> QueryResult {
