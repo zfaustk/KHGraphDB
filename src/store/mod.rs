@@ -385,6 +385,27 @@ impl Store {
         super::query::ask(&self.g, text)
     }
 
+    /// Fill a view. Stamp each new hit with this Pos.
+    pub fn keep(&mut self, type_name: &str, fold: u32) -> io::Result<usize> {
+        let p = self.pos()?;
+        let s = format!("{}:{}", p.generation(), p.offset());
+        let g = self.graph_mut()?;
+        match super::query::keep_at(g, type_name, fold, Some(&s)) {
+            Ok(n) => Ok(n),
+            Err(e) => Err(io::Error::new(io::ErrorKind::InvalidInput, e.message())),
+        }
+    }
+
+    pub fn note(&mut self, src: super::khid::Khid) -> io::Result<super::khid::Khid> {
+        let p = self.pos()?;
+        let s = format!("{}:{}", p.generation(), p.offset());
+        let g = self.graph_mut()?;
+        match g.note_at(src, Some(&s)) {
+            Ok(id) => Ok(id),
+            Err(e) => Err(io::Error::new(io::ErrorKind::InvalidInput, e.message())),
+        }
+    }
+
     pub fn rollback(&mut self) {
         self.open_tx = None;
         self.g.apply_undos();
