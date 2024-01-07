@@ -1,3 +1,10 @@
+## 9.3.0 - 2024-01-29
+
+- KEEP runs the recipe. Each row is a hit. Cite is DERIVED_FROM.
+- Fold n is soup depth. Fold 0 is the world. A view does not cite itself.
+- NOTE / SEEN. A note is not a view. Pos is content, stamped before the hop.
+- `docs/derived.md`.
+
 ## 9.2.0 - 2023-11-04
 
 - Session writeset. Commit is SI. Lost update aborts. Write skew is allowed.
