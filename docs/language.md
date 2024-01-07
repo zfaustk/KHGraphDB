@@ -37,14 +37,16 @@ Cosine is a scan of the type. Not a walk.
 
 ```
 MARK VIEW Hit AS 'MATCH (a:Doc) RETURN a'
+KEEP Hit
+KEEP Out FOLD 1
+NOTE Ada
 ```
 
-The query text lives on the Type. Members
-are a posting. `reason` and `view` are
-content. A hit points at a source with
-DERIVED_FROM. Compact drops a hit whose
-source is gone, or whose stamp is not
-the recipe.
+KEEP runs the recipe. Each row is one
+hit. Fold 0 cites the world. Fold n may
+cite soup of depth n. A view does not
+cite itself. NOTE is not a view. SEEN
+is the hop. `pos` is content.
 
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
