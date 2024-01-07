@@ -1,0 +1,358 @@
+## keep one
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## keep two
+.graph
+N Doc Ada
+N Doc Alan
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+2
+
+## keep again is zero
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+0
+
+## keep missing view
+.graph
+N Doc Ada
+.query
+KEEP Hit
+.expect
+ERR not a view
+
+## keep of a write recipe
+.graph
+N Doc Ada
+V Hit CREATE (a:Doc {name:'X'}) RETURN a
+.query
+KEEP Hit
+.expect
+ERR recipe writes
+
+## keep where one of two
+.graph
+N Doc Ada
+N Doc Alan
+V Hit MATCH (a:Doc {name:'Ada'}) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## keep path cites two as one hit
+.graph
+N Doc Ada
+N Doc Alan
+E CITES Ada Alan
+V Hit MATCH (a:Doc)-[:CITES]->(b:Doc) RETURN a, b
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## keep two edges two hits
+.graph
+N Doc Ada
+N Doc Alan
+N Doc Grace
+E CITES Ada Alan
+E CITES Ada Grace
+V Hit MATCH (a:Doc {name:'Ada'})-[:CITES]->(b) RETURN a, b
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+2
+
+## keep of Person
+.graph
+N Person Ada
+N Person Alan
+V Known MATCH (a:Person) RETURN a
+.query
+KEEP Known
+.expect
+rows 1
+kept
+2
+
+## keep empty graph
+.graph
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+0
+
+## keep prop column is zero
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a.name
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+0
+
+## keep Paper not Doc
+.graph
+N Paper Ada
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+0
+
+## keep Paper hits
+.graph
+N Paper Ada
+V Hit MATCH (a:Paper) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## keep 3 docs
+.graph
+N Doc D00
+N Doc D01
+N Doc D02
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+3
+
+## keep 8 docs
+.graph
+N Doc D00
+N Doc D01
+N Doc D02
+N Doc D03
+N Doc D04
+N Doc D05
+N Doc D06
+N Doc D07
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+8
+
+## two views two keeps
+.graph
+N Doc Ada
+N Doc Alan
+N Paper P1
+V Hit MATCH (a:Doc) RETURN a
+V Pub MATCH (a:Paper) RETURN a
+K Hit 0
+.query
+KEEP Pub
+.expect
+rows 1
+kept
+1
+
+## keep does not fill the world
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (a:Doc) RETURN a
+.expect
+rows 1
+a
+Ada
+
+## hits are members after keep
+.graph
+N Doc Ada
+N Doc Alan
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (h:Hit) RETURN count(h)
+.expect
+rows 1
+count
+2
+
+## keep where born
+.graph
+N Doc Ada born=1815
+N Doc Alan born=1912
+V Hit MATCH (a:Doc) WHERE a.born < 1900 RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## keep inbound
+.graph
+N Doc Ada
+N Doc Alan
+E CITES Ada Alan
+V Hit MATCH (a:Doc)<-[:CITES]-(b) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## keep distinct names
+.graph
+N Doc Ada
+N Doc Ada2
+V Hit MATCH (a:Doc) RETURN a
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+2
+
+## keep chain three hops as three hits
+.graph
+N Doc Ada
+N Doc Alan
+N Doc Grace
+E CITES Ada Alan
+E CITES Alan Grace
+V Hit MATCH (a:Doc)-[:CITES]->(b) RETURN a, b
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+2
+
+## keep self loop
+.graph
+N Doc Ada
+E CITES Ada Ada
+V Hit MATCH (a:Doc)-[:CITES]->(b) RETURN a, b
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+0
+
+## keep after extra doc
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+N Doc Alan
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+1
+
+## mark view is a write
+.graph
+N Doc Ada
+.query
+MARK VIEW Hit AS 'MATCH (a:Doc) RETURN a'
+.expect
+rows 0
+
+## keep then match names of docs still there
+.graph
+N Doc Ada
+N Doc Grace
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (a:Doc) RETURN a ORDER BY a.name
+.expect
+rows 2
+a
+Ada
+Grace
+
+## star 4 leaves
+.graph
+N Doc Hub
+N Doc L00
+N Doc L01
+N Doc L02
+N Doc L03
+E CITES Hub L00
+E CITES Hub L01
+E CITES Hub L02
+E CITES Hub L03
+V Hit MATCH (a:Doc {name:'Hub'})-[:CITES]->(b) RETURN b
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+4
+
+## chain 6 hops
+.graph
+N Doc C00
+N Doc C01
+N Doc C02
+N Doc C03
+N Doc C04
+N Doc C05
+N Doc C06
+E CITES C00 C01
+E CITES C01 C02
+E CITES C02 C03
+E CITES C03 C04
+E CITES C04 C05
+E CITES C05 C06
+V Hit MATCH (a:Doc)-[:CITES]->(b) RETURN a, b
+.query
+KEEP Hit
+.expect
+rows 1
+kept
+6

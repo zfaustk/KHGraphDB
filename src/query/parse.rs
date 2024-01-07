@@ -637,6 +637,8 @@ impl Parser {
         let mut r = QueryResult::ok_msg("KEEP");
         r.message = format!("{}", k);
         r.created = k;
+        r.columns.push("kept".to_string());
+        r.rows.push(vec![Some(Val::Prop(Prop::from_int(k as i64)))]);
         Ok(r)
     }
 

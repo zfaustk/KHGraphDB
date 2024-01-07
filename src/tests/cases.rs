@@ -5,6 +5,7 @@ use crate::Graph;
 use crate::query;
 use crate::query::Val;
 use crate::Prop;
+use crate::keep_view;
 
 struct Case {
     name: String,
@@ -175,6 +176,22 @@ fn load_graph(text: &str) -> Graph {
                 }
                 i += 1;
             }
+        } else if parts.len() >= 3 && parts[0] == "V" {
+            let tn = parts[1];
+            let q = parts[2..].join(" ");
+            if !g.mark_view(tn, &q) {
+                panic!("V {} {}", tn, q);
+            }
+        } else if parts.len() >= 2 && parts[0] == "K" {
+            let fold = if parts.len() >= 3 {
+                parts[2].parse::<u32>().unwrap_or(0)
+            } else {
+                0
+            };
+            keep_view(&mut g, parts[1], fold).unwrap();
+        } else if parts.len() >= 2 && parts[0] == "NOTE" {
+            let src = g.vertex_by_name(parts[1]).unwrap().khid();
+            g.note(src).unwrap();
         } else if parts.len() >= 4 && parts[0] == "E" {
             // E Type srcName dstName [k=v ...]
             let ty = parts[1];
@@ -339,4 +356,9 @@ fn cases_explain() {
 #[test]
 fn cases_prop() {
     run_src(include_str!("data/prop.txt"));
+}
+
+#[test]
+fn cases_keep() {
+    run_src(include_str!("data/keep.txt"));
 }
