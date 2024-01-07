@@ -1,0 +1,87 @@
+## note then match Note type
+.graph
+N Doc Ada
+NOTE Ada
+.query
+MATCH (n:Note) RETURN count(n)
+.expect
+rows 1
+count
+1
+
+## note missing
+.graph
+N Doc Ada
+.query
+NOTE Nope
+.expect
+ERR NOTE missing vertex at end
+
+## two notes two rows
+.graph
+N Doc Ada
+N Doc Alan
+NOTE Ada
+NOTE Alan
+.query
+MATCH (n:Note) RETURN count(n)
+.expect
+rows 1
+count
+2
+
+## note 2 docs
+.graph
+N Doc Ada
+N Doc Alan
+NOTE Ada
+NOTE Alan
+.query
+MATCH (n:Note) RETURN count(n)
+.expect
+rows 1
+count
+2
+
+## note 7 docs
+.graph
+N Doc Ada
+N Doc Alan
+N Doc Grace
+N Doc Donald
+N Doc Edsger
+N Doc Barbara
+N Doc John
+NOTE Ada
+NOTE Alan
+NOTE Grace
+NOTE Donald
+NOTE Edsger
+NOTE Barbara
+NOTE John
+.query
+MATCH (n:Note) RETURN count(n)
+.expect
+rows 1
+count
+7
+
+## note does not make a view
+.graph
+N Doc Ada
+NOTE Ada
+.query
+KEEP Note
+.expect
+ERR not a view
+
+## seen hop exists
+.graph
+N Doc Ada
+NOTE Ada
+.query
+MATCH (n:Note)-[:SEEN]->(d:Doc) RETURN d
+.expect
+rows 1
+d
+Ada

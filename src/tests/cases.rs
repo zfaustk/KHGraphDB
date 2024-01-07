@@ -362,3 +362,8 @@ fn cases_prop() {
 fn cases_keep() {
     run_src(include_str!("data/keep.txt"));
 }
+
+#[test]
+fn cases_note_view() {
+    run_src(include_str!("data/note_view.txt"));
+}
