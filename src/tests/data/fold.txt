@@ -1,0 +1,181 @@
+## fold 0 skips soup
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+.query
+KEEP Out
+.expect
+rows 1
+kept
+0
+
+## fold 1 takes soup
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+.query
+KEEP Out FOLD 1
+.expect
+rows 1
+kept
+1
+
+## fold 1 twice is zero
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+K Out 1
+.query
+KEEP Out FOLD 1
+.expect
+rows 1
+kept
+0
+
+## self fold cannot cite self
+.graph
+N Doc Ada
+V Hit MATCH (a) RETURN a
+K Hit 0
+.query
+KEEP Hit FOLD 9
+.expect
+rows 1
+kept
+0
+
+## fold 0 on third
+.graph
+N Doc Ada
+N Doc Alan
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+K Out 1
+V Sum MATCH (o:Out) RETURN o
+.query
+KEEP Sum
+.expect
+rows 1
+kept
+0
+
+## fold 1 on third
+.graph
+N Doc Ada
+N Doc Alan
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+K Out 1
+V Sum MATCH (o:Out) RETURN o
+.query
+KEEP Sum FOLD 1
+.expect
+rows 1
+kept
+0
+
+## fold 2 on third
+.graph
+N Doc Ada
+N Doc Alan
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+K Out 1
+V Sum MATCH (o:Out) RETURN o
+.query
+KEEP Sum FOLD 2
+.expect
+rows 1
+kept
+2
+
+## fold 0 n=3
+.graph
+N Doc F00
+N Doc F01
+N Doc F02
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+.query
+KEEP Out
+.expect
+rows 1
+kept
+0
+
+## fold 1 n=3
+.graph
+N Doc F00
+N Doc F01
+N Doc F02
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+.query
+KEEP Out FOLD 1
+.expect
+rows 1
+kept
+3
+
+## fold 1 n=11
+.graph
+N Doc F00
+N Doc F01
+N Doc F02
+N Doc F03
+N Doc F04
+N Doc F05
+N Doc F06
+N Doc F07
+N Doc F08
+N Doc F09
+N Doc F10
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+.query
+KEEP Out FOLD 1
+.expect
+rows 1
+kept
+11
+
+## fold default is zero
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Out MATCH (h:Hit) RETURN h
+.query
+KEEP Out FOLD 0
+.expect
+rows 1
+kept
+0
+
+## two source views fold 1
+.graph
+N Doc Ada
+N Paper P1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Pub MATCH (a:Paper) RETURN a
+K Pub 0
+V Out MATCH (x:Hit) RETURN x
+.query
+KEEP Out FOLD 1
+.expect
+rows 1
+kept
+1

@@ -367,3 +367,8 @@ fn cases_keep() {
 fn cases_note_view() {
     run_src(include_str!("data/note_view.txt"));
 }
+
+#[test]
+fn cases_fold() {
+    run_src(include_str!("data/fold.txt"));
+}
