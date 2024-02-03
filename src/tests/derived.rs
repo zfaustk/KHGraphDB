@@ -135,10 +135,41 @@ fn drop_hit_when_recipe_changes() {
     let src = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
     let hit = g.add_vertex(super::common::attrs("h1"), Some("Hit")).unwrap();
     let _ = g.derive_from(hit, Addr::here(src)).unwrap();
+    let old = g.type_by_name("Hit").unwrap().khid();
     g.mark_view("Hit", "MATCH (a:Doc) RETURN a.title");
-    assert_eq!(g.drop_stale_derived(), 1);
-    assert!(g.vertex(hit).is_none());
+    assert_eq!(g.drop_stale_derived(), 0);
+    assert!(g.vertex(hit).is_some());
     assert!(g.vertex(src).is_some());
+    assert_ne!(g.type_by_name("Hit").unwrap().khid(), old);
+    assert!(!g.type_by_name("Hit").unwrap().vertices().contains(&hit));
+    assert!(g.ty(old).unwrap().vertices().contains(&hit));
+}
+
+#[test]
+fn a_new_recipe_is_a_new_type() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let old = g.type_by_name("Hit").unwrap().khid();
+    let old_hash = g.view_hash_of("Hit").unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a.title");
+    assert_ne!(g.type_by_name("Hit").unwrap().khid(), old);
+    assert_eq!(g.view_of("Hit"), Some("MATCH (a:Doc) RETURN a.title"));
+    let retired = format!("Hit~{:x}", old_hash);
+    assert_eq!(g.type_by_name(&retired).unwrap().khid(), old);
+    assert_eq!(g.ty(old).unwrap().view(), Some("MATCH (a:Doc) RETURN a"));
+}
+
+#[test]
+fn keep_fills_the_live_name() {
+    use crate::keep_view;
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let _ = g.add_vertex(super::common::attrs("Ada"), Some("Doc")).unwrap();
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 1);
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a ");
+    assert_eq!(g.type_by_name("Hit").unwrap().vertex_count(), 0);
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 1);
+    assert_eq!(g.type_by_name("Hit").unwrap().vertex_count(), 1);
 }
 
 #[test]
@@ -184,8 +215,9 @@ fn compact_drops_after_a_new_recipe() {
         s.compact().unwrap();
     }
     let s = Store::open(&dir, "notes", 1).unwrap();
-    assert!(s.graph().vertex(hit).is_none());
+    assert!(s.graph().vertex(hit).is_some());
     assert_eq!(s.graph().view_of("Hit"), Some("MATCH (a:Doc) RETURN a.title"));
+    assert!(!s.graph().type_by_name("Hit").unwrap().vertices().contains(&hit));
     let _ = fs::remove_dir_all(&dir);
 }
 
