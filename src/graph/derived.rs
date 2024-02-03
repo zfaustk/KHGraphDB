@@ -1,8 +1,22 @@
 impl Graph {
     /// Recipe on the Type. Does not fill members.
+    /// A new recipe retires the old Type. The name
+    /// moves. The old Type keeps its KHID and its soup.
     pub fn mark_view(&mut self, type_name: &str, query: &str) -> bool {
         if type_name.is_empty() || query.is_empty() {
             return false;
+        }
+        if self.is_view(type_name) {
+            if self.view_of(type_name) == Some(query) {
+                self.rec(Touch::View {
+                    type_name: type_name.to_string(),
+                    query: query.to_string(),
+                });
+                return true;
+            }
+            if !self.retire_view(type_name) {
+                return false;
+            }
         }
         let tid = match self.add_type(type_name) {
             Ok(id) => id,
@@ -18,6 +32,29 @@ impl Graph {
             type_name: type_name.to_string(),
             query: query.to_string(),
         });
+        true
+    }
+
+    fn retire_view(&mut self, name: &str) -> bool {
+        let tid = match self.types_by_name.get(name) {
+            Some(id) => *id,
+            None => return false,
+        };
+        let hash = match self.ty(tid) {
+            Some(t) if t.is_view() => t.view_hash(),
+            _ => return false,
+        };
+        let mut retired = format!("{}~{:x}", name, hash);
+        let mut n = 1u32;
+        while self.types_by_name.contains_key(&retired) {
+            retired = format!("{}~{:x}~{}", name, hash, n);
+            n += 1;
+        }
+        self.types_by_name.remove(name);
+        if let Some(t) = self.tget_mut(tid) {
+            t.set_name(retired.clone());
+        }
+        self.types_by_name.insert(retired, tid);
         true
     }
 
