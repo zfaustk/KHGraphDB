@@ -52,6 +52,10 @@ impl Type {
         &self.name
     }
 
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
