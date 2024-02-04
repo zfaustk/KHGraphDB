@@ -46,7 +46,8 @@ KEEP runs the recipe. Each row is one
 hit. Fold 0 cites the world. Fold n may
 cite soup of depth n. A view does not
 cite itself. NOTE is not a view. SEEN
-is the hop. `pos` is content.
+is the hop. `pos` is content. A new
+recipe is a new Type. The name moves.
 
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
