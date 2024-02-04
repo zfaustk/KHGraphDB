@@ -26,6 +26,11 @@ is the allowed depth of soup. Fold 0
 cites the world. A member of this
 Type is never a source of itself.
 
+A new recipe is a new Type. The name
+moves. The old Type keeps its KHID
+and its soup. Compact does not punish
+history.
+
 NOTE is a vertex. SEEN is a hop. A
 note is not a view. The Pos lives on
 the page. Stamp before the hop, or

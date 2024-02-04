@@ -93,7 +93,8 @@ See `docs/occ.md`.
 The recipe lives on the Type. Members
 are a posting. A hit cites an Addr.
 KEEP fills. Fold is depth. A view does
-not cite itself. NOTE is the world.
+not cite itself. A new recipe is a new
+Type. The name moves. NOTE is the world.
 Compact drops orphans. reason is
 content. The stamp is not a SET. See
 `docs/derived.md`.
