@@ -1,4 +1,10 @@
-## 9.3.0 - 2024-01-29
+## 9.4.0 - 2024-02-05
+
+- A new recipe is a new Type. The name moves.
+- The old Type keeps its KHID and its soup.
+- Compact does not drop history.
+
+## 9.3.0 - 2024-01-08
 
 - KEEP runs the recipe. Each row is a hit. Cite is DERIVED_FROM.
 - Fold n is soup depth. Fold 0 is the world. A view does not cite itself.

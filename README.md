@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By zfaustk.
 
-**9.3.0** (2024). KEEP fills a view. Fold is depth. NOTE cites the world. edition 2021. Rust 1.56.
+**9.4.0** (2024). A new recipe is a new Type. KEEP fills a view. Fold is depth.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
