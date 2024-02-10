@@ -192,6 +192,12 @@ fn load_graph(text: &str) -> Graph {
         } else if parts.len() >= 2 && parts[0] == "NOTE" {
             let src = g.vertex_by_name(parts[1]).unwrap().khid();
             g.note(src).unwrap();
+        } else if parts.len() >= 1 && parts[0] == "EP" {
+            if parts.len() >= 2 {
+                g.episode_as(parts[1]).unwrap();
+            } else {
+                g.episode().unwrap();
+            }
         } else if parts.len() >= 4 && parts[0] == "E" {
             // E Type srcName dstName [k=v ...]
             let ty = parts[1];
@@ -371,4 +377,9 @@ fn cases_note_view() {
 #[test]
 fn cases_fold() {
     run_src(include_str!("data/fold.txt"));
+}
+
+#[test]
+fn cases_episode() {
+    run_src(include_str!("data/episode.txt"));
 }

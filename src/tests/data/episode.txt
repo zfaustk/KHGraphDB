@@ -1,0 +1,162 @@
+## episode named
+.graph
+.query
+EPISODE e1
+.expect
+rows 1
+id
+e1
+
+## keep hops in
+.graph
+N Doc Ada
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (h:Hit)-[:IN]->(e:Episode) RETURN e
+.expect
+rows 1
+e
+e1
+
+## keep without episode has no in
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (h:Hit)-[:IN]->(e:Episode) RETURN e
+.expect
+rows 0
+e
+
+## close stops the hop
+.graph
+N Doc Ada
+N Doc Alan
+EP e1
+V Hit MATCH (a:Doc {name:'Ada'}) RETURN a
+K Hit 0
+.query
+CLOSE EPISODE
+.expect
+rows 0
+
+## named episode match
+.graph
+EP e1
+.query
+MATCH (e:Episode {name:'e1'}) RETURN e
+.expect
+rows 1
+e
+e1
+
+## two episodes two vertices
+.graph
+EP e1
+EP e2
+.query
+MATCH (e:Episode) RETURN e
+.expect
+rows 2
+e
+e1
+e2
+
+## 2 episodes
+.graph
+EP E00
+EP E01
+.query
+MATCH (e:Episode) RETURN count(e)
+.expect
+rows 1
+count
+2
+
+## 9 episodes
+.graph
+EP E00
+EP E01
+EP E02
+EP E03
+EP E04
+EP E05
+EP E06
+EP E07
+EP E08
+.query
+MATCH (e:Episode) RETURN count(e)
+.expect
+rows 1
+count
+9
+
+## in hop 3 hits
+.graph
+N Doc X00
+N Doc X01
+N Doc X02
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (h:Hit)-[:IN]->(e:Episode {name:'e1'}) RETURN count(h)
+.expect
+rows 1
+count
+3
+
+## in hop 12 hits
+.graph
+N Doc X00
+N Doc X01
+N Doc X02
+N Doc X03
+N Doc X04
+N Doc X05
+N Doc X06
+N Doc X07
+N Doc X08
+N Doc X09
+N Doc X10
+N Doc X11
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+.query
+MATCH (h:Hit)-[:IN]->(e:Episode {name:'e1'}) RETURN count(h)
+.expect
+rows 1
+count
+12
+
+## episode in match is a read
+.graph
+EP e1
+.query
+MATCH (e:Episode) RETURN e.name
+.expect
+rows 1
+e.name
+e1
+
+## close does not delete
+.graph
+EP e1
+.query
+CLOSE EPISODE
+.expect
+rows 0
+
+## close then still there
+.graph
+EP e1
+.query
+MATCH (e:Episode) RETURN e
+.expect
+rows 1
+e
+e1

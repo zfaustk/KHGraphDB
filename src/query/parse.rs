@@ -674,7 +674,16 @@ impl Parser {
 
     fn exec_episode(&mut self, g: &mut Graph) -> Result<QueryResult> {
         self.next();
-        let id = g.episode()?;
+        let mut name = String::new();
+        if self.kind() == TokenKind::Ident {
+            name = self.text();
+            self.next();
+        }
+        let id = if name.is_empty() {
+            g.episode()?
+        } else {
+            g.episode_as(&name)?
+        };
         let mut r = QueryResult::ok_msg("EPISODE");
         r.message = format!("{}", id);
         r.created = 1;

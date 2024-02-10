@@ -2,9 +2,17 @@ impl Graph {
     /// An episode is a vertex. It is not a view.
     /// KEEP and NOTE hop IN while one is open.
     pub fn episode(&mut self) -> Result<Khid> {
+        self.episode_as("")
+    }
+
+    pub fn episode_as(&mut self, name: &str) -> Result<Khid> {
         let _ = self.add_type("Episode")?;
         self.mark_content("Episode", "pos");
-        let id = self.add_vertex(HashMap::new(), Some("Episode"))?;
+        let mut attrs = HashMap::new();
+        if !name.is_empty() {
+            attrs.insert("name".to_string(), name.to_string());
+        }
+        let id = self.add_vertex(attrs, Some("Episode"))?;
         self.open_episode = Some(id);
         Ok(id)
     }
