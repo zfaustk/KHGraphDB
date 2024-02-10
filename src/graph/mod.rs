@@ -76,6 +76,7 @@ pub struct Graph {
     armed: bool,
     touches: Vec<Touch>,
     undos: Vec<Undo>,
+    open_episode: Option<Khid>,
 }
 
 impl Graph {
@@ -118,6 +119,7 @@ impl Graph {
             armed: false,
             touches: Vec::new(),
             undos: Vec::new(),
+            open_episode: None,
         }
     }
 
@@ -893,3 +895,4 @@ impl Graph {
 
 include!("posting.rs");
 include!("derived.rs");
+include!("episode.rs");
