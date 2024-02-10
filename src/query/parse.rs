@@ -116,6 +116,7 @@ pub(crate) fn run_read(g: &Graph, text: &str) -> Result<QueryResult> {
 
 pub(crate) fn writes(text: &str) -> bool {
     let mut lx = Lexer::new(text);
+    let mut first = true;
     loop {
         let t = match lx.next() {
             Ok(t) => t,
@@ -127,10 +128,14 @@ pub(crate) fn writes(text: &str) -> bool {
         if t.kind == TokenKind::Ident {
             let s = t.text.to_lowercase();
             if s == "create" || s == "merge" || s == "set"
-                || s == "delete" || s == "remove" || s == "detach"
-                || s == "keep" || s == "note" {
+                || s == "delete" || s == "remove" || s == "detach" {
                 return true;
             }
+            if first && (s == "keep" || s == "note" || s == "episode"
+                         || s == "close" || s == "mark") {
+                return true;
+            }
+            first = false;
         }
     }
 }
@@ -284,14 +289,19 @@ impl Parser {
 
     fn has_write(&self) -> bool {
         let mut i = 0;
+        let mut first = true;
         while i < self.toks.len() {
             if self.toks[i].kind == TokenKind::Ident {
                 let s = self.toks[i].text.to_lowercase();
                 if s == "create" || s == "merge" || s == "set"
-                    || s == "delete" || s == "remove" || s == "detach"
-                    || s == "mark" || s == "keep" || s == "note" {
+                    || s == "delete" || s == "remove" || s == "detach" {
                     return true;
                 }
+                if first && (s == "mark" || s == "keep" || s == "note"
+                             || s == "episode" || s == "close") {
+                    return true;
+                }
+                first = false;
             }
             i += 1;
         }
@@ -662,6 +672,27 @@ impl Parser {
         Ok(r)
     }
 
+    fn exec_episode(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        self.next();
+        let id = g.episode()?;
+        let mut r = QueryResult::ok_msg("EPISODE");
+        r.message = format!("{}", id);
+        r.created = 1;
+        r.columns.push("id".to_string());
+        r.rows.push(vec![Some(Val::Id(id))]);
+        Ok(r)
+    }
+
+    fn exec_close(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        self.next();
+        if !self.ident_is("EPISODE") {
+            return Err(self.err_here("expected EPISODE"));
+        }
+        self.next();
+        g.close_episode();
+        Ok(QueryResult::ok_msg("CLOSE"))
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
         if self.ident_is("MARK") {
             return self.exec_mark_view(g);
@@ -671,6 +702,12 @@ impl Parser {
         }
         if self.ident_is("NOTE") {
             return self.exec_note(g);
+        }
+        if self.ident_is("EPISODE") {
+            return self.exec_episode(g);
+        }
+        if self.ident_is("CLOSE") {
+            return self.exec_close(g);
         }
         if !self.has_write() {
             return self.exec_read(g);
