@@ -340,6 +340,7 @@ impl Graph {
             let _ = self.stamp_pos(id, p);
         }
         self.add_edge(id, src, Some("SEEN"))?;
+        let _ = self.enclose_open(id);
         Ok(id)
     }
 

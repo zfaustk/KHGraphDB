@@ -58,6 +58,7 @@ pub fn keep_at(g: &mut Graph,
         for a in srcs.iter() {
             g.derive_from(hit, *a)?;
         }
+        let _ = g.enclose_open(hit);
         n += 1;
     }
     Ok(n)
