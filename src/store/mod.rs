@@ -406,6 +406,18 @@ impl Store {
         }
     }
 
+    pub fn episode(&mut self) -> io::Result<super::khid::Khid> {
+        let p = self.pos()?;
+        let s = format!("{}:{}", p.generation(), p.offset());
+        let g = self.graph_mut()?;
+        let id = match g.episode() {
+            Ok(id) => id,
+            Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidInput, e.message())),
+        };
+        let _ = g.stamp_pos(id, &s);
+        Ok(id)
+    }
+
     pub fn rollback(&mut self) {
         self.open_tx = None;
         self.g.apply_undos();
