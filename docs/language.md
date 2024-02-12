@@ -40,6 +40,8 @@ MARK VIEW Hit AS 'MATCH (a:Doc) RETURN a'
 KEEP Hit
 KEEP Out FOLD 1
 NOTE Ada
+EPISODE
+CLOSE EPISODE
 ```
 
 KEEP runs the recipe. Each row is one
@@ -48,6 +50,9 @@ cite soup of depth n. A view does not
 cite itself. NOTE is not a view. SEEN
 is the hop. `pos` is content. A new
 recipe is a new Type. The name moves.
+An episode is a vertex. KEEP hops IN
+while one is open. `EPISODE` in MATCH
+is not a write.
 
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
