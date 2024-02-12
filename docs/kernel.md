@@ -95,7 +95,8 @@ are a posting. A hit cites an Addr.
 KEEP fills. Fold is depth. A view does
 not cite itself. A new recipe is a new
 Type. The name moves. NOTE is the world.
-Compact drops orphans. reason is
+An episode is a vertex. IN is a hop.
+A review is a view. Compact drops orphans. reason is
 content. The stamp is not a SET. See
 `docs/derived.md`.
 
