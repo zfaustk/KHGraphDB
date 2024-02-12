@@ -1,0 +1,110 @@
+## review fold 0
+.graph
+N Doc Ada
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Review MATCH (h:Hit)-[:IN]->(:Episode) RETURN h
+.query
+KEEP Review
+.expect
+rows 1
+kept
+0
+
+## review fold 1
+.graph
+N Doc Ada
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Review MATCH (h:Hit)-[:IN]->(:Episode) RETURN h
+.query
+KEEP Review FOLD 1
+.expect
+rows 1
+kept
+1
+
+## review 3 fold0
+.graph
+N Doc R00
+N Doc R01
+N Doc R02
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Review MATCH (h:Hit)-[:IN]->(:Episode) RETURN h
+.query
+KEEP Review
+.expect
+rows 1
+kept
+0
+
+## review 3 fold1
+.graph
+N Doc R00
+N Doc R01
+N Doc R02
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Review MATCH (h:Hit)-[:IN]->(:Episode) RETURN h
+.query
+KEEP Review FOLD 1
+.expect
+rows 1
+kept
+3
+
+## review 8 fold1
+.graph
+N Doc R00
+N Doc R01
+N Doc R02
+N Doc R03
+N Doc R04
+N Doc R05
+N Doc R06
+N Doc R07
+EP e1
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Review MATCH (h:Hit)-[:IN]->(:Episode) RETURN h
+.query
+KEEP Review FOLD 1
+.expect
+rows 1
+kept
+8
+
+## world types cannot be views
+.graph
+N Doc Ada
+NOTE Ada
+.query
+MARK VIEW Note AS 'MATCH (a) RETURN a'
+.expect
+ERR MARK VIEW at end
+
+## episode cannot be a view
+.graph
+EP e1
+.query
+MARK VIEW Episode AS 'MATCH (a) RETURN a'
+.expect
+ERR MARK VIEW at end
+
+## review of no episode is zero
+.graph
+N Doc Ada
+V Hit MATCH (a:Doc) RETURN a
+K Hit 0
+V Review MATCH (h:Hit)-[:IN]->(:Episode) RETURN h
+.query
+KEEP Review FOLD 1
+.expect
+rows 1
+kept
+0

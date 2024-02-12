@@ -383,3 +383,8 @@ fn cases_fold() {
 fn cases_episode() {
     run_src(include_str!("data/episode.txt"));
 }
+
+#[test]
+fn cases_review() {
+    run_src(include_str!("data/review.txt"));
+}
