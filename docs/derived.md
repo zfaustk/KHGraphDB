@@ -46,3 +46,9 @@ The soup is not this file.
 The contract is the recipe, the cite,
 KEEP, and compact.
 
+An episode is a vertex. KEEP and NOTE
+hop IN while one is open. CLOSE drops
+the cursor, not the vertex. A review
+is a view over IN. Fold 1. Not a
+second engine.
+
