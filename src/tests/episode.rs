@@ -113,6 +113,59 @@ fn episode_in_match_is_not_a_write() {
 }
 
 #[test]
+fn a_second_episode_is_another_vertex() {
+    let mut g = Graph::new();
+    let a = g.episode().unwrap();
+    let b = g.episode().unwrap();
+    assert_ne!(a, b);
+    assert_eq!(g.open_episode(), Some(b));
+    assert_eq!(g.type_by_name("Episode").unwrap().vertex_count(), 2);
+}
+
+#[test]
+fn set_episode_moves_the_cursor() {
+    let mut g = Graph::new();
+    let a = g.episode().unwrap();
+    let b = g.episode().unwrap();
+    assert!(g.set_episode(a));
+    g.mark_view("Hit", "MATCH (x:Doc) RETURN x");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    keep_view(&mut g, "Hit", 0).unwrap();
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    assert_eq!(g.episode_of(hit), vec![a]);
+    assert!(g.in_episode(b).is_empty());
+}
+
+#[test]
+fn compact_keeps_in() {
+    let dir = tmp("ep-cc");
+    let e;
+    let hit;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        e = s.episode().unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        s.graph_mut().unwrap().set_episode(e);
+        s.keep("Hit", 0).unwrap();
+        s.commit().unwrap();
+        s.compact().unwrap();
+        hit = *s.graph().type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    }
+    let s = Store::open(&dir, "notes", 1).unwrap();
+    assert_eq!(s.graph().episode_of(hit), vec![e]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn enclose_missing_is_err() {
+    let mut g = Graph::new();
+    let e = g.episode().unwrap();
+    assert!(g.enclose(crate::Khid::from_raw(99), e).is_err());
+}
+
+#[test]
 fn store_episode_stamps_pos_and_reopens() {
     let dir = tmp("ep");
     let e;
