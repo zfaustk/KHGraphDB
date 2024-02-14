@@ -52,3 +52,7 @@ the cursor, not the vertex. A review
 is a view over IN. Fold 1. Not a
 second engine.
 
+The cursor is not on the log. Replay
+opens nothing. The hops are the
+episode.
+
