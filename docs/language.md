@@ -52,7 +52,7 @@ is the hop. `pos` is content. A new
 recipe is a new Type. The name moves.
 An episode is a vertex. KEEP hops IN
 while one is open. `EPISODE` in MATCH
-is not a write.
+is not a write. CLOSE does not DELETE.
 
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
