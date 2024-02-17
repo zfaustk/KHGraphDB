@@ -74,9 +74,9 @@ fn last_view_wins() {
 fn two_types_keep_two_recipes() {
     let mut g = Graph::new();
     assert!(g.mark_view("Hit", "MATCH (a) RETURN a"));
-    assert!(g.mark_view("Note", "MATCH (b) RETURN b"));
+    assert!(g.mark_view("Out", "MATCH (b) RETURN b"));
     assert_eq!(g.view_of("Hit"), Some("MATCH (a) RETURN a"));
-    assert_eq!(g.view_of("Note"), Some("MATCH (b) RETURN b"));
+    assert_eq!(g.view_of("Out"), Some("MATCH (b) RETURN b"));
 }
 
 use crate::Store;

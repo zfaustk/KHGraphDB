@@ -6,6 +6,9 @@ impl Graph {
         if type_name.is_empty() || query.is_empty() {
             return false;
         }
+        if type_name == "Episode" || type_name == "Note" {
+            return false;
+        }
         if self.is_view(type_name) {
             if self.view_of(type_name) == Some(query) {
                 self.rec(Touch::View {
