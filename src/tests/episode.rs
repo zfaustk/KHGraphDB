@@ -166,6 +166,74 @@ fn enclose_missing_is_err() {
 }
 
 #[test]
+fn world_types_are_not_views() {
+    let mut g = Graph::new();
+    let _ = g.episode().unwrap();
+    let a = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let _ = g.note(a).unwrap();
+    assert!(!g.mark_view("Episode", "MATCH (a) RETURN a"));
+    assert!(!g.mark_view("Note", "MATCH (a) RETURN a"));
+    assert!(!g.is_view("Episode"));
+    assert!(!g.is_view("Note"));
+}
+
+#[test]
+fn a_hit_may_wear_two_episodes() {
+    let mut g = Graph::new();
+    let e1 = g.episode().unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    keep_view(&mut g, "Hit", 0).unwrap();
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    let e2 = g.episode().unwrap();
+    g.enclose(hit, e2).unwrap();
+    let mut eps = g.episode_of(hit);
+    eps.sort();
+    let mut want = vec![e1, e2];
+    want.sort();
+    assert_eq!(eps, want);
+}
+
+#[test]
+fn delete_episode_keeps_the_hits() {
+    let mut g = Graph::new();
+    let e = g.episode().unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    keep_view(&mut g, "Hit", 0).unwrap();
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    g.remove_vertex(e);
+    assert!(g.vertex(hit).is_some());
+    assert!(g.episode_of(hit).is_empty());
+    assert_eq!(g.derived(hit).len(), 1);
+}
+
+#[test]
+fn pin_sees_the_in_hop() {
+    let dir = tmp("ep-pin");
+    let e;
+    let hit;
+    let at;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        e = s.episode().unwrap();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        s.graph_mut().unwrap().set_episode(e);
+        s.keep("Hit", 0).unwrap();
+        at = s.commit().unwrap();
+        hit = *s.graph().type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+        s.graph_mut().unwrap().add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        let old = s.read_at(at).unwrap();
+        assert_eq!(old.episode_of(hit), vec![e]);
+        assert!(old.vertex_by_name("Bob").is_none());
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn store_episode_stamps_pos_and_reopens() {
     let dir = tmp("ep");
     let e;
