@@ -1,3 +1,10 @@
+## 9.5.0 - 2024-02-17
+
+- Episode is a vertex. KEEP and NOTE hop IN while one is open.
+- CLOSE drops the cursor. The vertex stays.
+- A review is a view over IN. Fold 1.
+- `writes` looks at the first ident for KEEP/NOTE/EPISODE.
+
 ## 9.4.0 - 2024-02-05
 
 - A new recipe is a new Type. The name moves.

@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By zfaustk.
 
-**9.4.0** (2024). A new recipe is a new Type. KEEP fills a view. Fold is depth.
+**9.5.0** (2024). Episode is a vertex. KEEP hops IN. A review is a view.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
