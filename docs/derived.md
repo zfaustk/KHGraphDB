@@ -56,3 +56,8 @@ The cursor is not on the log. Replay
 opens nothing. The hops are the
 episode.
 
+Episode and Note are the world. They
+cannot MARK VIEW. A hit may hop IN
+to more than one episode. Delete the
+episode, the hits stay.
+
