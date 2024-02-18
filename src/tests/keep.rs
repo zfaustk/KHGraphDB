@@ -224,3 +224,18 @@ fn fold_cannot_cite_self() {
     assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 1);
     assert_eq!(keep_view(&mut g, "Hit", 9).unwrap(), 0);
 }
+
+#[test]
+fn keep_empty_graph_is_zero() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 0);
+}
+
+#[test]
+fn keep_skips_a_prop_column() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a.name");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 0);
+}
