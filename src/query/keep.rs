@@ -37,6 +37,10 @@ pub fn keep_at(g: &mut Graph,
         Some(t) => t.khid(),
         None => return Err(Error::new("not a view")),
     };
+    let stamp = match pos {
+        Some(p) if !p.is_empty() => Some(p.to_string()),
+        _ => g.look_pos(),
+    };
     let mut n = 0usize;
     for row in r.rows.iter() {
         let mut srcs: Vec<Addr> = Vec::new();
@@ -52,7 +56,7 @@ pub fn keep_at(g: &mut Graph,
             continue;
         }
         let hit = g.add_vertex(HashMap::new(), Some(type_name))?;
-        if let Some(p) = pos {
+        if let Some(ref p) = stamp {
             let _ = g.stamp_pos(hit, p);
         }
         for a in srcs.iter() {

@@ -132,7 +132,7 @@ pub(crate) fn writes(text: &str) -> bool {
                 return true;
             }
             if first && (s == "keep" || s == "note" || s == "episode"
-                         || s == "close" || s == "mark") {
+                         || s == "close" || s == "mark" || s == "open") {
                 return true;
             }
             first = false;
@@ -298,7 +298,7 @@ impl Parser {
                     return true;
                 }
                 if first && (s == "mark" || s == "keep" || s == "note"
-                             || s == "episode" || s == "close") {
+                             || s == "episode" || s == "close" || s == "open") {
                     return true;
                 }
                 first = false;
@@ -702,6 +702,23 @@ impl Parser {
         Ok(QueryResult::ok_msg("CLOSE"))
     }
 
+    fn exec_open(&mut self, g: &mut Graph) -> Result<QueryResult> {
+        self.next();
+        if !self.ident_is("EPISODE") {
+            return Err(self.err_here("expected EPISODE"));
+        }
+        self.next();
+        if self.kind() != TokenKind::Ident {
+            return Err(self.err_here("OPEN EPISODE expected name"));
+        }
+        let name = self.text();
+        self.next();
+        if !g.open_named(&name) {
+            return Err(self.err_here("OPEN EPISODE missing"));
+        }
+        Ok(QueryResult::ok_msg("OPEN"))
+    }
+
     fn exec(&mut self, g: &mut Graph) -> Result<QueryResult> {
         if self.ident_is("MARK") {
             return self.exec_mark_view(g);
@@ -717,6 +734,9 @@ impl Parser {
         }
         if self.ident_is("CLOSE") {
             return self.exec_close(g);
+        }
+        if self.ident_is("OPEN") {
+            return self.exec_open(g);
         }
         if !self.has_write() {
             return self.exec_read(g);

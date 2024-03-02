@@ -385,12 +385,16 @@ impl Store {
         super::query::ask(&self.g, text)
     }
 
-    /// Fill a view. Stamp each new hit with this Pos.
+    /// Fill a view. Stamp with the open look, else this Pos.
     pub fn keep(&mut self, type_name: &str, fold: u32) -> io::Result<usize> {
         let p = self.pos()?;
-        let s = format!("{}:{}", p.generation(), p.offset());
+        let live = format!("{}:{}", p.generation(), p.offset());
         let g = self.graph_mut()?;
-        match super::query::keep_at(g, type_name, fold, Some(&s)) {
+        let stamp = match g.look_pos() {
+            Some(s) => s,
+            None => live,
+        };
+        match super::query::keep_at(g, type_name, fold, Some(&stamp)) {
             Ok(n) => Ok(n),
             Err(e) => Err(io::Error::new(io::ErrorKind::InvalidInput, e.message())),
         }
@@ -410,12 +414,10 @@ impl Store {
         let p = self.pos()?;
         let s = format!("{}:{}", p.generation(), p.offset());
         let g = self.graph_mut()?;
-        let id = match g.episode() {
-            Ok(id) => id,
-            Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidInput, e.message())),
-        };
-        let _ = g.stamp_pos(id, &s);
-        Ok(id)
+        match g.episode_at("", Some(&s)) {
+            Ok(id) => Ok(id),
+            Err(e) => Err(io::Error::new(io::ErrorKind::InvalidInput, e.message())),
+        }
     }
 
     pub fn rollback(&mut self) {
@@ -460,6 +462,7 @@ impl Store {
         }
         let shard = self.g.shard();
         self.g.drop_stale_derived();
+        self.g.drop_orphan_in();
         self.generation += 1;
         let tx = self.next_tx;
         self.next_tx += 1;
