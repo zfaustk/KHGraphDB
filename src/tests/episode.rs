@@ -276,3 +276,94 @@ fn replica_has_the_in_hop() {
     let _ = std::fs::remove_dir_all(&prim);
     let _ = std::fs::remove_dir_all(&copy);
 }
+
+#[test]
+fn episode_at_stamps_the_look() {
+    let mut g = Graph::new();
+    let e = g.episode_at("", Some("1:0")).unwrap();
+    assert_eq!(g.vertex(e).unwrap().get("pos"), Some("1:0"));
+    assert_eq!(g.look_pos(), Some("1:0".to_string()));
+}
+
+#[test]
+fn keep_inherits_the_look() {
+    let mut g = Graph::new();
+    let _ = g.episode_at("", Some("3:40")).unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    keep_view(&mut g, "Hit", 0).unwrap();
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    assert_eq!(g.vertex(hit).unwrap().get("pos"), Some("3:40"));
+}
+
+#[test]
+fn keep_without_a_look_has_no_pos() {
+    let mut g = Graph::new();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    keep_view(&mut g, "Hit", 0).unwrap();
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    assert!(g.vertex(hit).unwrap().get("pos").is_none());
+}
+
+#[test]
+fn open_episode_is_a_write() {
+    let mut g = Graph::new();
+    let _ = run_query(&mut g, "EPISODE e1");
+    run_query(&mut g, "CLOSE EPISODE");
+    assert!(g.open_episode().is_none());
+    let r = run_query(&mut g, "OPEN EPISODE e1");
+    assert!(r.ok);
+    assert!(g.open_episode().is_some());
+    assert!(!ask_query(&g, "OPEN EPISODE e1").ok);
+}
+
+#[test]
+fn open_missing_fails() {
+    let mut g = Graph::new();
+    let r = run_query(&mut g, "OPEN EPISODE no");
+    assert!(!r.ok);
+}
+
+#[test]
+fn compact_drops_in_that_is_not_a_bag() {
+    let mut g = Graph::new();
+    let a = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    let b = g.add_vertex(attrs("Bob"), Some("Doc")).unwrap();
+    g.add_edge(a, b, Some("IN")).unwrap();
+    assert_eq!(g.drop_orphan_in(), 1);
+    assert!(g.vertex(a).is_some());
+    assert!(g.episode_of(a).is_empty());
+}
+
+#[test]
+fn compact_keeps_in_to_an_episode() {
+    let mut g = Graph::new();
+    let e = g.episode().unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a");
+    let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+    keep_view(&mut g, "Hit", 0).unwrap();
+    assert_eq!(g.drop_orphan_in(), 0);
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    assert_eq!(g.episode_of(hit), vec![e]);
+}
+
+#[test]
+fn store_keep_inherits_the_episode_pos() {
+    let dir = tmp("look");
+    let epos;
+    {
+        let mut s = Store::open(&dir, "notes", 1).unwrap();
+        let e = s.episode().unwrap();
+        epos = s.graph().vertex(e).unwrap().get("pos").unwrap().to_string();
+        s.graph_mut().unwrap().mark_view("Hit", "MATCH (a:Doc) RETURN a");
+        s.graph_mut().unwrap().add_vertex(attrs("Ada"), Some("Doc")).unwrap();
+        s.commit().unwrap();
+        s.graph_mut().unwrap().set_episode(e);
+        s.keep("Hit", 0).unwrap();
+        s.commit().unwrap();
+        let hit = *s.graph().type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+        assert_eq!(s.graph().vertex(hit).unwrap().get("pos"), Some(epos.as_str()));
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
