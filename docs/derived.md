@@ -56,6 +56,14 @@ The cursor is not on the log. Replay
 opens nothing. The hops are the
 episode.
 
+The look has a Pos. KEEP inherits it.
+Hits of one look share the stamp.
+OPEN EPISODE names a vertex. The
+cursor is still not on the log.
+
+IN lands on a bag. Compact drops a
+hop that does not. Hits stay.
+
 Episode and Note are the world. They
 cannot MARK VIEW. A hit may hop IN
 to more than one episode. Delete the
