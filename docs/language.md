@@ -41,6 +41,8 @@ KEEP Hit
 KEEP Out FOLD 1
 NOTE Ada
 EPISODE
+EPISODE e1
+OPEN EPISODE e1
 CLOSE EPISODE
 ```
 
@@ -51,8 +53,10 @@ cite itself. NOTE is not a view. SEEN
 is the hop. `pos` is content. A new
 recipe is a new Type. The name moves.
 An episode is a vertex. KEEP hops IN
-while one is open. `EPISODE` in MATCH
-is not a write. CLOSE does not DELETE.
+while one is open. The look has a Pos.
+KEEP inherits it. `OPEN EPISODE` names
+a vertex. `EPISODE` in MATCH is not a
+write. CLOSE does not DELETE.
 
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
