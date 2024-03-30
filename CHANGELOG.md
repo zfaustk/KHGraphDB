@@ -1,3 +1,9 @@
+## 9.6.0 - 2024-03-30
+
+- The look has a Pos. KEEP inherits it. Hits of one look share the stamp.
+- `OPEN EPISODE` names a vertex. The cursor is still not on the log.
+- Compact drops an IN that does not land on a bag. Hits stay.
+
 ## 9.5.0 - 2024-02-17
 
 - Episode is a vertex. KEEP and NOTE hop IN while one is open.
