@@ -24,6 +24,7 @@ pub use engine::Engine;
 pub use session::Session;
 pub use lock::{LockMgr, Mode, Acquire, TxId};
 pub use replset::ReplSet;
+pub use leiden::{cluster, nest};
 
 pub mod error;
 pub mod khid;
@@ -53,6 +54,7 @@ pub mod lock;
 pub mod engine;
 pub mod session;
 pub mod replset;
+pub mod leiden;
 pub mod snb;
 
 #[cfg(test)]
