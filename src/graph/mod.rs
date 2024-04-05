@@ -896,3 +896,4 @@ impl Graph {
 include!("posting.rs");
 include!("derived.rs");
 include!("episode.rs");
+include!("community.rs");

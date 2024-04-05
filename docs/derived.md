@@ -64,8 +64,14 @@ cursor is still not on the log.
 IN lands on a bag. Compact drops a
 hop that does not. Hits stay.
 
+A community is a Type. Members hop IN.
+Nest is another IN. A report is a view
+over that hop. Fold 1. The cut left.
+
 Episode and Note are the world. They
-cannot MARK VIEW. A hit may hop IN
-to more than one episode. Delete the
-episode, the hits stay.
+cannot MARK VIEW. Community neither.
+A hit may hop IN to more than one
+episode. Delete the episode, the hits
+stay.
+
 

@@ -6,7 +6,7 @@ impl Graph {
         if type_name.is_empty() || query.is_empty() {
             return false;
         }
-        if type_name == "Episode" || type_name == "Note" {
+        if type_name == "Episode" || type_name == "Note" || type_name == "Community" {
             return false;
         }
         if self.is_view(type_name) {
