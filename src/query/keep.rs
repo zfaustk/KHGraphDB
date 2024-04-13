@@ -89,7 +89,13 @@ fn push_ids(g: &Graph,
                 push_ids(g, Some(x), fold, tid, out);
             }
         }
-        Val::Prop(_) => {}
+        Val::Prop(ref p) => {
+            if let Some(s) = p.as_str() {
+                if let Some(a) = Addr::parse(s) {
+                    push_addr(g, a, fold, tid, out);
+                }
+            }
+        }
     }
 }
 
@@ -104,4 +110,12 @@ fn push_id(g: &Graph, id: Khid, fold: u32, tid: Khid, out: &mut Vec<Addr>) {
         return;
     }
     out.push(g.addr(id));
+}
+
+fn push_addr(g: &Graph, a: Addr, fold: u32, tid: Khid, out: &mut Vec<Addr>) {
+    if a.on(g.shard()) && g.vertex(a.khid()).is_some() {
+        push_id(g, a.khid(), fold, tid, out);
+        return;
+    }
+    out.push(a);
 }
