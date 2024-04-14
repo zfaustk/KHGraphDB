@@ -239,3 +239,29 @@ fn keep_skips_a_prop_column() {
     let _ = g.add_vertex(attrs("Ada"), Some("Doc")).unwrap();
     assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 0);
 }
+
+#[test]
+fn keep_cites_a_far_addr() {
+    let mut g = Graph::new();
+    let mut m = attrs("Ada");
+    m.insert("cite".to_string(), "s2/k2a".to_string());
+    let _ = g.add_vertex(m, Some("Doc")).unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a.cite");
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 1);
+    let hit = *g.type_by_name("Hit").unwrap().vertices().iter().next().unwrap();
+    let srcs = g.derived(hit);
+    assert_eq!(srcs.len(), 1);
+    assert_eq!(srcs[0].shard(), 2);
+}
+
+#[test]
+fn keep_far_twice_is_one_hit() {
+    let mut g = Graph::new();
+    let mut m = attrs("Ada");
+    m.insert("cite".to_string(), "s2/k2a".to_string());
+    let _ = g.add_vertex(m, Some("Doc")).unwrap();
+    g.mark_view("Hit", "MATCH (a:Doc) RETURN a.cite");
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 1);
+    assert_eq!(keep_view(&mut g, "Hit", 0).unwrap(), 0);
+}
+
