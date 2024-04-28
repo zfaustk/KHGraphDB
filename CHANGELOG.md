@@ -1,3 +1,9 @@
+## 9.7.0 - 2024-04-28
+
+- A community is a Type. Members hop IN. Nest is another IN.
+- A report is a view over that hop. The hierarchical cut left.
+- KEEP cites a far Addr. It does not copy the page.
+
 ## 9.6.0 - 2024-03-30
 
 - The look has a Pos. KEEP inherits it. Hits of one look share the stamp.

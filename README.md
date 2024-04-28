@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By zfaustk.
 
-**9.6.0** (2024). The look has a Pos. KEEP inherits it.
+**9.7.0** (2024). A community is a Type. KEEP cites an Addr.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
