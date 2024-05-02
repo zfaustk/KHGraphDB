@@ -74,4 +74,9 @@ A hit may hop IN to more than one
 episode. Delete the episode, the hits
 stay.
 
-
+A pack is a view. Neighbour names do
+not belong in a cell. KEEP returns a
+KHID. The page stays at home. SIMILAR
+seeds a local fill. A report Type is
+the global scan. Two recipes, not two
+engines. The model is not ours.

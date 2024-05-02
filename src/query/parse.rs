@@ -318,9 +318,6 @@ impl Parser {
         if self.ident_is("SIMILAR") {
             return self.exec_similar(g);
         }
-        if self.ident_is("PACK") {
-            return self.exec_pack(g);
-        }
         if self.ident_is("EXPLAIN") {
             let save = self.i;
             self.next();
@@ -532,46 +529,6 @@ impl Parser {
                 Some(Val::Prop(Prop::from_float(s as f64))),
             ]);
         }
-        Ok(r)
-    }
-
-    /// Neighbour names concatenated. For a model.
-    /// The page is in the result. A first try.
-    fn exec_pack(&mut self, g: &Graph) -> Result<QueryResult> {
-        self.next();
-        if self.kind() != TokenKind::Ident {
-            return Err(self.err_here("PACK expected name"));
-        }
-        let name = self.text();
-        self.next();
-        let src = match g.vertex_by_name(&name) {
-            Some(v) => v.khid(),
-            None => return Err(self.err_here("PACK missing vertex")),
-        };
-        let mut buf = String::new();
-        if let Some(v) = g.vertex(src) {
-            for eid in v.outgoing().iter() {
-                let e = match g.edge(*eid) {
-                    Some(e) => e,
-                    None => continue,
-                };
-                if e.is_far() {
-                    continue;
-                }
-                if let Some(d) = g.vertex(e.target()) {
-                    if let Some(n) = d.get("name") {
-                        if !buf.is_empty() {
-                            buf.push(' ');
-                        }
-                        buf.push_str(n);
-                    }
-                }
-            }
-        }
-        let mut r = QueryResult::ok_msg("PACK");
-        r.message = buf.clone();
-        r.columns.push("pack".to_string());
-        r.rows.push(vec![Some(Val::Prop(Prop::from_str(&buf)))]);
         Ok(r)
     }
 
