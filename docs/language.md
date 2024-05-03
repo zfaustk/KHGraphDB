@@ -58,6 +58,12 @@ KEEP inherits it. `OPEN EPISODE` names
 a vertex. `EPISODE` in MATCH is not a
 write. CLOSE does not DELETE.
 
+SIMILAR seeds a local fill. A report
+Type is a global scan. Two recipes.
+KEEP returns an id. The page stays
+at home.
+
+
 A second MATCH starts from names already bound.
 UNWIND turns a list into rows.
 A one-hop MATCH whose right node names a value
