@@ -2,7 +2,7 @@
 
 A graph database. Vertex, Edge, Type. By zfaustk.
 
-**9.7.0** (2024). A community is a Type. KEEP cites an Addr.
+**9.8.0** (2024). A pack is a view. The model is not ours.
 
 Type is a first-class object, not a string label. KHID is identity
 and the only pointer: a u64, printed `k` then hex. Vertices, edges
@@ -39,6 +39,7 @@ needs a framework, the model is wrong.
 cargo test
 cargo run --example social
 cargo run --example notes
+cargo run --example ask
 cargo run --example shards
 cargo run --bin khg
 ```

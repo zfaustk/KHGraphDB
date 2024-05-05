@@ -1,3 +1,9 @@
+## 9.8.0 - 2024-05-05
+
+- PACK joined neighbour names into a cell. Revert.
+- A pack is a view. KEEP returns a KHID. The page stays at home.
+- Two recipes: SIMILAR then KEEP (local), a report Type (global).
+
 ## 9.7.0 - 2024-04-28
 
 - A community is a Type. Members hop IN. Nest is another IN.

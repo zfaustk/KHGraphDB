@@ -99,7 +99,7 @@ An episode is a vertex. IN is a hop.
 A review is a view. The look has a Pos.
 KEEP inherits it. Compact drops a hop
 that is not a bag. reason is
-content. The stamp is not a SET. See
+content. The stamp is not a SET. A pack is a view. The model is not ours. See
 `docs/derived.md`.
 
 
